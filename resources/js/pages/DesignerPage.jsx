@@ -1,0 +1,417 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import { Barcode, QrCode, PenTool, Sparkles, ArrowLeft } from 'lucide-react';
+
+import BarcodeControls from '../features/designer/BarcodeControls';
+import QrControls from '../features/designer/QrControls';
+import PreviewPanel from '../features/designer/PreviewPanel';
+import ProductPicker from '../features/designer/ProductPicker';
+import Button from '../components/Button';
+import Skeleton from '../components/Skeleton';
+
+import { getCode, createCode, updateCode } from '../api/codes';
+import { getProduct } from '../api/products';
+import { validateBarcode, validateQr } from '../utils/validators';
+import {
+  captureElementAsBlob,
+  downloadElementAsPng,
+  downloadSvgElement,
+} from '../utils/downloadHelpers';
+
+const DEFAULT_BARCODE_SETTINGS = {
+  format: 'CODE128',
+  width: 2,
+  height: 80,
+  margin: 10,
+  displayValue: true,
+  fontSize: 16,
+  lineColor: '#000000',
+  background: '#ffffff',
+  label: '',
+};
+
+const DEFAULT_QR_SETTINGS = {
+  size: 220,
+  errorCorrection: 'Q',
+  dotStyle: 'rounded',
+  cornerStyle: 'extra-rounded',
+  foreground: '#0F172A',
+  background: '#ffffff',
+  logo: null,
+  label: '',
+};
+
+export default function DesignerPage() {
+  const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const captureRef = useRef(null);
+
+  // Core state
+  const [type, setType] = useState('barcode'); // 'barcode' | 'qr'
+  const [name, setName] = useState('My Product Barcode');
+  const [value, setValue] = useState('AUD-WNC-001');
+  const [selectedProduct, setSelectedProduct] = useState(null);
+
+  const [barcodeSettings, setBarcodeSettings] = useState(DEFAULT_BARCODE_SETTINGS);
+  const [qrSettings, setQrSettings] = useState(DEFAULT_QR_SETTINGS);
+
+  // Fetch code if in edit mode (/designer/:id)
+  const { data: codeData, isLoading: isLoadingCode } = useQuery({
+    queryKey: ['code', id],
+    queryFn: () => getCode(id),
+    enabled: Boolean(id),
+  });
+
+  // Populate state when editing an existing code
+  useEffect(() => {
+    if (codeData?.data) {
+      const c = codeData.data;
+      setType(c.type || 'barcode');
+      setName(c.name || 'Untitled Code');
+      setValue(c.value || '');
+      if (c.product) {
+        setSelectedProduct(c.product);
+      }
+      if (c.type === 'barcode') {
+        setBarcodeSettings({
+          ...DEFAULT_BARCODE_SETTINGS,
+          ...(c.settings || {}),
+          format: c.format || c.settings?.format || 'CODE128',
+        });
+      } else {
+        setQrSettings({
+          ...DEFAULT_QR_SETTINGS,
+          ...(c.settings || {}),
+        });
+      }
+    }
+  }, [codeData]);
+
+  // Handle URL pre-selection: /designer?product_id=X
+  const initialProductId = searchParams.get('product_id');
+  const { data: initialProductData } = useQuery({
+    queryKey: ['product', initialProductId],
+    queryFn: () => getProduct(initialProductId),
+    enabled: Boolean(initialProductId) && !id,
+  });
+
+  useEffect(() => {
+    if (initialProductData?.data && !id) {
+      const p = initialProductData.data;
+      handleSelectProduct(p);
+    }
+  }, [initialProductData, id]);
+
+  // Validation
+  const activeSettings = type === 'barcode' ? barcodeSettings : qrSettings;
+  const validationResult =
+    type === 'barcode'
+      ? validateBarcode(activeSettings.format, value)
+      : validateQr(value);
+
+  // Handle product selection
+  const handleSelectProduct = (product) => {
+    setSelectedProduct(product);
+    // Autofill value: prefer barcode_number if format is EAN13 and matches, else fallback to SKU or barcode_number
+    const autoValue = product.barcode_number || product.sku || '';
+    setValue(autoValue);
+    setName(`${product.name} ${type === 'barcode' ? 'Barcode' : 'QR Code'}`);
+
+    const labelText = `${product.name} • $${parseFloat(product.price || 0).toFixed(2)}`;
+    if (type === 'barcode') {
+      setBarcodeSettings((prev) => ({
+        ...prev,
+        label: labelText,
+        format: product.barcode_number && /^\d{12,13}$/.test(product.barcode_number) ? 'EAN13' : prev.format,
+      }));
+    } else {
+      setQrSettings((prev) => ({
+        ...prev,
+        label: labelText,
+      }));
+    }
+  };
+
+  const handleClearProduct = () => {
+    setSelectedProduct(null);
+  };
+
+  // Mutation: Save / Update
+  const saveMutation = useMutation({
+    mutationFn: async (formData) => {
+      if (id) {
+        return await updateCode(id, formData);
+      }
+      return await createCode(formData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['codes'] });
+      toast.success(id ? 'Code updated successfully!' : 'Code saved to Gallery!');
+      navigate('/');
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to save code to gallery.');
+    },
+  });
+
+  // Action: Save to Gallery
+  const handleSave = async () => {
+    if (!validationResult.isValid) {
+      toast.error(validationResult.error || 'Please correct errors before saving.');
+      return;
+    }
+
+    try {
+      // Capture element as blob
+      const blob = await captureElementAsBlob(captureRef.current);
+
+      const formData = new FormData();
+      formData.append('name', name.trim() || 'Untitled Code');
+      formData.append('type', type);
+      formData.append('format', type === 'barcode' ? (barcodeSettings.format || 'CODE128') : 'QR');
+      formData.append('value', value.trim());
+      formData.append('settings', JSON.stringify(activeSettings));
+
+      if (selectedProduct?.id) {
+        formData.append('product_id', selectedProduct.id);
+      }
+
+      if (blob) {
+        formData.append('preview', blob, 'preview.png');
+      }
+
+      saveMutation.mutate(formData);
+    } catch (err) {
+      console.error('Save error:', err);
+      toast.error('Failed to capture code preview.');
+    }
+  };
+
+  // Action: Download PNG
+  const handleDownloadPng = async () => {
+    try {
+      const filename = `${name.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'code'}.png`;
+      await downloadElementAsPng(captureRef.current, filename);
+      toast.success('PNG downloaded successfully!');
+    } catch (err) {
+      toast.error('Failed to download PNG.');
+    }
+  };
+
+  // Action: Download SVG
+  const handleDownloadSvg = (svgElement) => {
+    try {
+      const filename = `${name.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'barcode'}.svg`;
+      downloadSvgElement(svgElement, filename);
+      toast.success('SVG downloaded successfully!');
+    } catch (err) {
+      toast.error('Failed to download SVG.');
+    }
+  };
+
+  // Action: Reset
+  const handleReset = () => {
+    if (type === 'barcode') {
+      setBarcodeSettings(DEFAULT_BARCODE_SETTINGS);
+    } else {
+      setQrSettings(DEFAULT_QR_SETTINGS);
+    }
+    toast.success('Settings reset to defaults.');
+  };
+
+  if (id && isLoadingCode) {
+    return (
+      <div className="space-y-6">
+        <Skeleton count={1} className="h-10 w-48" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-7">
+            <Skeleton count={4} className="h-24 mb-4" />
+          </div>
+          <div className="lg:col-span-5">
+            <Skeleton count={1} className="h-96" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2.5">
+            {id && (
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+            )}
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <PenTool className="w-5 h-5" />
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              {id ? 'Edit Code' : 'Barcode & QR Designer'}
+            </h1>
+          </div>
+          <p className="text-sm text-slate-500 mt-1">
+            Generate crisp, print-ready barcodes and QR codes synced with stock inventory.
+          </p>
+        </div>
+
+        {/* Toggle Barcode | QR Code */}
+        <div className="inline-flex p-1 bg-slate-200/70 rounded-xl self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setType('barcode')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+              type === 'barcode'
+                ? 'bg-white text-indigo-600 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Barcode className="w-4 h-4" />
+            <span>Barcode</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setType('qr')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+              type === 'qr'
+                ? 'bg-white text-indigo-600 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <QrCode className="w-4 h-4" />
+            <span>QR Code</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Two-Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left Column: Controls */}
+        <div className="lg:col-span-7 space-y-6">
+          {/* Card 1: Data Source & Content */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-900 text-base">Content & Product Link</h2>
+              <span className="text-xs text-slate-400">Step 1</span>
+            </div>
+
+            {/* Code Name */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                Code Label / Title <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Wireless Headphones SKU Barcode"
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+              />
+            </div>
+
+            {/* Product Autocomplete Picker */}
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Link with Stock Product <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                {selectedProduct && (
+                  <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> Synced with stock
+                  </span>
+                )}
+              </div>
+              <ProductPicker
+                selectedProduct={selectedProduct}
+                onSelectProduct={handleSelectProduct}
+                onClearProduct={handleClearProduct}
+              />
+            </div>
+
+            {/* Encoded Content / Value */}
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Encoded Value <span className="text-rose-500">*</span>
+                </label>
+                <span className="text-xs text-slate-400">
+                  {type === 'barcode' ? 'SKU or digits' : 'URL, text or SKU'}
+                </span>
+              </div>
+              <input
+                type="text"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder={type === 'barcode' ? 'Enter barcode characters or digits' : 'https://example.com or custom text'}
+                className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-sm font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                  !validationResult.isValid
+                    ? 'border-rose-400 focus:ring-rose-100'
+                    : 'border-slate-300 focus:border-indigo-500 focus:ring-indigo-100'
+                }`}
+              />
+              {!validationResult.isValid && (
+                <p className="mt-1.5 text-xs text-rose-500 font-medium">
+                  {validationResult.error}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Card 2: Visual Styling Controls */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+              <h2 className="font-semibold text-slate-900 text-base">
+                {type === 'barcode' ? 'Barcode Design Options' : 'QR Code Styling'}
+              </h2>
+              <span className="text-xs text-slate-400">Step 2</span>
+            </div>
+
+            {type === 'barcode' ? (
+              <BarcodeControls
+                settings={barcodeSettings}
+                onChange={setBarcodeSettings}
+                validationError={!validationResult.isValid ? validationResult.error : null}
+              />
+            ) : (
+              <QrControls
+                settings={qrSettings}
+                onChange={setQrSettings}
+                validationError={!validationResult.isValid ? validationResult.error : null}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Sticky Live Preview */}
+        <div className="lg:col-span-5">
+          <PreviewPanel
+            type={type}
+            format={activeSettings.format}
+            value={value}
+            settings={activeSettings}
+            isValid={validationResult.isValid}
+            validationError={validationResult.error}
+            captureRef={captureRef}
+            onSave={handleSave}
+            onDownloadPng={handleDownloadPng}
+            onDownloadSvg={handleDownloadSvg}
+            onReset={handleReset}
+            isSaving={saveMutation.isPending}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

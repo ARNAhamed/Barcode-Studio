@@ -1,0 +1,180 @@
+# Barcode Designer — Project Context for the Antigravity Agent
+
+> Read this file fully before writing any code. Follow it as the source of truth. If something is unclear, make the simplest reasonable choice and note it in `docs/DECISIONS.md`.
+
+## 0. Existing Setup (IMPORTANT — read first)
+
+Laravel and React (Vite) are **already installed** in this directory.
+- Do **NOT** re-create the Laravel project or re-scaffold React/Vite. Do not run `composer create-project` or `npm create vite`.
+- First **inspect** the project: check `composer.json`, `package.json`, `vite.config.js`, `routes/`, `resources/` and how React is currently wired (plain React SPA, or Inertia starter kit).
+- **Adapt to what exists.** Keep the current setup and only install missing packages. If React is not yet mounted through Laravel's Vite setup, connect it as described in section 1.
+- If the existing React setup is a separate folder, tell me before moving anything, and propose the simplest way to end up with one directory.
+- Report what you found and what you plan to change before editing files.
+
+## 1. What We Are Building
+
+A web application to **design and create barcodes and QR codes**, linked to a **stock (product) list**.
+
+**Stack (single project, one directory)**
+- Backend: Laravel 11 (PHP 8.2+), REST JSON API (`routes/api.php`), MySQL
+- Frontend: React 18 inside the same Laravel project (Vite + `laravel-vite-plugin`), React Router, Tailwind CSS, `lucide-react` icons
+- One Blade view (`resources/views/app.blade.php`) mounts the React SPA; a catch-all web route serves it for every non-API URL
+- Barcode/QR libs (frontend): `jsbarcode`, `qr-code-styling`, `html-to-image`
+- Data fetching: `axios` + `@tanstack/react-query`
+- Notifications: `react-hot-toast`
+
+**Structure (single directory — do NOT create separate backend/frontend folders)**
+```
+barcode-designer/
+├── app/                 # Laravel models, controllers, requests, resources
+├── database/            # migrations, seeders
+├── routes/
+│   ├── api.php          # /api/* endpoints
+│   └── web.php          # catch-all -> app.blade.php (React SPA)
+├── resources/
+│   ├── views/app.blade.php
+│   ├── css/app.css      # Tailwind
+│   └── js/              # React app (see section 6)
+├── vite.config.js
+├── package.json
+├── composer.json
+└── PROJECT.md
+```
+
+**Run locally:** `php artisan serve` + `npm run dev` (two terminals), open http://localhost:8000. Same origin, so no CORS setup is needed.
+
+## 2. Pages (3 only)
+
+### 2.1 Gallery (`/`) — start page
+- Default route when the app opens.
+- Shows saved codes as a responsive card grid (1 / 2 / 3 / 4 columns).
+- Card: preview image, name, type badge (Barcode / QR), format, created date, actions (Edit, Download PNG, Delete).
+- Top bar: search box, filter chips (All / Barcode / QR), "Create New" button.
+- Empty state: friendly illustration/icon + text "No codes yet" + button "Design your first code".
+- Delete asks for confirmation in a modal.
+
+### 2.2 Designer (`/designer` and `/designer/:id`)
+Two-column layout: **controls (left)**, **live preview (right, sticky)**.
+
+- Toggle at top: **Barcode | QR Code**.
+- **Source of data**: either type custom text OR pick a product from stock (autocomplete). Picking a product auto-fills the value (SKU / barcode number / URL).
+- **Barcode options**: format (CODE128, EAN13, EAN8, UPC, CODE39, ITF14), width, height, margin, show text (on/off), font size, line color, background color.
+- **QR options**: content, size, error correction (L/M/Q/H), dot style (square/rounded/dots), corner style, foreground color, background color, optional center logo upload.
+- Optional label text under the code (e.g. product name / price).
+- Validation: show a clear inline error if the value is invalid for the chosen format (e.g. EAN13 needs 12–13 digits).
+- Buttons: **Save to Gallery**, **Download PNG**, **Download SVG** (barcode), **Reset**.
+- After save, show toast and redirect to Gallery.
+
+### 2.3 Stock Management (`/stock`)
+- Table of products with search, sort, pagination (10 per page).
+- Columns: Image (optional), Name, SKU, Barcode Number, Category, Price, Quantity, Status (In stock / Low / Out), Actions.
+- Actions: Edit, Delete, **Generate Code** (opens Designer with the product pre-selected).
+- Add/Edit product in a slide-over drawer or modal form.
+- Low stock rule: quantity <= `low_stock_threshold` (default 10) shows an amber badge; 0 shows a red badge.
+- Summary cards on top: Total products, Low stock, Out of stock.
+
+## 3. Database Schema
+
+**products**
+| column | type | notes |
+|---|---|---|
+| id | bigint PK | |
+| name | string | required |
+| sku | string | unique, required |
+| barcode_number | string | nullable, unique |
+| category | string | nullable |
+| price | decimal(10,2) | default 0 |
+| quantity | integer | default 0 |
+| low_stock_threshold | integer | default 10 |
+| description | text | nullable |
+| timestamps | | |
+
+**codes**
+| column | type | notes |
+|---|---|---|
+| id | bigint PK | |
+| product_id | FK nullable | `nullOnDelete` |
+| name | string | required |
+| type | enum(`barcode`,`qr`) | |
+| format | string | e.g. CODE128, QR |
+| value | text | encoded content |
+| settings | json | all design options (colors, sizes, styles) |
+| preview_path | string nullable | saved PNG in `storage/app/public/previews` |
+| timestamps | | |
+
+## 4. API Endpoints (prefix `/api`)
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/codes` | list (query: `search`, `type`) |
+| POST | `/codes` | create (multipart: fields + `preview` image) |
+| GET | `/codes/{id}` | show |
+| PUT | `/codes/{id}` | update |
+| DELETE | `/codes/{id}` | delete |
+| GET | `/products` | list (query: `search`, `sort`, `page`) |
+| GET | `/products/summary` | totals (total, low, out) |
+| GET | `/products/lookup?q=` | autocomplete (max 10) |
+| POST | `/products` | create |
+| PUT | `/products/{id}` | update |
+| DELETE | `/products/{id}` | delete |
+
+Backend rules: use Form Requests for validation, API Resources for responses, consistent JSON errors, run `php artisan storage:link`. React calls the API at the relative path `/api` (same origin, no CORS needed).
+
+## 5. UI / UX Design System
+
+**Principles:** simple, clean, lots of whitespace, one primary action per screen, instant feedback.
+
+**Colors (Tailwind config extend)**
+| role | hex |
+|---|---|
+| Primary | `#4F46E5` (indigo-600) |
+| Primary hover | `#4338CA` |
+| Accent | `#14B8A6` (teal) |
+| Background | `#F8FAFC` |
+| Surface (cards) | `#FFFFFF` |
+| Border | `#E2E8F0` |
+| Text | `#0F172A` / muted `#64748B` |
+| Success | `#22C55E` |
+| Warning | `#F59E0B` |
+| Danger | `#EF4444` |
+
+**Typography:** Inter (Google Fonts). Headings semibold, body regular.
+**Shape:** cards `rounded-2xl`, inputs/buttons `rounded-xl`, soft shadows (`shadow-sm`), 150ms transitions.
+**Icons (lucide-react):** `LayoutGrid` (Gallery), `PenTool` (Designer), `Package` (Stock), `QrCode`, `Barcode`, `Download`, `Trash2`, `Pencil`, `Plus`, `Search`, `AlertTriangle`.
+**Layout:** left sidebar (collapses to bottom/hamburger on mobile) with the 3 nav items + app logo. Active item highlighted in primary color.
+**States required everywhere:** loading skeletons, empty states, error toasts, success toasts, disabled buttons while saving.
+**Responsive:** mobile-first; designer stacks controls above preview on small screens.
+**Accessibility:** labels on all inputs, visible focus rings, sufficient contrast.
+
+## 6. Frontend Folder Structure (inside `resources/js/`)
+```
+resources/js/
+├── api/            # axios instance + endpoint helpers
+├── components/     # Sidebar, Button, Modal, Drawer, Badge, EmptyState, Skeleton
+├── features/
+│   ├── gallery/    # CodeCard, CodeGrid, Filters
+│   ├── designer/   # BarcodeControls, QrControls, PreviewPanel, ProductPicker
+│   └── stock/      # ProductTable, ProductForm, SummaryCards
+├── pages/          # GalleryPage, DesignerPage, StockPage
+├── hooks/
+├── utils/          # validators, download helpers
+├── App.jsx         # routes
+└── app.jsx         # entry point (createRoot, QueryClientProvider, BrowserRouter)
+```
+
+## 7. Definition of Done
+- [ ] App opens on Gallery and shows saved codes or the empty state
+- [ ] Barcode and QR can be designed with live preview and saved
+- [ ] Product picked from stock auto-fills the designer
+- [ ] Stock CRUD works with search, sort, pagination, status badges
+- [ ] PNG (and SVG for barcodes) download works
+- [ ] Format validation errors are clear
+- [ ] Responsive on mobile and desktop
+- [ ] README with setup steps (single-project run instructions); seeders create ~15 sample products
+
+## 8. Working Rules for the Agent
+1. Build in small steps; run and verify after each step.
+2. Do not add features outside this document without asking.
+3. Keep code clean and commented only where needed.
+4. After each phase, summarize what was done and what is next.
+5. Never commit `.env` or secrets.

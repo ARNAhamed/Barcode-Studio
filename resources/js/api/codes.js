@@ -31,3 +31,28 @@ export const deleteCode = async (id) => {
   const response = await api.delete(`/codes/${id}`);
   return response.data;
 };
+
+export const getTrashedCodes = async (params = {}) => {
+  const response = await api.get('/codes/trash', { params });
+  return response.data;
+};
+
+export const restoreCode = async (id) => {
+  const response = await api.post(`/codes/${id}/restore`);
+  return response.data;
+};
+
+export const forceDeleteCode = async (id) => {
+  const response = await api.delete(`/codes/${id}/force`);
+  return response.data;
+};
+
+export const restoreAllCodes = async () => {
+  const response = await api.post('/codes/trash/restore-all');
+  return response.data;
+};
+
+export const emptyCodesTrash = async () => {
+  const response = await api.delete('/codes/trash/empty');
+  return response.data;
+};

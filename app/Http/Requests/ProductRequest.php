@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Product;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class ProductRequest extends FormRequest
 {
@@ -28,13 +30,13 @@ class ProductRequest extends FormRequest
                 'required',
                 'string',
                 'max:100',
-                Rule::unique('products', 'sku')->ignore($productId),
+                Rule::unique('products', 'sku')->whereNull('deleted_at')->ignore($productId),
             ],
             'barcode_number' => [
                 'nullable',
                 'string',
                 'max:100',
-                Rule::unique('products', 'barcode_number')->ignore($productId),
+                Rule::unique('products', 'barcode_number')->whereNull('deleted_at')->ignore($productId),
             ],
             'category' => ['nullable', 'string', 'max:100'],
             'price' => ['nullable', 'numeric', 'min:0'],
@@ -42,5 +44,37 @@ class ProductRequest extends FormRequest
             'low_stock_threshold' => ['nullable', 'integer', 'min:0'],
             'description' => ['nullable', 'string'],
         ];
+    }
+
+    /**
+     * Configure the validator instance with custom checks for soft-deleted items.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function ($validator) {
+            $productId = $this->route('product') ? ($this->route('product')->id ?? $this->route('product')) : null;
+
+            if ($sku = $this->input('sku')) {
+                $trashedSkuExists = Product::onlyTrashed()
+                    ->where('sku', $sku)
+                    ->when($productId, fn ($q) => $q->where('id', '!=', $productId))
+                    ->exists();
+
+                if ($trashedSkuExists) {
+                    $validator->errors()->add('sku', 'This SKU exists in the Recycle Bin. Restore it instead.');
+                }
+            }
+
+            if ($barcodeNumber = $this->input('barcode_number')) {
+                $trashedBarcodeExists = Product::onlyTrashed()
+                    ->where('barcode_number', $barcodeNumber)
+                    ->when($productId, fn ($q) => $q->where('id', '!=', $productId))
+                    ->exists();
+
+                if ($trashedBarcodeExists) {
+                    $validator->errors()->add('barcode_number', 'This barcode number exists in the Recycle Bin. Restore it instead.');
+                }
+            }
+        });
     }
 }

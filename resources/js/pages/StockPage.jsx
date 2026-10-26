@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Package, AlertTriangle } from 'lucide-react';
+import { Plus, Package, Trash2, RotateCcw } from 'lucide-react';
 import Button from '../components/Button';
 import Drawer from '../components/Drawer';
 import Modal from '../components/Modal';
@@ -14,6 +15,7 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  restoreProduct,
 } from '../api/products';
 
 export default function StockPage() {
@@ -43,17 +45,16 @@ export default function StockPage() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Query: Stock Summary
+  // Query: Stock Summary (including trash count)
   const { data: summary, isLoading: isSummaryLoading } = useQuery({
     queryKey: ['products-summary'],
     queryFn: getProductSummary,
   });
 
-  // Query: Products List
+  // Query: Active Products List
   const {
     data: productsResponse,
     isLoading: isProductsLoading,
-    isFetching: isProductsFetching,
   } = useQuery({
     queryKey: ['products', { search: debouncedSearch, sort: sortField, page }],
     queryFn: () =>
@@ -65,12 +66,30 @@ export default function StockPage() {
       }),
   });
 
+  const invalidateQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['products'] });
+    queryClient.invalidateQueries({ queryKey: ['products-summary'] });
+    queryClient.invalidateQueries({ queryKey: ['products-trash'] });
+    queryClient.invalidateQueries({ queryKey: ['bin-summary'] });
+  };
+
+  // Mutation: Restore product (for Undo toast)
+  const restoreMutation = useMutation({
+    mutationFn: (id) => restoreProduct(id),
+    onSuccess: (res) => {
+      invalidateQueries();
+      toast.success(res.message || 'Product restored to inventory.');
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to restore product.');
+    },
+  });
+
   // Mutation: Create Product
   const createMutation = useMutation({
     mutationFn: createProduct,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['products-summary'] });
+      invalidateQueries();
       toast.success('Product created successfully!');
       handleCloseDrawer();
     },
@@ -88,8 +107,7 @@ export default function StockPage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => updateProduct(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['products-summary'] });
+      invalidateQueries();
       toast.success('Product updated successfully!');
       handleCloseDrawer();
     },
@@ -103,14 +121,35 @@ export default function StockPage() {
     },
   });
 
-  // Mutation: Delete Product
+  // Mutation: Soft Delete Product (moves to Recycle Bin)
   const deleteMutation = useMutation({
     mutationFn: (id) => deleteProduct(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['products-summary'] });
-      toast.success('Product deleted.');
+    onSuccess: (res, deletedId) => {
+      invalidateQueries();
+      const productName = productToDelete?.name || 'Product';
       handleCloseDeleteModal();
+
+      // Show toast with interactive Undo button
+      toast(
+        (t) => (
+          <div className="flex items-center justify-between gap-3 w-full">
+            <span className="text-xs">
+              Moved <strong>{productName}</strong> to Recycle Bin.
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                restoreMutation.mutate(deletedId);
+                toast.dismiss(t.id);
+              }}
+              className="px-2.5 py-1 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors cursor-pointer shrink-0"
+            >
+              Undo
+            </button>
+          </div>
+        ),
+        { duration: 5000 }
+      );
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || 'Failed to delete product.');
@@ -159,7 +198,7 @@ export default function StockPage() {
     setProductToDelete(null);
   };
 
-  // Confirm Delete
+  // Confirm Move to Recycle Bin
   const handleConfirmDelete = () => {
     if (productToDelete?.id) {
       deleteMutation.mutate(productToDelete.id);
@@ -184,9 +223,24 @@ export default function StockPage() {
           </p>
         </div>
 
-        <Button onClick={handleOpenAdd} icon={Plus} variant="primary">
-          Add Product
-        </Button>
+        {/* Header Actions: Recycle Bin & Add Product */}
+        <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto flex-wrap">
+          <Link to="/bin?tab=products">
+            <Button variant="outline" size="md" icon={Trash2} className="relative">
+              <span className="hidden sm:inline">Recycle Bin</span>
+              <span className="inline sm:hidden">Bin</span>
+              {summary?.trash > 0 && (
+                <span className="ml-1 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full text-[11px] font-bold leading-none bg-rose-100 text-rose-700 shrink-0">
+                  {summary.trash}
+                </span>
+              )}
+            </Button>
+          </Link>
+
+          <Button onClick={handleOpenAdd} icon={Plus} variant="primary" size="md">
+            Add Product
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -227,12 +281,12 @@ export default function StockPage() {
         />
       </Drawer>
 
-      {/* Delete Confirmation Modal */}
+      {/* Move to Recycle Bin Confirmation Modal */}
       <Modal
         isOpen={isDeleteModalOpen}
         onClose={handleCloseDeleteModal}
-        title="Delete Product"
-        description="Are you sure you want to delete this product? Any codes linked to this product will be unlinked."
+        title="Move to Recycle Bin"
+        description="Are you sure you want to move this product to the Recycle Bin? You can restore it anytime within 30 days."
         footer={
           <>
             <Button
@@ -247,7 +301,7 @@ export default function StockPage() {
               onClick={handleConfirmDelete}
               isLoading={deleteMutation.isPending}
             >
-              Delete Product
+              Move to Recycle Bin
             </Button>
           </>
         }
@@ -257,7 +311,9 @@ export default function StockPage() {
             <p className="font-semibold text-slate-900">{productToDelete.name}</p>
             <p className="text-xs font-mono text-slate-500">SKU: {productToDelete.sku}</p>
             {productToDelete.barcode_number && (
-              <p className="text-xs font-mono text-slate-500">Barcode: {productToDelete.barcode_number}</p>
+              <p className="text-xs font-mono text-slate-500">
+                Barcode: {productToDelete.barcode_number}
+              </p>
             )}
             <p className="text-xs text-slate-500">Current Quantity: {productToDelete.quantity}</p>
           </div>

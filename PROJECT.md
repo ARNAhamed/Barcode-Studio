@@ -49,29 +49,50 @@ barcode-designer/
 - Default route when the app opens.
 - Shows saved codes as a responsive card grid (1 / 2 / 3 / 4 columns).
 - Card: preview image, name, type badge (Barcode / QR), format, created date, actions (Edit, Download PNG, Delete).
-- Top bar: search box, filter chips (All / Barcode / QR), "Create New" button.
+- Top bar: search box, filter chips (All / Barcode / QR), "Recycle Bin" button (with count badge, opens `/bin?tab=designs`), "Create New" button.
 - Empty state: friendly illustration/icon + text "No codes yet" + button "Design your first code".
-- Delete asks for confirmation in a modal.
+- Delete asks for confirmation ("Move to Recycle Bin") and shows a toast with an Undo action after deleting.
 
 ### 2.2 Designer (`/designer` and `/designer/:id`)
 Two-column layout: **controls (left)**, **live preview (right, sticky)**.
 
 - Toggle at top: **Barcode | QR Code**.
 - **Source of data**: either type custom text OR pick a product from stock (autocomplete). Picking a product auto-fills the value (SKU / barcode number / URL).
+- **Measurement Units & Sizing**:
+  - Unit selector: `px`, `cm`, `mm`, `inch` (default `px`).
+  - Manual exact size entry with decimal support (e.g. 5.5 cm).
+  - Barcode: Total output width and height inputs with lock aspect ratio toggle. jsbarcode bar module width is calculated automatically to fit requested total width, warning if bar width < 1px.
+  - QR Code: Single size input (always square).
+  - Real-time output indicator under preview: e.g. `Output: 5.00 cm x 2.50 cm (591 x 295 px at 300 DPI)`.
 - **Barcode options**: format (CODE128, EAN13, EAN8, UPC, CODE39, ITF14), width, height, margin, show text (on/off), font size, line color, background color.
 - **QR options**: content, size, error correction (L/M/Q/H), dot style (square/rounded/dots), corner style, foreground color, background color, optional center logo upload.
+- **Export & DPI**:
+  - Export DPI selector: 72, 150, 300, 600 (default 300).
+  - PNG download rendered at chosen physical size & DPI.
+  - SVG download uses physical units (e.g. `width="50mm"`) when unit != px.
 - Optional label text under the code (e.g. product name / price).
-- Validation: show a clear inline error if the value is invalid for the chosen format (e.g. EAN13 needs 12–13 digits).
+- Validation: show a clear inline error if the value is invalid for the chosen format (e.g. EAN13 needs 12–13 digits), or if size is non-positive or too small to scan.
 - Buttons: **Save to Gallery**, **Download PNG**, **Download SVG** (barcode), **Reset**.
 - After save, show toast and redirect to Gallery.
 
 ### 2.3 Stock Management (`/stock`)
 - Table of products with search, sort, pagination (10 per page).
 - Columns: Image (optional), Name, SKU, Barcode Number, Category, Price, Quantity, Status (In stock / Low / Out), Actions.
-- Actions: Edit, Delete, **Generate Code** (opens Designer with the product pre-selected).
+- Actions: Edit, Delete (moves to Recycle Bin with Undo toast), **Generate Code** (opens Designer with the product pre-selected).
 - Add/Edit product in a slide-over drawer or modal form.
 - Low stock rule: quantity <= `low_stock_threshold` (default 10) shows an amber badge; 0 shows a red badge.
 - Summary cards on top: Total products, Low stock, Out of stock.
+- Header includes "Recycle Bin" button with count badge (opens `/bin?tab=products`).
+
+### 2.4 Recycle Bin (`/bin`)
+- Unified Recycle Bin with two tabs: **Products** (`?tab=products`) and **Designs** (`?tab=designs`), each with a live count badge.
+- Old `/stock/bin` redirects to `/bin?tab=products`.
+- Sidebar navigation includes a "Recycle Bin" item with total trashed count badge (`products + codes`).
+- Stock and Gallery headers both include a "Recycle Bin" button (`Trash2` icon, count badge) opening `/bin` on their respective tab.
+- **Products tab**: Name, SKU, Category, Price, Quantity, Deleted date, "days left" (30-day retention). Row actions: Restore, Delete permanently (with confirmation modal). Top actions: Restore all, Empty bin.
+- **Designs tab**: Preview thumbnail, Name, Type badge (Barcode / QR), Format, Deleted date, "days left" (30-day retention). Row actions: Restore, Delete permanently (with confirmation modal that it cannot be undone). Top actions: Restore all, Empty bin (scoped to active tab).
+- Empty states with friendly illustrations & loading skeletons for each tab.
+- Permanent delete clears preview images from storage. Auto-purge command permanently deletes items older than 30 days.
 
 ## 3. Database Schema
 
@@ -88,6 +109,7 @@ Two-column layout: **controls (left)**, **live preview (right, sticky)**.
 | low_stock_threshold | integer | default 10 |
 | description | text | nullable |
 | timestamps | | |
+| deleted_at | timestamp nullable | soft deletes |
 
 **codes**
 | column | type | notes |
@@ -98,25 +120,37 @@ Two-column layout: **controls (left)**, **live preview (right, sticky)**.
 | type | enum(`barcode`,`qr`) | |
 | format | string | e.g. CODE128, QR |
 | value | text | encoded content |
-| settings | json | all design options (colors, sizes, styles) |
+| settings | json | design options (colors, styles, unit, width, height, dpi, lock_aspect_ratio) |
 | preview_path | string nullable | saved PNG in `storage/app/public/previews` |
 | timestamps | | |
+| deleted_at | timestamp nullable | soft deletes |
 
 ## 4. API Endpoints (prefix `/api`)
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| GET | `/codes` | list (query: `search`, `type`) |
+| GET | `/bin/summary` | recycle bin counts: `{ products, codes, total }` |
+| GET | `/codes` | list active codes (query: `search`, `type`) |
 | POST | `/codes` | create (multipart: fields + `preview` image) |
 | GET | `/codes/{id}` | show |
 | PUT | `/codes/{id}` | update |
-| DELETE | `/codes/{id}` | delete |
-| GET | `/products` | list (query: `search`, `sort`, `page`) |
-| GET | `/products/summary` | totals (total, low, out) |
-| GET | `/products/lookup?q=` | autocomplete (max 10) |
+| DELETE | `/codes/{id}` | soft delete (move to recycle bin) |
+| GET | `/codes/trash` | list trashed codes (query: `search`, `type`, `page`) |
+| POST | `/codes/{id}/restore` | restore single trashed code |
+| DELETE | `/codes/{id}/force` | permanently delete single code & unlink preview |
+| POST | `/codes/trash/restore-all` | restore all trashed codes |
+| DELETE | `/codes/trash/empty` | permanently delete all trashed codes & preview files |
+| GET | `/products` | list active products (query: `search`, `sort`, `page`) |
+| GET | `/products/summary` | totals (total, low, out, trash) excluding trashed |
+| GET | `/products/lookup?q=` | autocomplete (max 10) excluding trashed |
+| GET | `/products/trash` | list trashed products (query: `search`, `sort`, `page`) |
 | POST | `/products` | create |
 | PUT | `/products/{id}` | update |
-| DELETE | `/products/{id}` | delete |
+| DELETE | `/products/{id}` | soft delete (move to recycle bin) |
+| POST | `/products/{id}/restore` | restore single trashed product |
+| DELETE | `/products/{id}/force` | permanently delete single product |
+| POST | `/products/trash/restore-all` | restore all trashed products |
+| DELETE | `/products/trash/empty` | permanently delete all trashed products |
 
 Backend rules: use Form Requests for validation, API Resources for responses, consistent JSON errors, run `php artisan storage:link`. React calls the API at the relative path `/api` (same origin, no CORS needed).
 

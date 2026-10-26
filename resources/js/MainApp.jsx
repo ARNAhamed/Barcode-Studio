@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar';
 import GalleryPage from './pages/GalleryPage';
 import DesignerPage from './pages/DesignerPage';
 import StockPage from './pages/StockPage';
+import RecycleBinPage from './pages/RecycleBinPage';
 
 export default function MainApp() {
   return (
@@ -47,6 +48,8 @@ export default function MainApp() {
             <Route path="/designer" element={<DesignerPage />} />
             <Route path="/designer/:id" element={<DesignerPage />} />
             <Route path="/stock" element={<StockPage />} />
+            <Route path="/bin" element={<RecycleBinPage />} />
+            <Route path="/stock/bin" element={<Navigate to="/bin?tab=products" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

@@ -25,6 +25,8 @@ class CodeResource extends JsonResource
             'preview_path' => $this->preview_path,
             'preview_url' => $this->preview_url,
             'product' => new ProductResource($this->whenLoaded('product')),
+            'deleted_at' => $this->deleted_at?->toISOString(),
+            'days_left' => $this->days_left,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

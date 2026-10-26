@@ -26,6 +26,8 @@ class ProductResource extends JsonResource
             'stock_status' => $this->stock_status,
             'description' => $this->description,
             'codes_count' => $this->whenCounted('codes'),
+            'deleted_at' => $this->deleted_at?->toISOString(),
+            'days_left' => $this->days_left,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

@@ -32,10 +32,18 @@ export default function Badge({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border ${sizeStyles[size] || sizeStyles.md} ${variantStyles[variant] || variantStyles.neutral} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border whitespace-nowrap shrink-0 leading-none ${
+        sizeStyles[size] || sizeStyles.md
+      } ${variantStyles[variant] || variantStyles.neutral} ${className}`}
     >
-      {dot && <span className={`w-1.5 h-1.5 rounded-full ${dotColors[variant] || 'bg-slate-400'}`} />}
-      {children}
+      {dot && (
+        <span
+          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+            dotColors[variant] || 'bg-slate-400'
+          }`}
+        />
+      )}
+      <span>{children}</span>
     </span>
   );
 }

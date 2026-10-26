@@ -95,16 +95,120 @@ class CodeController extends Controller
     }
 
     /**
-     * Remove the specified code from storage.
+     * Soft delete the specified code (move to Recycle Bin).
      */
     public function destroy(Code $code): JsonResponse
     {
+        $code->delete();
+
+        return response()->json(['message' => 'Design moved to Recycle Bin.']);
+    }
+
+    /**
+     * Display a paginated listing of trashed codes.
+     */
+    public function trash(Request $request): AnonymousResourceCollection
+    {
+        $query = Code::onlyTrashed()->with('product');
+
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('value', 'like', "%{$search}%")
+                    ->orWhere('format', 'like', "%{$search}%")
+                    ->orWhereHas('product', function ($pq) use ($search) {
+                        $pq->where('name', 'like', "%{$search}%")
+                            ->orWhere('sku', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($type = $request->input('type')) {
+            if (in_array($type, ['barcode', 'qr'], true)) {
+                $query->where('type', $type);
+            }
+        }
+
+        $sort = $request->input('sort', '-deleted_at');
+        $direction = str_starts_with($sort, '-') ? 'desc' : 'asc';
+        $column = ltrim($sort, '-');
+
+        $allowedSorts = ['id', 'name', 'type', 'format', 'created_at', 'deleted_at'];
+        if (in_array($column, $allowedSorts, true)) {
+            $query->orderBy($column, $direction);
+        } else {
+            $query->orderBy('deleted_at', 'desc');
+        }
+
+        $perPage = (int) $request->input('per_page', 10);
+        $trashedCodes = $query->paginate($perPage);
+
+        return CodeResource::collection($trashedCodes);
+    }
+
+    /**
+     * Restore a soft-deleted code from the Recycle Bin.
+     */
+    public function restore(int $id): JsonResponse
+    {
+        $code = Code::onlyTrashed()->findOrFail($id);
+        $code->restore();
+        $code->load('product');
+
+        return response()->json([
+            'message' => "Design '{$code->name}' restored successfully.",
+            'code' => new CodeResource($code),
+        ]);
+    }
+
+    /**
+     * Permanently delete a code and remove its preview image from storage.
+     */
+    public function forceDelete(int $id): JsonResponse
+    {
+        $code = Code::onlyTrashed()->findOrFail($id);
+
         if ($code->preview_path && Storage::disk('public')->exists($code->preview_path)) {
             Storage::disk('public')->delete($code->preview_path);
         }
 
-        $code->delete();
+        $code->forceDelete();
 
-        return response()->json(['message' => 'Code deleted successfully.']);
+        return response()->json([
+            'message' => 'Design permanently deleted.',
+        ]);
+    }
+
+    /**
+     * Restore all codes currently in the Recycle Bin.
+     */
+    public function restoreAll(): JsonResponse
+    {
+        $count = Code::onlyTrashed()->count();
+        Code::onlyTrashed()->restore();
+
+        return response()->json([
+            'message' => "{$count} designs restored from Recycle Bin.",
+        ]);
+    }
+
+    /**
+     * Permanently delete all codes in the Recycle Bin and delete their preview images.
+     */
+    public function emptyTrash(): JsonResponse
+    {
+        $trashed = Code::onlyTrashed()->get();
+        $count = $trashed->count();
+
+        foreach ($trashed as $code) {
+            if ($code->preview_path && Storage::disk('public')->exists($code->preview_path)) {
+                Storage::disk('public')->delete($code->preview_path);
+            }
+            $code->forceDelete();
+        }
+
+        return response()->json([
+            'message' => "Recycle Bin emptied ({$count} designs permanently deleted).",
+        ]);
     }
 }

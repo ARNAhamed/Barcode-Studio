@@ -1,9 +1,18 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutGrid, PenTool, Package, Menu, X, Barcode } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { LayoutGrid, PenTool, Package, Menu, X, Barcode, Trash2 } from 'lucide-react';
+import { getBinSummary } from '../api/bin';
 
 export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const { data: binSummary } = useQuery({
+    queryKey: ['bin-summary'],
+    queryFn: getBinSummary,
+  });
+
+  const totalTrash = binSummary?.total ?? 0;
 
   const navItems = [
     {
@@ -23,6 +32,13 @@ export default function Sidebar() {
       label: 'Stock Management',
       icon: Package,
       end: false,
+    },
+    {
+      to: '/bin',
+      label: 'Recycle Bin',
+      icon: Trash2,
+      end: false,
+      count: totalTrash,
     },
   ];
 
@@ -79,15 +95,22 @@ export default function Sidebar() {
                     end={item.end}
                     onClick={() => setMobileOpen(false)}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                      `flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                         isActive
                           ? 'bg-indigo-50 text-indigo-600 font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`
                     }
                   >
-                    <Icon className="w-5 h-5" />
-                    <span>{item.label}</span>
+                    <div className="flex items-center gap-3">
+                      <Icon className="w-5 h-5" />
+                      <span>{item.label}</span>
+                    </div>
+                    {item.count !== undefined && item.count > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-700">
+                        {item.count}
+                      </span>
+                    )}
                   </NavLink>
                 );
               })}
@@ -120,7 +143,7 @@ export default function Sidebar() {
                 to={item.to}
                 end={item.end}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                  `flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                     isActive
                       ? 'bg-indigo-50 text-indigo-600 font-semibold shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -129,8 +152,15 @@ export default function Sidebar() {
               >
                 {({ isActive }) => (
                   <>
-                    <Icon className={`w-5 h-5 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
-                    <span>{item.label}</span>
+                    <div className="flex items-center gap-3">
+                      <Icon className={`w-5 h-5 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
+                      <span>{item.label}</span>
+                    </div>
+                    {item.count !== undefined && item.count > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-700">
+                        {item.count}
+                      </span>
+                    )}
                   </>
                 )}
               </NavLink>

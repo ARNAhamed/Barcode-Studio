@@ -8,12 +8,12 @@ import BarcodeControls from '../features/designer/BarcodeControls';
 import QrControls from '../features/designer/QrControls';
 import PreviewPanel from '../features/designer/PreviewPanel';
 import ProductPicker from '../features/designer/ProductPicker';
-import Button from '../components/Button';
 import Skeleton from '../components/Skeleton';
 
 import { getCode, createCode, updateCode } from '../api/codes';
 import { getProduct } from '../api/products';
 import { validateBarcode, validateQr } from '../utils/validators';
+import { validateDimension, fromPx, toPx } from '../utils/units';
 import {
   captureElementAsBlob,
   downloadElementAsPng,
@@ -21,18 +21,23 @@ import {
 } from '../utils/downloadHelpers';
 
 const DEFAULT_BARCODE_SETTINGS = {
+  unit: 'px',
+  width: 260,
+  height: 100,
+  lockAspectRatio: true,
+  aspectRatio: 2.6,
   format: 'CODE128',
-  width: 2,
-  height: 80,
   margin: 10,
   displayValue: true,
   fontSize: 16,
   lineColor: '#000000',
   background: '#ffffff',
   label: '',
+  dpi: 300,
 };
 
 const DEFAULT_QR_SETTINGS = {
+  unit: 'px',
   size: 220,
   errorCorrection: 'Q',
   dotStyle: 'rounded',
@@ -41,6 +46,7 @@ const DEFAULT_QR_SETTINGS = {
   background: '#ffffff',
   logo: null,
   label: '',
+  dpi: 300,
 };
 
 export default function DesignerPage() {
@@ -56,9 +62,11 @@ export default function DesignerPage() {
   const [name, setName] = useState('My Product Barcode');
   const [value, setValue] = useState('AUD-WNC-001');
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [dpi, setDpi] = useState(300);
 
   const [barcodeSettings, setBarcodeSettings] = useState(DEFAULT_BARCODE_SETTINGS);
   const [qrSettings, setQrSettings] = useState(DEFAULT_QR_SETTINGS);
+  const [calculatedModuleWidth, setCalculatedModuleWidth] = useState(null);
 
   // Fetch code if in edit mode (/designer/:id)
   const { data: codeData, isLoading: isLoadingCode } = useQuery({
@@ -77,16 +85,34 @@ export default function DesignerPage() {
       if (c.product) {
         setSelectedProduct(c.product);
       }
+
+      const savedDpi = c.settings?.dpi || 300;
+      setDpi(savedDpi);
+
       if (c.type === 'barcode') {
+        const savedUnit = c.settings?.unit || 'px';
+        const savedWidth = c.settings?.width !== undefined ? c.settings.width : 260;
+        const savedHeight = c.settings?.height !== undefined ? c.settings.height : 100;
+
         setBarcodeSettings({
           ...DEFAULT_BARCODE_SETTINGS,
           ...(c.settings || {}),
+          unit: savedUnit,
+          width: savedWidth,
+          height: savedHeight,
           format: c.format || c.settings?.format || 'CODE128',
+          dpi: savedDpi,
         });
       } else {
+        const savedUnit = c.settings?.unit || 'px';
+        const savedSize = c.settings?.size !== undefined ? c.settings.size : 220;
+
         setQrSettings({
           ...DEFAULT_QR_SETTINGS,
           ...(c.settings || {}),
+          unit: savedUnit,
+          size: savedSize,
+          dpi: savedDpi,
         });
       }
     }
@@ -107,17 +133,25 @@ export default function DesignerPage() {
     }
   }, [initialProductData, id]);
 
-  // Validation
+  // Format validation
   const activeSettings = type === 'barcode' ? barcodeSettings : qrSettings;
   const validationResult =
     type === 'barcode'
       ? validateBarcode(activeSettings.format, value)
       : validateQr(value);
 
+  // Size validation
+  const sizeError =
+    type === 'barcode'
+      ? validateDimension(barcodeSettings.width, barcodeSettings.unit) ||
+        validateDimension(barcodeSettings.height, barcodeSettings.unit)
+      : validateDimension(qrSettings.size, qrSettings.unit);
+
+  const isValid = validationResult.isValid && !sizeError;
+
   // Handle product selection
   const handleSelectProduct = (product) => {
     setSelectedProduct(product);
-    // Autofill value: prefer barcode_number if format is EAN13 and matches, else fallback to SKU or barcode_number
     const autoValue = product.barcode_number || product.sku || '';
     setValue(autoValue);
     setName(`${product.name} ${type === 'barcode' ? 'Barcode' : 'QR Code'}`);
@@ -141,6 +175,15 @@ export default function DesignerPage() {
     setSelectedProduct(null);
   };
 
+  const handleDpiChange = (newDpi) => {
+    setDpi(newDpi);
+    if (type === 'barcode') {
+      setBarcodeSettings((prev) => ({ ...prev, dpi: newDpi }));
+    } else {
+      setQrSettings((prev) => ({ ...prev, dpi: newDpi }));
+    }
+  };
+
   // Mutation: Save / Update
   const saveMutation = useMutation({
     mutationFn: async (formData) => {
@@ -161,21 +204,26 @@ export default function DesignerPage() {
 
   // Action: Save to Gallery
   const handleSave = async () => {
-    if (!validationResult.isValid) {
-      toast.error(validationResult.error || 'Please correct errors before saving.');
+    if (!isValid) {
+      toast.error(validationResult.error || sizeError || 'Please correct errors before saving.');
       return;
     }
 
     try {
-      // Capture element as blob
-      const blob = await captureElementAsBlob(captureRef.current);
+      // Capture element as blob at chosen DPI
+      const blob = await captureElementAsBlob(captureRef.current, dpi);
+
+      const settingsToSave = {
+        ...activeSettings,
+        dpi,
+      };
 
       const formData = new FormData();
       formData.append('name', name.trim() || 'Untitled Code');
       formData.append('type', type);
       formData.append('format', type === 'barcode' ? (barcodeSettings.format || 'CODE128') : 'QR');
       formData.append('value', value.trim());
-      formData.append('settings', JSON.stringify(activeSettings));
+      formData.append('settings', JSON.stringify(settingsToSave));
 
       if (selectedProduct?.id) {
         formData.append('product_id', selectedProduct.id);
@@ -193,22 +241,22 @@ export default function DesignerPage() {
   };
 
   // Action: Download PNG
-  const handleDownloadPng = async () => {
+  const handleDownloadPng = async (exportDpi) => {
     try {
       const filename = `${name.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'code'}.png`;
-      await downloadElementAsPng(captureRef.current, filename);
-      toast.success('PNG downloaded successfully!');
+      await downloadElementAsPng(captureRef.current, filename, exportDpi);
+      toast.success(`PNG downloaded at ${exportDpi} DPI!`);
     } catch (err) {
       toast.error('Failed to download PNG.');
     }
   };
 
   // Action: Download SVG
-  const handleDownloadSvg = (svgElement) => {
+  const handleDownloadSvg = (svgElement, physicalW, physicalH, unit) => {
     try {
       const filename = `${name.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'barcode'}.svg`;
-      downloadSvgElement(svgElement, filename);
-      toast.success('SVG downloaded successfully!');
+      downloadSvgElement(svgElement, filename, physicalW, physicalH, unit);
+      toast.success(`SVG downloaded (${physicalW} ${unit})!`);
     } catch (err) {
       toast.error('Failed to download SVG.');
     }
@@ -221,6 +269,7 @@ export default function DesignerPage() {
     } else {
       setQrSettings(DEFAULT_QR_SETTINGS);
     }
+    setDpi(300);
     toast.success('Settings reset to defaults.');
   };
 
@@ -263,7 +312,7 @@ export default function DesignerPage() {
             </h1>
           </div>
           <p className="text-sm text-slate-500 mt-1">
-            Generate crisp, print-ready barcodes and QR codes synced with stock inventory.
+            Generate crisp, print-ready barcodes and QR codes with precise measurement units.
           </p>
         </div>
 
@@ -369,11 +418,11 @@ export default function DesignerPage() {
             </div>
           </div>
 
-          {/* Card 2: Visual Styling Controls */}
+          {/* Card 2: Visual Styling Controls & Measurement Sizing */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
               <h2 className="font-semibold text-slate-900 text-base">
-                {type === 'barcode' ? 'Barcode Design Options' : 'QR Code Styling'}
+                {type === 'barcode' ? 'Barcode Sizing & Design' : 'QR Code Sizing & Styling'}
               </h2>
               <span className="text-xs text-slate-400">Step 2</span>
             </div>
@@ -383,12 +432,15 @@ export default function DesignerPage() {
                 settings={barcodeSettings}
                 onChange={setBarcodeSettings}
                 validationError={!validationResult.isValid ? validationResult.error : null}
+                calculatedModuleWidth={calculatedModuleWidth}
+                sizeError={sizeError}
               />
             ) : (
               <QrControls
                 settings={qrSettings}
                 onChange={setQrSettings}
                 validationError={!validationResult.isValid ? validationResult.error : null}
+                sizeError={sizeError}
               />
             )}
           </div>
@@ -401,14 +453,17 @@ export default function DesignerPage() {
             format={activeSettings.format}
             value={value}
             settings={activeSettings}
-            isValid={validationResult.isValid}
-            validationError={validationResult.error}
+            isValid={isValid}
+            validationError={validationResult.error || sizeError}
             captureRef={captureRef}
             onSave={handleSave}
             onDownloadPng={handleDownloadPng}
             onDownloadSvg={handleDownloadSvg}
             onReset={handleReset}
             isSaving={saveMutation.isPending}
+            dpi={dpi}
+            onDpiChange={handleDpiChange}
+            onCalculatedModuleWidth={setCalculatedModuleWidth}
           />
         </div>
       </div>

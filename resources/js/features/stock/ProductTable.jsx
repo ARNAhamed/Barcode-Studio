@@ -77,7 +77,7 @@ export default function ProductTable({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
       {/* Table Toolbar */}
       <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-4">
         <div className="relative w-full sm:w-80">
@@ -101,51 +101,51 @@ export default function ProductTable({
         </div>
       </div>
 
-      {/* Table Element - Scrollable on narrow screens */}
-      <div className="overflow-x-auto w-full">
-        <table className="w-full text-left border-collapse min-w-[780px]">
+      {/* Desktop / Tablet Table (768px and above) - table-fixed without horizontal scroll */}
+      <div className="hidden md:block w-full">
+        <table className="w-full table-fixed text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-              <th className="py-3 px-4 sm:px-6 min-w-[220px]">Product</th>
+              <th className="py-3 px-3 sm:px-4 w-[42%] lg:w-[32%] xl:w-[26%] truncate">Product</th>
               <th
                 onClick={() => handleHeaderSort('sku')}
-                className="py-3 px-4 min-w-[130px] whitespace-nowrap cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
+                className="hidden lg:table-cell py-3 px-3 w-[18%] xl:w-[14%] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 truncate">
                   <span>SKU</span>
                   {getSortIcon('sku')}
                 </div>
               </th>
-              <th className="py-3 px-4 min-w-[130px] whitespace-nowrap">Barcode / EAN</th>
+              <th className="hidden xl:table-cell py-3 px-3 w-[15%] truncate">Barcode / EAN</th>
               <th
                 onClick={() => handleHeaderSort('category')}
-                className="py-3 px-4 min-w-[120px] whitespace-nowrap cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
+                className="hidden xl:table-cell py-3 px-3 w-[13%] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 truncate">
                   <span>Category</span>
                   {getSortIcon('category')}
                 </div>
               </th>
               <th
                 onClick={() => handleHeaderSort('price')}
-                className="py-3 px-4 min-w-[90px] whitespace-nowrap cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
+                className="py-3 px-3 w-[15%] lg:w-[12%] xl:w-[9%] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 truncate">
                   <span>Price</span>
                   {getSortIcon('price')}
                 </div>
               </th>
               <th
                 onClick={() => handleHeaderSort('quantity')}
-                className="py-3 px-4 min-w-[80px] whitespace-nowrap cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
+                className="py-3 px-3 w-[12%] lg:w-[10%] xl:w-[7%] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 truncate">
                   <span>Qty</span>
                   {getSortIcon('quantity')}
                 </div>
               </th>
-              <th className="py-3 px-4 min-w-[140px] whitespace-nowrap">Status</th>
-              <th className="py-3 px-4 sm:px-6 text-right min-w-[150px] whitespace-nowrap">Actions</th>
+              <th className="py-3 px-3 w-[16%] lg:w-[14%] xl:w-[10%] truncate">Status</th>
+              <th className="py-3 px-3 sm:px-4 text-right w-[15%] lg:w-[14%] xl:w-[10%] truncate">Actions</th>
             </tr>
           </thead>
 
@@ -173,17 +173,24 @@ export default function ProductTable({
                   key={product.id}
                   className="hover:bg-slate-50/80 transition-colors group"
                 >
-                  {/* Name & Description with Title Tooltips */}
-                  <td className="py-3.5 px-4 sm:px-6 max-w-[280px]">
+                  {/* Name, SKU under name on <1024px, and Description */}
+                  <td className="py-3 px-3 sm:px-4 min-w-0">
                     <div
                       className="font-semibold text-slate-900 truncate"
                       title={product.name}
                     >
                       {product.name}
                     </div>
+                    {/* Show SKU under product name below 1024px */}
+                    <div
+                      className="text-xs text-slate-400 font-mono truncate mt-0.5 lg:hidden"
+                      title={product.sku}
+                    >
+                      SKU: {product.sku}
+                    </div>
                     {product.description && (
                       <div
-                        className="text-xs text-slate-400 truncate mt-0.5"
+                        className="text-xs text-slate-400 truncate mt-0.5 hidden xl:block"
                         title={product.description}
                       >
                         {product.description}
@@ -191,20 +198,27 @@ export default function ProductTable({
                     )}
                   </td>
 
-                  {/* SKU - Never wraps */}
-                  <td className="py-3.5 px-4 font-mono text-xs font-semibold text-slate-700 whitespace-nowrap">
-                    {product.sku}
+                  {/* SKU Column (visible on lg+) */}
+                  <td className="hidden lg:table-cell py-3 px-3 font-mono text-xs font-semibold text-slate-700 min-w-0">
+                    <div className="truncate" title={product.sku}>
+                      {product.sku}
+                    </div>
                   </td>
 
-                  {/* Barcode Number */}
-                  <td className="py-3.5 px-4 font-mono text-xs text-slate-500 whitespace-nowrap">
-                    {product.barcode_number || <span className="text-slate-300">—</span>}
+                  {/* Barcode Number (visible on xl+) */}
+                  <td className="hidden xl:table-cell py-3 px-3 font-mono text-xs text-slate-500 min-w-0">
+                    <div className="truncate" title={product.barcode_number || ''}>
+                      {product.barcode_number || <span className="text-slate-300">—</span>}
+                    </div>
                   </td>
 
-                  {/* Category */}
-                  <td className="py-3.5 px-4 whitespace-nowrap">
+                  {/* Category (visible on xl+) */}
+                  <td className="hidden xl:table-cell py-3 px-3 min-w-0">
                     {product.category ? (
-                      <span className="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600">
+                      <span
+                        className="inline-block max-w-full truncate px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600"
+                        title={product.category}
+                      >
                         {product.category}
                       </span>
                     ) : (
@@ -213,40 +227,45 @@ export default function ProductTable({
                   </td>
 
                   {/* Price */}
-                  <td className="py-3.5 px-4 font-medium text-slate-900 whitespace-nowrap">
-                    ${parseFloat(product.price).toFixed(2)}
+                  <td className="py-3 px-3 font-medium text-slate-900 min-w-0">
+                    <div className="truncate">
+                      ${parseFloat(product.price).toFixed(2)}
+                    </div>
                   </td>
 
                   {/* Quantity */}
-                  <td className="py-3.5 px-4 font-semibold text-slate-800 whitespace-nowrap">
-                    {product.quantity}
+                  <td className="py-3 px-3 font-semibold text-slate-800 min-w-0">
+                    <div className="truncate">
+                      {product.quantity}
+                    </div>
                   </td>
 
                   {/* Status Badge */}
-                  <td className="py-3.5 px-4 whitespace-nowrap">
+                  <td className="py-3 px-3 min-w-0">
                     {getStatusBadge(product)}
                   </td>
 
-                  {/* Actions - Single row, consistent small buttons */}
-                  <td className="py-3.5 px-4 sm:px-6 text-right whitespace-nowrap">
+                  {/* Actions */}
+                  <td className="py-3 px-3 sm:px-4 text-right min-w-0">
                     <div className="inline-flex items-center justify-end gap-1 shrink-0">
-                      {/* Generate Code button */}
+                      {/* Compact icon button for Generate */}
                       <button
                         type="button"
                         onClick={() => navigate(`/designer?product_id=${product.id}`)}
-                        className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors whitespace-nowrap cursor-pointer shrink-0"
+                        className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors cursor-pointer shrink-0"
                         title="Generate Code for this product"
+                        aria-label="Generate Code"
                       >
                         <Barcode className="w-3.5 h-3.5 shrink-0" />
-                        <span>Generate</span>
                       </button>
 
                       {/* Edit button */}
                       <button
                         type="button"
                         onClick={() => onEdit(product)}
-                        className="w-8 h-8 inline-flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0"
+                        className="w-7 h-7 inline-flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0"
                         title="Edit product"
+                        aria-label="Edit product"
                       >
                         <Pencil className="w-3.5 h-3.5 shrink-0" />
                       </button>
@@ -255,8 +274,9 @@ export default function ProductTable({
                       <button
                         type="button"
                         onClick={() => onDelete(product)}
-                        className="w-8 h-8 inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                        className="w-7 h-7 inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
                         title="Move to Recycle Bin"
+                        aria-label="Move to Recycle Bin"
                       >
                         <Trash2 className="w-3.5 h-3.5 shrink-0" />
                       </button>
@@ -267,6 +287,97 @@ export default function ProductTable({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Stacked Cards (below 768px) - zero horizontal overflow */}
+      <div className="md:hidden divide-y divide-slate-100 w-full">
+        {isLoading ? (
+          <div className="p-4 space-y-3">
+            <Skeleton type="card" count={3} />
+          </div>
+        ) : products.length === 0 ? (
+          <div className="py-12 px-4 text-center">
+            <EmptyState
+              icon={PackageOpen}
+              title="No products found"
+              description={
+                searchTerm
+                  ? `No products matched "${searchTerm}".`
+                  : 'Your inventory is empty.'
+              }
+              className="border-0 shadow-none bg-transparent"
+            />
+          </div>
+        ) : (
+          products.map((product) => (
+            <div key={product.id} className="p-4 space-y-2.5 bg-white hover:bg-slate-50/50 transition-colors">
+              {/* Row 1: Name & Status */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-slate-900 text-sm truncate" title={product.name}>
+                    {product.name}
+                  </h3>
+                  <p className="font-mono text-xs text-slate-500 mt-0.5 truncate" title={product.sku}>
+                    SKU: {product.sku}
+                  </p>
+                </div>
+                <div className="shrink-0">
+                  {getStatusBadge(product)}
+                </div>
+              </div>
+
+              {/* Row 2: Price, Qty & Actions */}
+              <div className="flex items-center justify-between pt-1 border-t border-slate-100/80">
+                <div className="flex items-center gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-400">Price: </span>
+                    <span className="font-semibold text-slate-900">${parseFloat(product.price).toFixed(2)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Qty: </span>
+                    <span className="font-semibold text-slate-900">{product.quantity}</span>
+                  </div>
+                  {product.category && (
+                    <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 truncate max-w-[80px]">
+                      {product.category}
+                    </span>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="inline-flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/designer?product_id=${product.id}`)}
+                    className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors cursor-pointer"
+                    title="Generate Code"
+                    aria-label="Generate Code"
+                  >
+                    <Barcode className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onEdit(product)}
+                    className="w-8 h-8 inline-flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                    title="Edit product"
+                    aria-label="Edit product"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(product)}
+                    className="w-8 h-8 inline-flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                    title="Move to Recycle Bin"
+                    aria-label="Move to Recycle Bin"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Pagination Footer */}

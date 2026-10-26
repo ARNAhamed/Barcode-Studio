@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-50">
+<html lang="en" class="h-full bg-slate-50 overflow-x-hidden">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,7 +10,7 @@
   @viteReactRefresh
   @vite(['resources/css/app.css', 'resources/js/app.jsx'])
 </head>
-<body class="h-full text-slate-900 antialiased font-sans">
+<body class="h-full text-slate-900 antialiased font-sans overflow-x-hidden">
   <div id="root" class="h-full"></div>
 </body>
 </html>

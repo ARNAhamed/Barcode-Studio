@@ -223,20 +223,8 @@ export default function StockPage() {
           </p>
         </div>
 
-        {/* Header Actions: Recycle Bin & Add Product */}
-        <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto flex-wrap">
-          <Link to="/bin?tab=products">
-            <Button variant="outline" size="md" icon={Trash2} className="relative">
-              <span className="hidden sm:inline">Recycle Bin</span>
-              <span className="inline sm:hidden">Bin</span>
-              {summary?.trash > 0 && (
-                <span className="ml-1 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full text-[11px] font-bold leading-none bg-rose-100 text-rose-700 shrink-0">
-                  {summary.trash}
-                </span>
-              )}
-            </Button>
-          </Link>
-
+        {/* Header Action: Add Product */}
+        <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
           <Button onClick={handleOpenAdd} icon={Plus} variant="primary" size="md">
             Add Product
           </Button>

@@ -9,7 +9,7 @@ import RecycleBinPage from './pages/RecycleBinPage';
 
 export default function MainApp() {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row w-full overflow-x-hidden">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -41,8 +41,8 @@ export default function MainApp() {
       <Sidebar />
 
       {/* Main Content Area */}
-      <div className="flex-1 lg:pl-64 flex flex-col min-h-screen">
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+      <div className="flex-1 lg:pl-64 flex flex-col min-h-screen min-w-0 max-w-full">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto min-w-0">
           <Routes>
             <Route path="/" element={<GalleryPage />} />
             <Route path="/designer" element={<DesignerPage />} />

@@ -346,11 +346,11 @@ export default function DesignerPage() {
       </div>
 
       {/* Main Two-Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Controls */}
-        <div className="lg:col-span-7 space-y-6">
+      <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 lg:h-[calc(100vh-10.5rem)] lg:overflow-hidden items-start">
+        {/* Left Column: Controls (scrolls independently on desktop) */}
+        <div className="order-2 lg:order-1 lg:col-span-7 space-y-6 lg:h-full lg:overflow-y-auto lg:pr-3 min-h-0 w-full">
           {/* Card 1: Data Source & Content */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h2 className="font-semibold text-slate-900 text-base">Content & Product Link</h2>
               <span className="text-xs text-slate-400">Step 1</span>
@@ -419,7 +419,7 @@ export default function DesignerPage() {
           </div>
 
           {/* Card 2: Visual Styling Controls & Measurement Sizing */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
               <h2 className="font-semibold text-slate-900 text-base">
                 {type === 'barcode' ? 'Barcode Sizing & Design' : 'QR Code Sizing & Styling'}
@@ -446,8 +446,8 @@ export default function DesignerPage() {
           </div>
         </div>
 
-        {/* Right Column: Sticky Live Preview */}
-        <div className="lg:col-span-5">
+        {/* Right Column: Live Preview & Action Controls */}
+        <div className="order-1 lg:order-2 lg:col-span-5 w-full sticky top-0 lg:static z-20 bg-slate-50 lg:bg-transparent pb-3 lg:pb-0 lg:h-full lg:overflow-y-auto lg:pl-1 min-h-0">
           <PreviewPanel
             type={type}
             format={activeSettings.format}

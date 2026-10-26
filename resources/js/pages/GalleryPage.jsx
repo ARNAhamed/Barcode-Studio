@@ -155,18 +155,6 @@ export default function GalleryPage() {
 
         {/* Header Actions */}
         <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto flex-wrap">
-          <Link to="/bin?tab=designs">
-            <Button variant="outline" size="md" icon={Trash2} className="relative">
-              <span className="hidden sm:inline">Recycle Bin</span>
-              <span className="inline sm:hidden">Bin</span>
-              {binSummary?.codes > 0 && (
-                <span className="ml-1 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full text-[11px] font-bold leading-none bg-rose-100 text-rose-700 shrink-0">
-                  {binSummary.codes}
-                </span>
-              )}
-            </Button>
-          </Link>
-
           <Link to="/designer">
             <Button variant="primary" size="md" icon={Plus}>
               Create New

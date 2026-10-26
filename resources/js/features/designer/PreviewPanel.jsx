@@ -150,51 +150,51 @@ export default function PreviewPanel({
   const activeError = validationError || renderError;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 lg:sticky lg:top-8 flex flex-col">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 sm:p-5 lg:p-6 flex flex-col w-full">
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+      <div className="flex items-center justify-between pb-3 lg:pb-4 border-b border-slate-100">
         <div>
-          <h2 className="font-semibold text-slate-900">Live Preview</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Real-time render at target dimensions</p>
+          <h2 className="font-semibold text-slate-900 text-sm sm:text-base">Live Preview</h2>
+          <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">Real-time render at target dimensions</p>
         </div>
-        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold uppercase tracking-wider bg-indigo-50 text-indigo-700">
+        <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[11px] sm:text-xs font-semibold uppercase tracking-wider bg-indigo-50 text-indigo-700">
           {type === 'barcode' ? settings.format : 'QR CODE'}
         </span>
       </div>
 
       {/* Code Render Area */}
-      <div className="my-5 overflow-auto flex items-center justify-center">
+      <div className="my-2.5 sm:my-3 lg:my-5 max-h-[35vh] lg:max-h-none overflow-auto flex items-center justify-center">
         <div
           ref={captureRef}
           style={{ backgroundColor: settings.background || '#ffffff' }}
-          className="p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col items-center justify-center transition-colors max-w-full"
+          className="p-3 sm:p-4 lg:p-5 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col items-center justify-center transition-colors max-w-full"
         >
           {activeError ? (
-            <div className="p-6 text-center max-w-xs">
-              <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-500 mx-auto flex items-center justify-center mb-2.5">
-                <AlertTriangle className="w-5 h-5" />
+            <div className="p-4 sm:p-6 text-center max-w-xs">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-rose-50 text-rose-500 mx-auto flex items-center justify-center mb-2">
+                <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <p className="text-xs font-semibold text-rose-600">Unable to generate preview</p>
-              <p className="text-xs text-slate-500 mt-1">{activeError}</p>
+              <p className="text-[11px] sm:text-xs text-slate-500 mt-1">{activeError}</p>
             </div>
           ) : !value.trim() ? (
-            <div className="text-center text-slate-400 text-xs py-10">
+            <div className="text-center text-slate-400 text-xs py-6 sm:py-10">
               Enter content or choose a product to see the live preview.
             </div>
           ) : type === 'barcode' ? (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center max-w-full overflow-hidden">
               <svg ref={barcodeSvgRef} className="max-w-full h-auto block" />
               {settings.label && (
-                <p className="mt-2 text-xs font-medium text-slate-800 text-center tracking-wide">
+                <p className="mt-1.5 sm:mt-2 text-xs font-medium text-slate-800 text-center tracking-wide">
                   {settings.label}
                 </p>
               )}
             </div>
           ) : (
-            <div className="flex flex-col items-center">
-              <div ref={qrContainerRef} className="flex justify-center" />
+            <div className="flex flex-col items-center max-w-full overflow-hidden">
+              <div ref={qrContainerRef} className="flex justify-center max-w-full" />
               {settings.label && (
-                <p className="mt-3 text-xs font-medium text-slate-800 text-center tracking-wide">
+                <p className="mt-2 sm:mt-3 text-xs font-medium text-slate-800 text-center tracking-wide">
                   {settings.label}
                 </p>
               )}
@@ -204,7 +204,7 @@ export default function PreviewPanel({
       </div>
 
       {/* Output Dimensions & DPI Badge */}
-      <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70 text-center mb-4">
+      <div className="p-2 sm:p-2.5 lg:p-3 bg-slate-50 rounded-xl border border-slate-200/70 text-center mb-3 lg:mb-4">
         <p className="text-xs font-semibold text-slate-700">
           Output:{' '}
           <span className="font-mono text-indigo-600">

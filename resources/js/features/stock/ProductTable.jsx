@@ -65,13 +65,13 @@ export default function ProductTable({
     if (qty <= threshold) {
       return (
         <Badge variant="warning" size="sm" dot>
-          Low stock ({qty})
+          Low stock
         </Badge>
       );
     }
     return (
       <Badge variant="success" size="sm" dot>
-        In stock ({qty})
+        In stock
       </Badge>
     );
   };
@@ -106,7 +106,7 @@ export default function ProductTable({
         <table className="w-full table-fixed text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-              <th className="py-3 px-3 sm:px-4 w-[42%] lg:w-[32%] xl:w-[26%] truncate">Product</th>
+              <th className="py-3 px-3 sm:px-4 w-auto min-w-0 truncate">Product</th>
               <th
                 onClick={() => handleHeaderSort('sku')}
                 className="hidden lg:table-cell py-3 px-3 w-[18%] xl:w-[14%] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
@@ -116,10 +116,10 @@ export default function ProductTable({
                   {getSortIcon('sku')}
                 </div>
               </th>
-              <th className="hidden xl:table-cell py-3 px-3 w-[15%] truncate">Barcode / EAN</th>
+              <th className="hidden xl:table-cell py-3 px-3 xl:w-[15%] truncate">Barcode / EAN</th>
               <th
                 onClick={() => handleHeaderSort('category')}
-                className="hidden xl:table-cell py-3 px-3 w-[13%] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
+                className="hidden xl:table-cell py-3 px-3 xl:w-[13%] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
               >
                 <div className="flex items-center gap-1.5 truncate">
                   <span>Category</span>
@@ -128,7 +128,7 @@ export default function ProductTable({
               </th>
               <th
                 onClick={() => handleHeaderSort('price')}
-                className="py-3 px-3 w-[15%] lg:w-[12%] xl:w-[9%] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
+                className="py-3 px-3 w-[85px] min-w-[85px] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
               >
                 <div className="flex items-center gap-1.5 truncate">
                   <span>Price</span>
@@ -137,15 +137,15 @@ export default function ProductTable({
               </th>
               <th
                 onClick={() => handleHeaderSort('quantity')}
-                className="py-3 px-3 w-[12%] lg:w-[10%] xl:w-[7%] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
+                className="py-3 px-3 w-[65px] min-w-[65px] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
               >
                 <div className="flex items-center gap-1.5 truncate">
                   <span>Qty</span>
                   {getSortIcon('quantity')}
                 </div>
               </th>
-              <th className="py-3 px-3 w-[16%] lg:w-[14%] xl:w-[10%] truncate">Status</th>
-              <th className="py-3 px-3 sm:px-4 text-right w-[15%] lg:w-[14%] xl:w-[10%] truncate">Actions</th>
+              <th className="py-3 px-3 w-[115px] min-w-[115px] truncate">Status</th>
+              <th className="py-3 pr-4 pl-2 text-right w-[132px] min-w-[132px] shrink-0 truncate">Actions</th>
             </tr>
           </thead>
 
@@ -241,13 +241,13 @@ export default function ProductTable({
                   </td>
 
                   {/* Status Badge */}
-                  <td className="py-3 px-3 min-w-0">
+                  <td className="py-3 px-3 w-[115px] min-w-[115px]">
                     {getStatusBadge(product)}
                   </td>
 
                   {/* Actions */}
-                  <td className="py-3 px-3 sm:px-4 text-right min-w-0">
-                    <div className="inline-flex items-center justify-end gap-1 shrink-0">
+                  <td className="py-3 pr-4 pl-2 text-right w-[132px] min-w-[132px] shrink-0">
+                    <div className="inline-flex items-center justify-end gap-1.5 shrink-0">
                       {/* Compact icon button for Generate */}
                       <button
                         type="button"

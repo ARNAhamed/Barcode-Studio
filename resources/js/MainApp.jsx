@@ -9,7 +9,7 @@ import RecycleBinPage from './pages/RecycleBinPage';
 
 export default function MainApp() {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row w-full overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row w-full">
       <Toaster
         position="top-right"
         toastOptions={{

@@ -1,0 +1,531 @@
+import React, { useMemo } from 'react';
+import Button from '../../components/Button';
+import Badge from '../../components/Badge';
+import {
+  FileText,
+  Sliders,
+  Sparkles,
+  Bookmark,
+  Trash2,
+  AlertTriangle,
+  RotateCcw,
+  Check,
+} from 'lucide-react';
+import { STANDARD_SHEET_PRESETS, validateSheetFit, calculateAutoGrid } from '../../utils/printHelpers';
+import { convertUnit } from '../../utils/units';
+
+export default function SheetSettings({
+  config,
+  onChangeConfig,
+  items = [],
+  savedPresets = [],
+  onDeleteSavedPreset,
+  onOpenSaveModal,
+  startPosition = 1,
+  onChangeStartPosition,
+}) {
+  const currentUnit = config.unit || 'mm';
+
+  // Helper to convert mm values from config to the display unit
+  const toDisplay = (valMm) => {
+    if (valMm === undefined || valMm === null || isNaN(valMm)) return 0;
+    const converted = convertUnit(Number(valMm), 'mm', currentUnit);
+    return Math.round(converted * 100) / 100;
+  };
+
+  // Helper to convert display unit input back to mm for config storage
+  const fromDisplayToMm = (valInUnit) => {
+    if (valInUnit === undefined || valInUnit === null || isNaN(valInUnit)) return 0;
+    const converted = convertUnit(Number(valInUnit), currentUnit, 'mm');
+    return Math.round(converted * 100) / 100;
+  };
+
+  // Validation: Does current configuration fit on the selected paper size?
+  const fitValidation = useMemo(() => {
+    return validateSheetFit(config);
+  }, [config]);
+
+  // Check if all selected items share the same artboard dimensions
+  const sharedArtboard = useMemo(() => {
+    if (!items || items.length === 0) return null;
+    const firstArtboard = items[0].settings?.artboard;
+    if (!firstArtboard?.width || !firstArtboard?.height) return null;
+
+    const firstWMm = convertUnit(firstArtboard.width, firstArtboard.unit || 'mm', 'mm');
+    const firstHMm = convertUnit(firstArtboard.height, firstArtboard.unit || 'mm', 'mm');
+
+    const allMatch = items.every((item) => {
+      const a = item.settings?.artboard;
+      if (!a?.width || !a?.height) return false;
+      const w = convertUnit(a.width, a.unit || 'mm', 'mm');
+      const h = convertUnit(a.height, a.unit || 'mm', 'mm');
+      return Math.abs(w - firstWMm) < 0.5 && Math.abs(h - firstHMm) < 0.5;
+    });
+
+    return {
+      allMatch,
+      widthMm: Math.round(firstWMm * 10) / 10,
+      heightMm: Math.round(firstHMm * 10) / 10,
+      count: items.length,
+    };
+  }, [items]);
+
+  // Handle Preset Selection
+  const handlePresetChange = (e) => {
+    const val = e.target.value;
+    if (val.startsWith('saved_')) {
+      const presetId = parseInt(val.replace('saved_', ''), 10);
+      const found = savedPresets.find((p) => p.id === presetId);
+      if (found) {
+        onChangeConfig({
+          ...config,
+          preset_id: val,
+          paper_size: found.paper_size,
+          orientation: found.orientation,
+          columns: found.columns,
+          rows: found.rows,
+          label_width: parseFloat(found.label_width),
+          label_height: parseFloat(found.label_height),
+          margin_top: parseFloat(found.margin_top),
+          margin_left: parseFloat(found.margin_left),
+          gap_horizontal: parseFloat(found.gap_horizontal),
+          gap_vertical: parseFloat(found.gap_vertical),
+          corner_radius: parseFloat(found.corner_radius || 0),
+          unit: found.unit || 'mm',
+        });
+      }
+      return;
+    }
+
+    const standard = STANDARD_SHEET_PRESETS.find((p) => p.id === val);
+    if (standard) {
+      onChangeConfig({
+        ...config,
+        preset_id: standard.id,
+        paper_size: standard.paper_size,
+        orientation: standard.orientation,
+        columns: standard.columns,
+        rows: standard.rows,
+        label_width: standard.label_width,
+        label_height: standard.label_height,
+        margin_top: standard.margin_top,
+        margin_left: standard.margin_left,
+        gap_horizontal: standard.gap_horizontal,
+        gap_vertical: standard.gap_vertical,
+        corner_radius: standard.corner_radius || 0,
+        unit: standard.unit || 'mm',
+      });
+    }
+  };
+
+  // "Match my design size" auto grid generator
+  const handleMatchDesignSize = () => {
+    if (!sharedArtboard) return;
+    const autoGrid = calculateAutoGrid(sharedArtboard.widthMm, sharedArtboard.heightMm, config);
+    onChangeConfig({
+      ...config,
+      preset_id: 'custom',
+      ...autoGrid,
+    });
+  };
+
+  const totalSlotsPerSheet = (parseInt(config.columns, 10) || 1) * (parseInt(config.rows, 10) || 1);
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+            <FileText className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">2. Sheet Settings</h2>
+            <p className="text-xs text-slate-500">Paper size, grid, margins & gaps</p>
+          </div>
+        </div>
+
+        {/* Unit Selector */}
+        <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-xs font-semibold">
+          {['mm', 'cm', 'inch'].map((u) => (
+            <button
+              key={u}
+              type="button"
+              onClick={() => onChangeConfig({ ...config, unit: u })}
+              className={`px-2 py-0.5 rounded-md transition-colors ${
+                currentUnit === u
+                  ? 'bg-white text-indigo-600 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {u}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Paper Size & Orientation */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+            Paper Size
+          </label>
+          <select
+            value={config.paper_size}
+            onChange={(e) =>
+              onChangeConfig({ ...config, paper_size: e.target.value, preset_id: 'custom' })
+            }
+            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+          >
+            <option value="a4">A4 (210 × 297 mm)</option>
+            <option value="letter">US Letter (215.9 × 279.4 mm)</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+            Orientation
+          </label>
+          <div className="flex gap-1.5 bg-slate-100 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() =>
+                onChangeConfig({ ...config, orientation: 'portrait', preset_id: 'custom' })
+              }
+              className={`flex-1 py-1 rounded-lg text-xs font-medium transition-colors ${
+                config.orientation === 'portrait'
+                  ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Portrait
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onChangeConfig({ ...config, orientation: 'landscape', preset_id: 'custom' })
+              }
+              className={`flex-1 py-1 rounded-lg text-xs font-medium transition-colors ${
+                config.orientation === 'landscape'
+                  ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Landscape
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Preset Dropdown & Save Action */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">
+            Sheet Preset
+          </label>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onOpenSaveModal}
+              className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold inline-flex items-center gap-1 cursor-pointer"
+            >
+              <Bookmark className="w-3 h-3" />
+              <span>Save current</span>
+            </button>
+            {config.preset_id?.startsWith('saved_') && (
+              <button
+                type="button"
+                onClick={() => {
+                  const id = parseInt(config.preset_id.replace('saved_', ''), 10);
+                  onDeleteSavedPreset(id);
+                }}
+                className="text-xs text-rose-500 hover:text-rose-700 font-medium inline-flex items-center gap-1 cursor-pointer"
+                title="Delete this saved preset"
+              >
+                <Trash2 className="w-3 h-3" />
+                <span>Delete</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <select
+          value={config.preset_id || 'custom'}
+          onChange={handlePresetChange}
+          className="w-full px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+        >
+          <optgroup label="Standard Presets">
+            {STANDARD_SHEET_PRESETS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </optgroup>
+          {savedPresets.length > 0 && (
+            <optgroup label="Saved Presets">
+              {savedPresets.map((p) => (
+                <option key={p.id} value={`saved_${p.id}`}>
+                  {p.name} ({p.columns}×{p.rows})
+                </option>
+              ))}
+            </optgroup>
+          )}
+        </select>
+      </div>
+
+      {/* "Match My Design Size" Action */}
+      {sharedArtboard && (
+        <div className="bg-gradient-to-r from-indigo-50 to-teal-50 border border-indigo-100 rounded-xl p-3 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-900">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <span>Match my design size</span>
+            </div>
+            <p className="text-[11px] text-indigo-700 truncate mt-0.5">
+              All designs share artboard {sharedArtboard.widthMm} × {sharedArtboard.heightMm} mm
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleMatchDesignSize}
+            className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-lg text-xs font-semibold shrink-0 transition-colors shadow-2xs cursor-pointer"
+          >
+            Auto-fit Grid
+          </button>
+        </div>
+      )}
+
+      {/* Grid: Columns & Rows */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Columns</label>
+          <input
+            type="number"
+            min="1"
+            max="20"
+            value={config.columns}
+            onChange={(e) =>
+              onChangeConfig({
+                ...config,
+                columns: Math.max(1, parseInt(e.target.value, 10) || 1),
+                preset_id: 'custom',
+              })
+            }
+            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Rows</label>
+          <input
+            type="number"
+            min="1"
+            max="30"
+            value={config.rows}
+            onChange={(e) =>
+              onChangeConfig({
+                ...config,
+                rows: Math.max(1, parseInt(e.target.value, 10) || 1),
+                preset_id: 'custom',
+              })
+            }
+            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+          />
+        </div>
+      </div>
+
+      {/* Label Dimensions (Width & Height) */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Label Width ({currentUnit})
+          </label>
+          <input
+            type="number"
+            step="0.1"
+            min="5"
+            value={toDisplay(config.label_width)}
+            onChange={(e) =>
+              onChangeConfig({
+                ...config,
+                label_width: fromDisplayToMm(parseFloat(e.target.value) || 0),
+                preset_id: 'custom',
+              })
+            }
+            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Label Height ({currentUnit})
+          </label>
+          <input
+            type="number"
+            step="0.1"
+            min="5"
+            value={toDisplay(config.label_height)}
+            onChange={(e) =>
+              onChangeConfig({
+                ...config,
+                label_height: fromDisplayToMm(parseFloat(e.target.value) || 0),
+                preset_id: 'custom',
+              })
+            }
+            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+          />
+        </div>
+      </div>
+
+      {/* Margins: Top & Left */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Top Margin ({currentUnit})
+          </label>
+          <input
+            type="number"
+            step="0.1"
+            min="0"
+            value={toDisplay(config.margin_top)}
+            onChange={(e) =>
+              onChangeConfig({
+                ...config,
+                margin_top: fromDisplayToMm(parseFloat(e.target.value) || 0),
+                preset_id: 'custom',
+              })
+            }
+            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Left Margin ({currentUnit})
+          </label>
+          <input
+            type="number"
+            step="0.1"
+            min="0"
+            value={toDisplay(config.margin_left)}
+            onChange={(e) =>
+              onChangeConfig({
+                ...config,
+                margin_left: fromDisplayToMm(parseFloat(e.target.value) || 0),
+                preset_id: 'custom',
+              })
+            }
+            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+          />
+        </div>
+      </div>
+
+      {/* Gaps: Horizontal & Vertical */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Horiz. Gap ({currentUnit})
+          </label>
+          <input
+            type="number"
+            step="0.1"
+            min="0"
+            value={toDisplay(config.gap_horizontal)}
+            onChange={(e) =>
+              onChangeConfig({
+                ...config,
+                gap_horizontal: fromDisplayToMm(parseFloat(e.target.value) || 0),
+                preset_id: 'custom',
+              })
+            }
+            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Vert. Gap ({currentUnit})
+          </label>
+          <input
+            type="number"
+            step="0.1"
+            min="0"
+            value={toDisplay(config.gap_vertical)}
+            onChange={(e) =>
+              onChangeConfig({
+                ...config,
+                gap_vertical: fromDisplayToMm(parseFloat(e.target.value) || 0),
+                preset_id: 'custom',
+              })
+            }
+            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+          />
+        </div>
+      </div>
+
+      {/* Corner Radius & Start Position */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Corner Radius ({currentUnit})
+          </label>
+          <input
+            type="number"
+            step="0.5"
+            min="0"
+            value={toDisplay(config.corner_radius || 0)}
+            onChange={(e) =>
+              onChangeConfig({
+                ...config,
+                corner_radius: fromDisplayToMm(parseFloat(e.target.value) || 0),
+                preset_id: 'custom',
+              })
+            }
+            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Start at Label Slot
+          </label>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number"
+              min="1"
+              max={totalSlotsPerSheet}
+              value={startPosition}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                onChangeStartPosition(
+                  isNaN(val) ? 1 : Math.max(1, Math.min(val, totalSlotsPerSheet))
+                );
+              }}
+              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+            />
+            {startPosition > 1 && (
+              <button
+                type="button"
+                onClick={() => onChangeStartPosition(1)}
+                className="px-2 py-1 text-[11px] text-slate-500 hover:text-slate-800 bg-slate-100 rounded-lg shrink-0"
+                title="Reset start position to 1"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+      <p className="text-[11px] text-slate-400">
+        Start slot skips partly used slots on sheet 1 (1 to {totalSlotsPerSheet}). Click any slot in preview to set.
+      </p>
+
+      {/* Layout Validation Alert */}
+      {!fitValidation.isValid && (
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-start gap-2.5 text-xs text-rose-700 font-medium">
+          <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold">Grid exceeds paper size!</p>
+            <p className="mt-0.5 text-rose-600">{fitValidation.message}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -14,6 +14,7 @@ import {
   PackageOpen,
   Wand2,
   Loader2,
+  Printer,
 } from 'lucide-react';
 import Badge from '../../components/Badge';
 import Skeleton from '../../components/Skeleton';
@@ -150,17 +151,29 @@ export default function ProductTable({
         {/* Bulk Action Controls */}
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
           {selectedCount > 0 && (
-            <div className="flex items-center gap-1.5 bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-semibold">
-              <span>{selectedCount} selected</span>
-              <span className="text-slate-300">&bull;</span>
+            <>
+              <div className="flex items-center gap-1.5 bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-semibold">
+                <span>{selectedCount} selected</span>
+                <span className="text-slate-300">&bull;</span>
+                <button
+                  type="button"
+                  onClick={onClearSelection}
+                  className="text-indigo-600 hover:text-indigo-800 underline font-medium cursor-pointer"
+                >
+                  Clear selection
+                </button>
+              </div>
+
               <button
                 type="button"
-                onClick={onClearSelection}
-                className="text-indigo-600 hover:text-indigo-800 underline font-medium cursor-pointer"
+                onClick={() => navigate(`/print?product_ids=${selectedIds.join(',')}`)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:text-indigo-600 rounded-lg transition-colors cursor-pointer shrink-0 shadow-2xs"
+                title="Print label sheets for selected products"
               >
-                Clear selection
+                <Printer className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Print labels ({selectedCount})</span>
               </button>
-            </div>
+            </>
           )}
 
           <div className="flex items-center gap-1.5">

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { LayoutGrid, PenTool, Package, Menu, X, Barcode, Trash2 } from 'lucide-react';
+import { LayoutGrid, PenTool, Package, Printer, Menu, X, Barcode, Trash2 } from 'lucide-react';
 import { getBinSummary } from '../api/bin';
 
 export default function Sidebar() {
@@ -34,6 +34,12 @@ export default function Sidebar() {
       end: false,
     },
     {
+      to: '/print',
+      label: 'Print Labels',
+      icon: Printer,
+      end: false,
+    },
+    {
       to: '/bin',
       label: 'Recycle Bin',
       icon: Trash2,
@@ -45,7 +51,7 @@ export default function Sidebar() {
   return (
     <>
       {/* Mobile Top Header */}
-      <header className="lg:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200 sticky top-0 z-30">
+      <header className="lg:hidden print:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200 sticky top-0 z-30">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
             <Barcode className="w-5 h-5" />
@@ -120,7 +126,7 @@ export default function Sidebar() {
       )}
 
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white border-r border-slate-200 z-30">
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white border-r border-slate-200 z-30 print:hidden">
         <div className="flex items-center gap-3 px-6 h-18 border-b border-slate-100">
           <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
             <Barcode className="w-5 h-5" />

@@ -6,6 +6,7 @@ import GalleryPage from './pages/GalleryPage';
 import DesignerPage from './pages/DesignerPage';
 import StockPage from './pages/StockPage';
 import RecycleBinPage from './pages/RecycleBinPage';
+import PrintLabelsPage from './pages/PrintLabelsPage';
 
 export default function MainApp() {
   return (
@@ -41,13 +42,14 @@ export default function MainApp() {
       <Sidebar />
 
       {/* Main Content Area */}
-      <div className="flex-1 lg:pl-64 flex flex-col min-h-screen min-w-0 max-w-full">
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto min-w-0">
+      <div className="flex-1 lg:pl-64 print:pl-0 print:m-0 flex flex-col min-h-screen min-w-0 max-w-full">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 print:p-0 print:m-0 max-w-7xl print:max-w-none w-full mx-auto min-w-0">
           <Routes>
             <Route path="/" element={<GalleryPage />} />
             <Route path="/designer" element={<DesignerPage />} />
             <Route path="/designer/:id" element={<DesignerPage />} />
             <Route path="/stock" element={<StockPage />} />
+            <Route path="/print" element={<PrintLabelsPage />} />
             <Route path="/bin" element={<RecycleBinPage />} />
             <Route path="/stock/bin" element={<Navigate to="/bin?tab=products" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />

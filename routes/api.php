@@ -3,6 +3,7 @@
 use App\Http\Controllers\BarcodeController;
 use App\Http\Controllers\BinController;
 use App\Http\Controllers\CodeController;
+use App\Http\Controllers\PrintPresetController;
 use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 
@@ -43,3 +44,9 @@ Route::delete('/codes/{id}/force', [CodeController::class, 'forceDelete']);
 Route::apiResource('codes', CodeController::class);
 // Allow POST to update for multipart form-data requests with file updates
 Route::post('/codes/{code}', [CodeController::class, 'update']);
+
+// Print Presets API
+Route::get('/print-presets', [PrintPresetController::class, 'index']);
+Route::post('/print-presets', [PrintPresetController::class, 'store']);
+Route::delete('/print-presets/{id}', [PrintPresetController::class, 'destroy']);
+

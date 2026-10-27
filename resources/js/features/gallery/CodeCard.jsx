@@ -8,6 +8,7 @@ import {
   Barcode as BarcodeIcon,
   QrCode as QrCodeIcon,
   Package,
+  Printer,
 } from 'lucide-react';
 import Badge from '../../components/Badge';
 import { downloadFile } from '../../utils/downloadHelpers';
@@ -104,6 +105,16 @@ export default function CodeCard({ code, onDelete }) {
           </div>
 
           <div className="flex items-center gap-1">
+            {/* Print */}
+            <button
+              type="button"
+              onClick={() => navigate(`/print?code_ids=${code.id}`)}
+              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+              title="Print label sheet"
+            >
+              <Printer className="w-4 h-4" />
+            </button>
+
             {/* Download PNG */}
             <button
               type="button"

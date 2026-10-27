@@ -43,7 +43,7 @@ barcode-designer/
 
 **Run locally:** `php artisan serve` + `npm run dev` (two terminals), open http://localhost:8000. Same origin, so no CORS setup is needed.
 
-## 2. Pages (3 only)
+## 2. Pages (4)
 
 ### 2.1 Gallery (`/`) — start page
 - Default route when the app opens.
@@ -125,7 +125,44 @@ Controls are grouped into collapsible sections (**Artboard**, **Code Size**, **C
 - Summary cards on top: Total products, Low stock, Out of stock.
 - Header includes "Recycle Bin" button with count badge (opens `/bin?tab=products`).
 
-### 2.4 Recycle Bin (`/bin`)
+### 2.4 Print Labels (`/print`)
+- Layout: Two panes on desktop — controls and settings on the left (scrolls independently), live paper sheet preview on the right (fixed, does not scroll with settings). Stacked on mobile/tablet with the paper preview sticky at the top. Zero horizontal scrollbar at all window sizes.
+- **Choose what to print**:
+  - Multi-select list of saved designs from Gallery with live search, preview thumbnails, and format/type filter (All / Barcode / QR). Excludes trashed codes.
+  - Copies per code selector (default 1) with "Set all to N" batch shortcut.
+  - "Add all codes for selected products" quick action; pre-selection via URL query (`/print?code_ids=1,2,3` or `/print?product_ids=4,5`).
+- **Sheet settings**:
+  - Paper size: A4 (210 x 297 mm) or Letter (215.9 x 279.4 mm), with Portrait / Landscape orientation toggle.
+  - Standard label sheet presets (columns x rows, label size in mm):
+    - `3x8` (63.5 x 33.9 mm)
+    - `2x7` (99.1 x 38.1 mm)
+    - `4x12` (48.5 x 25.4 mm)
+    - `5x13` (38.1 x 21.2 mm)
+    - `Custom`
+  - "Match my design size" auto-grid: when all selected designs share identical artboard dimensions, automatically calculates fitting columns and rows for the selected paper size, margins, and gaps.
+  - Custom dimension inputs in chosen unit (`mm`, `cm`, `inch`): label width/height, columns, rows, top/left margin, horizontal/vertical gap, and corner radius.
+  - Start position: Select which cell on the sheet to start printing from (skips used slots on partly used sheets).
+- **Placement & Fitting inside Label Cell**:
+  - Fit modes: `Original size`, `Fit to label` (scales down preserving aspect ratio), `Fill label`.
+  - Alignment (top-left, center, etc.) and cell padding.
+  - Option to toggle artboard background color and border on/off during print.
+  - Warning indicators if a design exceeds cell bounds or if downscaling reduces barcode readability below scan thresholds.
+- **Live Preview & Controls**:
+  - Accurate scaled representation of paper sheets with individual label boundaries and cutting outlines.
+  - Toggle: "Show label borders".
+  - Zoom controls: `Fit`, `50%`, `100%`.
+  - Multi-page pagination navigation when total labels exceed one sheet (e.g. "48 labels, 2 pages").
+- **Output & Presets**:
+  - **Browser Print**: Print button using `@media print` with exact `@page` paper size and 0 margins, hiding sidebar and controls. Note: "In the print dialog, set Scale to 100% (turn off 'Fit to page') and Margins to None."
+  - **Download PDF**: Vectorized PDF generation using `jspdf` at 300 DPI with precise mm coordinates and dimensions matching the sheet layout.
+  - **Presets**: Save and manage custom sheet configurations in `print_presets` table (`GET /api/print-presets`, `POST /api/print-presets`, `DELETE /api/print-presets/{id}`).
+- **Shortcuts & Integration**:
+  - Gallery cards feature a "Print" button opening `/print?code_ids={id}`.
+  - Stock page bulk toolbar features "Print labels" for selected products (`/print?product_ids={ids}`).
+- **Empty & Error States**:
+  - Friendly alerts for empty selection, sheet overflow, or invalid custom dimensions exceeding paper limits.
+
+### 2.5 Recycle Bin (`/bin`)
 - Unified Recycle Bin with two tabs: **Products** (`?tab=products`) and **Designs** (`?tab=designs`), each with a live count badge.
 - Old `/stock/bin` redirects to `/bin?tab=products`.
 - Sidebar navigation includes a "Recycle Bin" item with total trashed count badge (`products + codes`).
@@ -174,6 +211,26 @@ Controls are grouped into collapsible sections (**Artboard**, **Code Size**, **C
 | last_number | bigint unsigned | sequence counter |
 | timestamps | | |
 
+**print_presets**
+| column | type | notes |
+|---|---|---|
+| id | bigint PK | |
+| name | string | required, e.g. "Avery 3x8" |
+| paper_size | string | `a4`, `letter` |
+| orientation | enum(`portrait`,`landscape`) | default `portrait` |
+| columns | integer | number of columns |
+| rows | integer | number of rows |
+| label_width | decimal(8,2) | width in mm |
+| label_height | decimal(8,2) | height in mm |
+| margin_top | decimal(8,2) | top margin in mm |
+| margin_left | decimal(8,2) | left margin in mm |
+| gap_horizontal | decimal(8,2) | horizontal gap between labels in mm |
+| gap_vertical | decimal(8,2) | vertical gap between labels in mm |
+| corner_radius | decimal(8,2) | corner radius in mm (default 0) |
+| unit | string | preferred display unit (`mm`, `cm`, `inch`) |
+| settings | json nullable | additional placement/fit defaults |
+| timestamps | | |
+
 ## 4. API Endpoints (prefix `/api`)
 
 | Method | Endpoint | Purpose |
@@ -207,6 +264,9 @@ Controls are grouped into collapsible sections (**Artboard**, **Code Size**, **C
 | POST | `/products/import/commit` | commit import `{ mode: skip_existing|update_existing, auto_generate_barcodes }` |
 | POST | `/barcodes/generate` | generate unique valid barcode number `{ format }` |
 | POST | `/barcodes/validate` | validate format and check digit `{ format, number }` |
+| GET | `/print-presets` | list saved sheet print presets |
+| POST | `/print-presets` | save new sheet print preset |
+| DELETE | `/print-presets/{id}` | delete saved sheet print preset |
 
 Backend rules: use Form Requests for validation, API Resources for responses, consistent JSON errors, run `php artisan storage:link`. React calls the API at the relative path `/api` (same origin, no CORS needed).
 
@@ -230,8 +290,8 @@ Backend rules: use Form Requests for validation, API Resources for responses, co
 
 **Typography:** Inter (Google Fonts). Headings semibold, body regular.
 **Shape:** cards `rounded-2xl`, inputs/buttons `rounded-xl`, soft shadows (`shadow-sm`), 150ms transitions.
-**Icons (lucide-react):** `LayoutGrid` (Gallery), `PenTool` (Designer), `Package` (Stock), `QrCode`, `Barcode`, `Download`, `Trash2`, `Pencil`, `Plus`, `Search`, `AlertTriangle`.
-**Layout:** left sidebar (collapses to bottom/hamburger on mobile) with the 3 nav items + app logo. Active item highlighted in primary color.
+**Icons (lucide-react):** `LayoutGrid` (Gallery), `PenTool` (Designer), `Package` (Stock), `Printer` (Print Labels), `QrCode`, `Barcode`, `Download`, `Trash2`, `Pencil`, `Plus`, `Search`, `AlertTriangle`.
+**Layout:** left sidebar (collapses to bottom/hamburger on mobile) with the 4 nav items + app logo. Active item highlighted in primary color.
 **States required everywhere:** loading skeletons, empty states, error toasts, success toasts, disabled buttons while saving.
 **Responsive:** mobile-first; designer stacks controls above preview on small screens.
 **Accessibility:** labels on all inputs, visible focus rings, sufficient contrast.

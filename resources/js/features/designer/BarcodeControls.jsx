@@ -17,6 +17,7 @@ export default function BarcodeControls({
   validationError,
   calculatedModuleWidth = null,
   sizeError = null,
+  section = 'all', // 'size' | 'colors' | 'label' | 'all'
 }) {
   const currentUnit = settings.unit || 'px';
   const unitConfig = UNITS.find((u) => u.value === currentUnit) || UNITS[0];
@@ -75,167 +76,168 @@ export default function BarcodeControls({
   const heightSliderMin = currentUnit === 'px' ? 30 : unitConfig.min * 0.5;
   const heightSliderMax = currentUnit === 'px' ? 400 : unitConfig.max * 0.5;
 
-  return (
-    <div className="space-y-6">
-      {/* Unit Selector & Sizing Card */}
-      <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-slate-200">
-          <div>
-            <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
-              Output Dimensions
-            </span>
-            <p className="text-[11px] text-slate-500">Specify total physical print / digital size</p>
-          </div>
-
-          {/* Unit Selector Segmented Control */}
-          <div className="inline-flex p-0.5 bg-slate-200 rounded-lg self-start sm:self-auto">
-            {UNITS.map((u) => (
-              <button
-                key={u.value}
-                type="button"
-                onClick={() => handleUnitChange(u.value)}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
-                  currentUnit === u.value
-                    ? 'bg-white text-indigo-600 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {u.label}
-              </button>
-            ))}
-          </div>
+  const renderSizeSection = () => (
+    <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-slate-200">
+        <div>
+          <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
+            Barcode Dimensions
+          </span>
+          <p className="text-[11px] text-slate-500">Specify physical size of the barcode element</p>
         </div>
 
-        {/* Width & Height Number Inputs with Aspect Ratio Lock */}
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-          {/* Total Width */}
-          <div className="sm:col-span-5">
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-              Total Width ({currentUnit})
-            </label>
-            <input
-              type="number"
-              step={unitConfig.step}
-              min={unitConfig.min}
-              max={unitConfig.max}
-              value={settings.width}
-              onChange={(e) => handleWidthChange(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-mono text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
-            />
-          </div>
-
-          {/* Aspect Ratio Lock Toggle Button */}
-          <div className="sm:col-span-2 flex justify-center pb-1">
+        {/* Unit Selector Segmented Control */}
+        <div className="inline-flex p-0.5 bg-slate-200 rounded-lg self-start sm:self-auto">
+          {UNITS.map((u) => (
             <button
+              key={u.value}
               type="button"
-              onClick={toggleAspectLock}
-              className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
-                settings.lockAspectRatio
-                  ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-xs'
-                  : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600'
+              onClick={() => handleUnitChange(u.value)}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                currentUnit === u.value
+                  ? 'bg-white text-indigo-600 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
-              title={settings.lockAspectRatio ? 'Unlock Aspect Ratio' : 'Lock Aspect Ratio'}
             >
-              {settings.lockAspectRatio ? (
-                <Lock className="w-4 h-4" />
-              ) : (
-                <Unlock className="w-4 h-4" />
-              )}
+              {u.label}
             </button>
-          </div>
-
-          {/* Total Height */}
-          <div className="sm:col-span-5">
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-              Total Height ({currentUnit})
-            </label>
-            <input
-              type="number"
-              step={unitConfig.step}
-              min={heightSliderMin}
-              max={heightSliderMax}
-              value={settings.height}
-              onChange={(e) => handleHeightChange(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-mono text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
-            />
-          </div>
+          ))}
         </div>
-
-        {/* Sliders kept in sync */}
-        <div className="space-y-3 pt-1">
-          <div>
-            <div className="flex justify-between items-center text-[11px] text-slate-500 mb-1">
-              <span>Adjust Width</span>
-              <span className="font-mono">{settings.width} {currentUnit}</span>
-            </div>
-            <input
-              type="range"
-              min={widthSliderMin}
-              max={widthSliderMax}
-              step={unitConfig.step}
-              value={settings.width || widthSliderMin}
-              onChange={(e) => handleWidthChange(e.target.value)}
-              className="w-full accent-indigo-600 cursor-pointer"
-            />
-          </div>
-
-          <div>
-            <div className="flex justify-between items-center text-[11px] text-slate-500 mb-1">
-              <span>Adjust Height</span>
-              <span className="font-mono">{settings.height} {currentUnit}</span>
-            </div>
-            <input
-              type="range"
-              min={heightSliderMin}
-              max={heightSliderMax}
-              step={unitConfig.step}
-              value={settings.height || heightSliderMin}
-              onChange={(e) => handleHeightChange(e.target.value)}
-              className="w-full accent-indigo-600 cursor-pointer"
-            />
-          </div>
-        </div>
-
-        {/* Size validation error */}
-        {sizeError && (
-          <p className="text-xs text-rose-500 font-medium flex items-center gap-1.5 mt-1">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>{sizeError}</span>
-          </p>
-        )}
-
-        {/* Scannability Notice / Warning */}
-        {calculatedModuleWidth !== null && (
-          <div
-            className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 transition-colors ${
-              calculatedModuleWidth < 1.0
-                ? 'bg-amber-50 border-amber-200 text-amber-800'
-                : 'bg-slate-100/70 border-slate-200 text-slate-600'
-            }`}
-          >
-            {calculatedModuleWidth < 1.0 ? (
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            ) : (
-              <Info className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
-            )}
-            <div>
-              <p className="font-semibold">
-                Auto-calculated Bar Module Width: {calculatedModuleWidth.toFixed(2)} px
-              </p>
-              {calculatedModuleWidth < 1.0 ? (
-                <p className="mt-0.5 text-[11px] text-amber-700">
-                  Size too small! At under 1px per bar, standard scanners may fail to read the code. Increase the total width or reduce the length of the encoded content.
-                </p>
-              ) : (
-                <p className="mt-0.5 text-[11px] text-slate-500">
-                  Optimal density for clear optical scanning.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
+      {/* Width & Height Number Inputs with Aspect Ratio Lock */}
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+        {/* Total Width */}
+        <div className="sm:col-span-5">
+          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+            Width ({currentUnit})
+          </label>
+          <input
+            type="number"
+            step={unitConfig.step}
+            min={unitConfig.min}
+            max={unitConfig.max}
+            value={settings.width}
+            onChange={(e) => handleWidthChange(e.target.value)}
+            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-mono text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+          />
+        </div>
+
+        {/* Aspect Ratio Lock Toggle Button */}
+        <div className="sm:col-span-2 flex justify-center pb-1">
+          <button
+            type="button"
+            onClick={toggleAspectLock}
+            className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+              settings.lockAspectRatio
+                ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-xs'
+                : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600'
+            }`}
+            title={settings.lockAspectRatio ? 'Unlock Aspect Ratio' : 'Lock Aspect Ratio'}
+          >
+            {settings.lockAspectRatio ? (
+              <Lock className="w-4 h-4" />
+            ) : (
+              <Unlock className="w-4 h-4" />
+            )}
+          </button>
+        </div>
+
+        {/* Total Height */}
+        <div className="sm:col-span-5">
+          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+            Height ({currentUnit})
+          </label>
+          <input
+            type="number"
+            step={unitConfig.step}
+            min={heightSliderMin}
+            max={heightSliderMax}
+            value={settings.height}
+            onChange={(e) => handleHeightChange(e.target.value)}
+            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-mono text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+          />
+        </div>
+      </div>
+
+      {/* Sliders kept in sync */}
+      <div className="space-y-3 pt-1">
+        <div>
+          <div className="flex justify-between items-center text-[11px] text-slate-500 mb-1">
+            <span>Adjust Width</span>
+            <span className="font-mono">{settings.width} {currentUnit}</span>
+          </div>
+          <input
+            type="range"
+            min={widthSliderMin}
+            max={widthSliderMax}
+            step={unitConfig.step}
+            value={settings.width || widthSliderMin}
+            onChange={(e) => handleWidthChange(e.target.value)}
+            className="w-full accent-indigo-600 cursor-pointer"
+          />
+        </div>
+
+        <div>
+          <div className="flex justify-between items-center text-[11px] text-slate-500 mb-1">
+            <span>Adjust Height</span>
+            <span className="font-mono">{settings.height} {currentUnit}</span>
+          </div>
+          <input
+            type="range"
+            min={heightSliderMin}
+            max={heightSliderMax}
+            step={unitConfig.step}
+            value={settings.height || heightSliderMin}
+            onChange={(e) => handleHeightChange(e.target.value)}
+            className="w-full accent-indigo-600 cursor-pointer"
+          />
+        </div>
+      </div>
+
+      {/* Size validation error */}
+      {sizeError && (
+        <p className="text-xs text-rose-500 font-medium flex items-center gap-1.5 mt-1">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>{sizeError}</span>
+        </p>
+      )}
+
+      {/* Scannability Notice / Warning */}
+      {calculatedModuleWidth !== null && (
+        <div
+          className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 transition-colors ${
+            calculatedModuleWidth < 1.0
+              ? 'bg-amber-50 border-amber-200 text-amber-800'
+              : 'bg-slate-100/70 border-slate-200 text-slate-600'
+          }`}
+        >
+          {calculatedModuleWidth < 1.0 ? (
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          ) : (
+            <Info className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+          )}
+          <div>
+            <p className="font-semibold">
+              Auto-calculated Bar Module Width: {calculatedModuleWidth.toFixed(2)} px
+            </p>
+            {calculatedModuleWidth < 1.0 ? (
+              <p className="mt-0.5 text-[11px] text-amber-700">
+                Size too small! At under 1px per bar, standard scanners may fail to read the code. Increase the total width or reduce the length of the encoded content.
+              </p>
+            ) : (
+              <p className="mt-0.5 text-[11px] text-slate-500">
+                Optimal density for clear optical scanning.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderColorsSection = () => (
+    <div className="space-y-4">
       {/* Symbology Format Selector */}
       <div>
         <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
@@ -342,7 +344,7 @@ export default function BarcodeControls({
 
         <div>
           <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-            Background Color
+            Code Background
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -360,23 +362,36 @@ export default function BarcodeControls({
           </div>
         </div>
       </div>
+    </div>
+  );
 
-      {/* Optional Label Text */}
-      <div>
-        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-          Custom Label Under Code <span className="text-slate-400 font-normal">(optional)</span>
-        </label>
-        <input
-          type="text"
-          value={settings.label || ''}
-          onChange={(e) => onChange({ ...settings, label: e.target.value })}
-          placeholder="e.g. Ergonomic Keyboard - $89.50"
-          className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
-        />
-        <p className="mt-1 text-[11px] text-slate-400">
-          Displayed centered beneath the barcode in preview and downloads.
-        </p>
-      </div>
+  const renderLabelSection = () => (
+    <div>
+      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+        Custom Label Under Code <span className="text-slate-400 font-normal">(optional)</span>
+      </label>
+      <input
+        type="text"
+        value={settings.label || ''}
+        onChange={(e) => onChange({ ...settings, label: e.target.value })}
+        placeholder="e.g. Ergonomic Keyboard - $89.50"
+        className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+      />
+      <p className="mt-1 text-[11px] text-slate-400">
+        Displayed centered beneath the barcode in preview and downloads.
+      </p>
+    </div>
+  );
+
+  if (section === 'size') return renderSizeSection();
+  if (section === 'colors') return renderColorsSection();
+  if (section === 'label') return renderLabelSection();
+
+  return (
+    <div className="space-y-6">
+      {renderSizeSection()}
+      {renderColorsSection()}
+      {renderLabelSection()}
     </div>
   );
 }

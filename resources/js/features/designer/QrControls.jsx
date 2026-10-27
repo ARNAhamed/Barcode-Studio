@@ -28,6 +28,7 @@ export default function QrControls({
   onChange,
   validationError,
   sizeError = null,
+  section = 'all', // 'size' | 'colors' | 'label' | 'all'
 }) {
   const currentUnit = settings.unit || 'px';
   const unitConfig = UNITS.find((u) => u.value === currentUnit) || UNITS[0];
@@ -68,79 +69,80 @@ export default function QrControls({
   const sizeSliderMin = unitConfig.min;
   const sizeSliderMax = unitConfig.max;
 
-  return (
-    <div className="space-y-6">
-      {/* Unit Selector & Sizing Card */}
-      <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-slate-200">
-          <div>
-            <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
-              Output Dimensions
-            </span>
-            <p className="text-[11px] text-slate-500">QR codes are strictly square (1:1 aspect ratio)</p>
-          </div>
-
-          {/* Unit Selector Segmented Control */}
-          <div className="inline-flex p-0.5 bg-slate-200 rounded-lg self-start sm:self-auto">
-            {UNITS.map((u) => (
-              <button
-                key={u.value}
-                type="button"
-                onClick={() => handleUnitChange(u.value)}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
-                  currentUnit === u.value
-                    ? 'bg-white text-indigo-600 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {u.label}
-              </button>
-            ))}
-          </div>
+  const renderSizeSection = () => (
+    <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-slate-200">
+        <div>
+          <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
+            QR Dimensions
+          </span>
+          <p className="text-[11px] text-slate-500">QR codes are strictly square (1:1 aspect ratio)</p>
         </div>
 
-        {/* Manual Size Number Input & Slider */}
-        <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-              Square Size ({currentUnit})
-            </label>
-            <input
-              type="number"
-              step={unitConfig.step}
-              min={unitConfig.min}
-              max={unitConfig.max}
-              value={settings.size}
-              onChange={(e) => handleSizeChange(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-mono text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
-            />
-          </div>
-
-          <div>
-            <div className="flex justify-between items-center text-[11px] text-slate-500 mb-1">
-              <span>Quick Size Slider</span>
-              <span className="font-mono">{settings.size} {currentUnit}</span>
-            </div>
-            <input
-              type="range"
-              min={sizeSliderMin}
-              max={sizeSliderMax}
-              step={unitConfig.step}
-              value={settings.size || sizeSliderMin}
-              onChange={(e) => handleSizeChange(e.target.value)}
-              className="w-full accent-indigo-600 cursor-pointer"
-            />
-          </div>
+        {/* Unit Selector Segmented Control */}
+        <div className="inline-flex p-0.5 bg-slate-200 rounded-lg self-start sm:self-auto">
+          {UNITS.map((u) => (
+            <button
+              key={u.value}
+              type="button"
+              onClick={() => handleUnitChange(u.value)}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                currentUnit === u.value
+                  ? 'bg-white text-indigo-600 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {u.label}
+            </button>
+          ))}
         </div>
-
-        {sizeError && (
-          <p className="text-xs text-rose-500 font-medium flex items-center gap-1.5 mt-1">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>{sizeError}</span>
-          </p>
-        )}
       </div>
 
+      {/* Manual Size Number Input & Slider */}
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+            Square Size ({currentUnit})
+          </label>
+          <input
+            type="number"
+            step={unitConfig.step}
+            min={unitConfig.min}
+            max={unitConfig.max}
+            value={settings.size}
+            onChange={(e) => handleSizeChange(e.target.value)}
+            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-mono text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+          />
+        </div>
+
+        <div>
+          <div className="flex justify-between items-center text-[11px] text-slate-500 mb-1">
+            <span>Quick Size Slider</span>
+            <span className="font-mono">{settings.size} {currentUnit}</span>
+          </div>
+          <input
+            type="range"
+            min={sizeSliderMin}
+            max={sizeSliderMax}
+            step={unitConfig.step}
+            value={settings.size || sizeSliderMin}
+            onChange={(e) => handleSizeChange(e.target.value)}
+            className="w-full accent-indigo-600 cursor-pointer"
+          />
+        </div>
+      </div>
+
+      {sizeError && (
+        <p className="text-xs text-rose-500 font-medium flex items-center gap-1.5 mt-1">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>{sizeError}</span>
+        </p>
+      )}
+    </div>
+  );
+
+  const renderColorsSection = () => (
+    <div className="space-y-4">
       {/* Error Correction */}
       <div>
         <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
@@ -220,7 +222,7 @@ export default function QrControls({
 
         <div>
           <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-            Background Color
+            Code Background
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -279,20 +281,33 @@ export default function QrControls({
           </label>
         )}
       </div>
+    </div>
+  );
 
-      {/* Optional Label Text */}
-      <div>
-        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-          Custom Label Under Code <span className="text-slate-400 font-normal">(optional)</span>
-        </label>
-        <input
-          type="text"
-          value={settings.label || ''}
-          onChange={(e) => onChange({ ...settings, label: e.target.value })}
-          placeholder="e.g. Scan to order online"
-          className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
-        />
-      </div>
+  const renderLabelSection = () => (
+    <div>
+      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+        Custom Label Under Code <span className="text-slate-400 font-normal">(optional)</span>
+      </label>
+      <input
+        type="text"
+        value={settings.label || ''}
+        onChange={(e) => onChange({ ...settings, label: e.target.value })}
+        placeholder="e.g. Scan to order online"
+        className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+      />
+    </div>
+  );
+
+  if (section === 'size') return renderSizeSection();
+  if (section === 'colors') return renderColorsSection();
+  if (section === 'label') return renderLabelSection();
+
+  return (
+    <div className="space-y-6">
+      {renderSizeSection()}
+      {renderColorsSection()}
+      {renderLabelSection()}
     </div>
   );
 }

@@ -103,3 +103,67 @@ export const validateDimension = (value, unit = 'px') => {
 
   return null;
 };
+
+export const ARTBOARD_PRESETS = [
+  { id: 'auto', label: 'Auto (fit to code)', widthMm: null, heightMm: null },
+  { id: 'small_label', label: 'Small label 50 × 25 mm', widthMm: 50, heightMm: 25 },
+  { id: 'shelf_label', label: 'Shelf label 60 × 40 mm', widthMm: 60, heightMm: 40 },
+  { id: 'product_label', label: 'Product label 100 × 50 mm', widthMm: 100, heightMm: 50 },
+  { id: 'shipping_label', label: 'Shipping label 100 × 150 mm', widthMm: 100, heightMm: 150 },
+  { id: 'a6', label: 'A6 (105 × 148 mm)', widthMm: 105, heightMm: 148 },
+  { id: 'a5', label: 'A5 (148 × 210 mm)', widthMm: 148, heightMm: 210 },
+  { id: 'a4', label: 'A4 (210 × 297 mm)', widthMm: 210, heightMm: 297 },
+  { id: 'square_50', label: 'Square 50 × 50 mm', widthMm: 50, heightMm: 50 },
+  { id: 'business_card', label: 'Business card 90 × 55 mm', widthMm: 90, heightMm: 55 },
+  { id: 'custom', label: 'Custom size', widthMm: null, heightMm: null },
+];
+
+export const DEFAULT_ARTBOARD_SETTINGS = {
+  preset: 'auto', // 'auto' | preset id | 'custom'
+  unit: 'mm',
+  width: 100,
+  height: 50,
+  orientation: 'landscape', // 'portrait' | 'landscape'
+  lockAspectRatio: false,
+  background: '#ffffff',
+  border: {
+    enabled: false,
+    color: '#cbd5e1',
+    width: 1, // in px
+  },
+  radius: 0, // in px
+  alignment: 'center', // 'top-left' | 'top-center' | 'top-right' | 'middle-left' | 'center' | 'middle-right' | 'bottom-left' | 'bottom-center' | 'bottom-right'
+  padding: 5, // in current unit (or mm default)
+  fit: 'original', // 'original' | 'fit' | 'fill-width'
+  xOffset: 0, // in px
+  yOffset: 0, // in px
+  exportCodeOnly: false,
+};
+
+// Convert preset mm to active unit
+export const getPresetDimensionsInUnit = (preset, targetUnit = 'mm') => {
+  if (!preset || preset.widthMm == null || preset.heightMm == null) {
+    return null;
+  }
+  const w = convertUnit(preset.widthMm, 'mm', targetUnit, 2);
+  const h = convertUnit(preset.heightMm, 'mm', targetUnit, 2);
+  return { width: w, height: h };
+};
+
+// Validate artboard dimension
+export const validateArtboardDimension = (value, unit = 'mm') => {
+  const num = parseFloat(value);
+  if (isNaN(num) || num <= 0) {
+    return 'Artboard size must be a positive number greater than 0.';
+  }
+
+  const px = toPx(num, unit);
+  if (px < 40) {
+    return 'Artboard size is too small (minimum ~10mm / 40px).';
+  }
+  if (px > 4000) {
+    return 'Artboard size exceeds maximum limit (~1000mm / 4000px).';
+  }
+
+  return null;
+};

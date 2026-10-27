@@ -54,28 +54,47 @@ barcode-designer/
 - Delete asks for confirmation ("Move to Recycle Bin") and shows a toast with an Undo action after deleting.
 
 ### 2.2 Designer (`/designer` and `/designer/:id`)
-Two-column layout: **controls (left)**, **live preview (right, sticky)**.
+Two-column layout: **controls (left)**, **live preview (right, sticky/fixed)**.
+Controls are grouped into collapsible sections (**Artboard**, **Code Size**, **Colors**, **Label Text**) to keep the panel organized and avoid overcrowding.
 
 - Toggle at top: **Barcode | QR Code**.
 - **Source of data**: either type custom text OR pick a product from stock (autocomplete). Picking a product auto-fills the value (SKU / barcode number / URL).
-- **Measurement Units & Sizing**:
-  - Unit selector: `px`, `cm`, `mm`, `inch` (default `px`).
-  - Manual exact size entry with decimal support (e.g. 5.5 cm).
-  - Barcode: Total output width and height inputs with lock aspect ratio toggle. jsbarcode bar module width is calculated automatically to fit requested total width, warning if bar width < 1px.
-  - QR Code: Single size input (always square).
-  - Real-time output indicator under preview: e.g. `Output: 5.00 cm x 2.50 cm (591 x 295 px at 300 DPI)`.
-- **Barcode options**: format (CODE128, EAN13, EAN8, UPC, CODE39, ITF14), width, height, margin, show text (on/off), font size, line color, background color.
-- **QR options**: content, size, error correction (L/M/Q/H), dot style (square/rounded/dots), corner style, foreground color, background color, optional center logo upload.
-- **Export & DPI**:
+- **Artboard Canvas Controls**:
+  - Concept: The artboard is the label, card, or page canvas the code is placed on.
+  - Preset dropdown: `Auto` (fit to code, legacy behavior), `Small label 50 x 25 mm`, `Shelf label 60 x 40 mm`, `Product label 100 x 50 mm`, `Shipping label 100 x 150 mm`, `A6 (105 x 148 mm)`, `A5 (148 x 210 mm)`, `A4 (210 x 297 mm)`, `Square 50 x 50 mm`, `Business card 90 x 55 mm`, and `Custom`.
+  - Unit selector: `px`, `cm`, `mm`, `inch` (default `px` or active unit).
+  - Width and Height manual inputs supporting decimals. Typing a dimension switches preset to `Custom`.
+  - Orientation toggle (portrait / landscape) that swaps width and height.
+  - Lock aspect ratio toggle.
+  - Styling: Artboard background color, optional border (on/off, color, thickness), and corner radius.
+  - Validation: No empty, zero, or negative dimensions, with sensible min/max values and inline errors. Warn if the code does not fit inside the artboard.
+- **Placing the Code on the Artboard**:
+  - 9-position alignment grid: `top-left`, `top-center`, `top-right`, `middle-left`, `center`, `middle-right`, `bottom-left`, `bottom-center`, `bottom-right` (default `center`).
+  - Padding/margin input.
+  - Fit options: `Original size`, `Fit to artboard` (scale to largest size that fits inside padding while keeping aspect ratio), and `Fill width`.
+  - Fine position: X and Y offset inputs, plus interactive drag-and-drop inside the preview (mouse and touch) kept inside artboard bounds. "Reset position" button.
+  - Barcode scannability warning if scaling makes bars thinner than minimum scannable threshold (< 1px).
+- **Artboard Preview**:
+  - Artboard displayed with realistic drop shadow on a neutral gray workspace, scaled to fit the preview panel without overflowing.
+  - Zoom controls toolbar: `Fit`, `50%`, `100%`, `200%`, `+` and `-` buttons, and zoom percentage indicator.
+  - Size indicator under preview: e.g. `Artboard: 100 x 50 mm (1181 x 591 px at 300 DPI)`.
+  - Preview panel stays fixed on desktop while controls scroll independently; sticky on mobile.
+- **Code Sizing & Options**:
+  - Barcode: Width and height inputs, format (CODE128, EAN13, EAN8, UPC, CODE39, ITF14), line color, background color, show text toggle, font size.
+  - QR Code: Single size input (square), error correction (L/M/Q/H), dot style, corner style, foreground and background colors, optional center logo upload.
+- **Export & Save**:
   - Export DPI selector: 72, 150, 300, 600 (default 300).
-  - PNG download rendered at chosen physical size & DPI.
-  - SVG download uses physical units (e.g. `width="50mm"`) when unit != px.
-- Optional label text under the code (e.g. product name / price).
-- Validation: show a clear inline error if the value is invalid for the chosen format (e.g. EAN13 needs 12–13 digits), or if size is non-positive or too small to scan.
+  - PNG and SVG downloads export the whole artboard at chosen DPI/physical units.
+  - Checkbox: "Export code only (without artboard)" for legacy behavior.
+  - Save artboard settings in `codes.settings`: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit mode, x/y offset, export_code_only.
+  - Reopening `/designer/:id` restores full artboard and code state. Legacy saved codes default to `Auto` preset.
+  - Preview saved to Gallery is the artboard; Gallery cards use `object-contain` so various aspect ratios render cleanly without distortion.
+- Optional label text under the code (product name, price, or custom label).
+- Validation: show a clear inline error if the value is invalid for the chosen format, or if size is non-positive or too small to scan.
 - **Automatic Number Generator**:
   - When the selected format requires valid structured digits (EAN13, EAN8, UPC) and the value is empty or invalid, show a "Generate valid number" action.
   - If 12 digits are entered for EAN13, offer a 1-click action to auto-calculate and append the correct GS1 check digit.
-- Buttons: **Save to Gallery**, **Download PNG**, **Download SVG** (barcode), **Reset**.
+- Buttons: **Save to Gallery**, **Download PNG**, **Download SVG**, **Reset**.
 - After save, show toast and redirect to Gallery.
 
 ### 2.3 Stock Management (`/stock`)
@@ -126,7 +145,7 @@ Two-column layout: **controls (left)**, **live preview (right, sticky)**.
 | type | enum(`barcode`,`qr`) | |
 | format | string | e.g. CODE128, QR |
 | value | text | encoded content |
-| settings | json | design options (colors, styles, unit, width, height, dpi, lock_aspect_ratio) |
+| settings | json | design options (colors, styles, unit, width, height, dpi, lock_aspect_ratio, artboard: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, export_code_only) |
 | preview_path | string nullable | saved PNG in `storage/app/public/previews` |
 | timestamps | | |
 | deleted_at | timestamp nullable | soft deletes |

@@ -2,10 +2,24 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Barcode, QrCode, PenTool, Sparkles, ArrowLeft, Wand2, Check } from 'lucide-react';
+import {
+  Barcode,
+  QrCode,
+  PenTool,
+  Sparkles,
+  ArrowLeft,
+  Wand2,
+  Check,
+  Layers,
+  Maximize2,
+  Palette,
+  Type,
+  ChevronDown,
+} from 'lucide-react';
 
 import BarcodeControls from '../features/designer/BarcodeControls';
 import QrControls from '../features/designer/QrControls';
+import ArtboardControls from '../features/designer/ArtboardControls';
 import PreviewPanel from '../features/designer/PreviewPanel';
 import ProductPicker from '../features/designer/ProductPicker';
 import Skeleton from '../components/Skeleton';
@@ -14,11 +28,18 @@ import { getCode, createCode, updateCode } from '../api/codes';
 import { getProduct } from '../api/products';
 import { generateBarcodeNumber } from '../api/barcodes';
 import { validateBarcode, validateQr } from '../utils/validators';
-import { validateDimension, fromPx, toPx } from '../utils/units';
+import {
+  validateDimension,
+  validateArtboardDimension,
+  fromPx,
+  toPx,
+  DEFAULT_ARTBOARD_SETTINGS,
+} from '../utils/units';
 import {
   captureElementAsBlob,
   downloadElementAsPng,
   downloadSvgElement,
+  downloadArtboardSvg,
 } from '../utils/downloadHelpers';
 
 const DEFAULT_BARCODE_SETTINGS = {
@@ -50,13 +71,63 @@ const DEFAULT_QR_SETTINGS = {
   dpi: 300,
 };
 
+// Collapsible Section Accordion Card
+function CollapsibleSection({
+  title,
+  subtitle,
+  icon: Icon,
+  badge,
+  isOpen,
+  onToggle,
+  children,
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden transition-all">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-slate-50/60 transition-colors cursor-pointer select-none"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <Icon className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-slate-900 text-sm sm:text-base tracking-tight truncate">
+                {title}
+              </h3>
+              {badge && (
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 truncate max-w-[140px]">
+                  {badge}
+                </span>
+              )}
+            </div>
+            {subtitle && (
+              <p className="text-xs text-slate-400 truncate mt-0.5">{subtitle}</p>
+            )}
+          </div>
+        </div>
+        <ChevronDown
+          className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ml-2 ${
+            isOpen ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+      {isOpen && <div className="p-5 pt-3 border-t border-slate-100">{children}</div>}
+    </div>
+  );
+}
+
 export default function DesignerPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const captureRef = useRef(null);
+  const captureRef = useRef(null); // Whole Artboard
+  const codeCaptureRef = useRef(null); // Code only
+  const barcodeSvgRef = useRef(null); // Barcode SVG
 
   // Core state
   const [type, setType] = useState('barcode'); // 'barcode' | 'qr'
@@ -65,10 +136,26 @@ export default function DesignerPage() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [dpi, setDpi] = useState(300);
 
+  // Settings
   const [barcodeSettings, setBarcodeSettings] = useState(DEFAULT_BARCODE_SETTINGS);
   const [qrSettings, setQrSettings] = useState(DEFAULT_QR_SETTINGS);
+  const [artboardSettings, setArtboardSettings] = useState(DEFAULT_ARTBOARD_SETTINGS);
+
   const [calculatedModuleWidth, setCalculatedModuleWidth] = useState(null);
   const [isGeneratingValue, setIsGeneratingValue] = useState(false);
+  const [warnings, setWarnings] = useState({ scannabilityWarning: null, codeExceedsWarning: null });
+
+  // Collapsible accordion open states
+  const [openSections, setOpenSections] = useState({
+    artboard: true,
+    codeSize: true,
+    colors: false,
+    label: false,
+  });
+
+  const toggleSection = (key) => {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const handleGenerateValidNumber = async () => {
     setIsGeneratingValue(true);
@@ -104,6 +191,19 @@ export default function DesignerPage() {
 
       const savedDpi = c.settings?.dpi || 300;
       setDpi(savedDpi);
+
+      // Restore artboard settings (default to auto preset for legacy saved codes)
+      if (c.settings?.artboard) {
+        setArtboardSettings({
+          ...DEFAULT_ARTBOARD_SETTINGS,
+          ...c.settings.artboard,
+        });
+      } else {
+        setArtboardSettings({
+          ...DEFAULT_ARTBOARD_SETTINGS,
+          preset: 'auto',
+        });
+      }
 
       if (c.type === 'barcode') {
         const savedUnit = c.settings?.unit || 'px';
@@ -163,7 +263,14 @@ export default function DesignerPage() {
         validateDimension(barcodeSettings.height, barcodeSettings.unit)
       : validateDimension(qrSettings.size, qrSettings.unit);
 
-  const isValid = validationResult.isValid && !sizeError;
+  // Artboard validation
+  const artboardError =
+    artboardSettings.preset !== 'auto'
+      ? validateArtboardDimension(artboardSettings.width, artboardSettings.unit) ||
+        validateArtboardDimension(artboardSettings.height, artboardSettings.unit)
+      : null;
+
+  const isValid = validationResult.isValid && !sizeError && !artboardError;
 
   // Handle product selection
   const handleSelectProduct = (product) => {
@@ -221,16 +328,38 @@ export default function DesignerPage() {
   // Action: Save to Gallery
   const handleSave = async () => {
     if (!isValid) {
-      toast.error(validationResult.error || sizeError || 'Please correct errors before saving.');
+      toast.error(validationResult.error || sizeError || artboardError || 'Please correct errors before saving.');
       return;
     }
 
     try {
-      // Capture element as blob at chosen DPI
-      const blob = await captureElementAsBlob(captureRef.current, dpi);
+      // Determine capture target: full artboard or code-only
+      const captureNode =
+        artboardSettings.preset !== 'auto' && !artboardSettings.exportCodeOnly
+          ? captureRef.current
+          : codeCaptureRef.current || captureRef.current;
+
+      const blob = await captureElementAsBlob(captureNode, dpi);
 
       const settingsToSave = {
         ...activeSettings,
+        artboard: {
+          preset: artboardSettings.preset,
+          width: artboardSettings.width,
+          height: artboardSettings.height,
+          unit: artboardSettings.unit,
+          orientation: artboardSettings.orientation,
+          lockAspectRatio: artboardSettings.lockAspectRatio,
+          background: artboardSettings.background,
+          border: artboardSettings.border,
+          radius: artboardSettings.radius,
+          alignment: artboardSettings.alignment,
+          padding: artboardSettings.padding,
+          fit: artboardSettings.fit,
+          xOffset: artboardSettings.xOffset,
+          yOffset: artboardSettings.yOffset,
+          exportCodeOnly: Boolean(artboardSettings.exportCodeOnly),
+        },
         dpi,
       };
 
@@ -252,7 +381,7 @@ export default function DesignerPage() {
       saveMutation.mutate(formData);
     } catch (err) {
       console.error('Save error:', err);
-      toast.error('Failed to capture code preview.');
+      toast.error('Failed to capture preview image.');
     }
   };
 
@@ -260,7 +389,12 @@ export default function DesignerPage() {
   const handleDownloadPng = async (exportDpi) => {
     try {
       const filename = `${name.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'code'}.png`;
-      await downloadElementAsPng(captureRef.current, filename, exportDpi);
+      const captureNode =
+        artboardSettings.preset !== 'auto' && !artboardSettings.exportCodeOnly
+          ? captureRef.current
+          : codeCaptureRef.current || captureRef.current;
+
+      await downloadElementAsPng(captureNode, filename, exportDpi);
       toast.success(`PNG downloaded at ${exportDpi} DPI!`);
     } catch (err) {
       toast.error('Failed to download PNG.');
@@ -268,11 +402,66 @@ export default function DesignerPage() {
   };
 
   // Action: Download SVG
-  const handleDownloadSvg = (svgElement, physicalW, physicalH, unit) => {
+  const handleDownloadSvg = () => {
     try {
-      const filename = `${name.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'barcode'}.svg`;
-      downloadSvgElement(svgElement, filename, physicalW, physicalH, unit);
-      toast.success(`SVG downloaded (${physicalW} ${unit})!`);
+      const filename = `${name.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'code'}.svg`;
+
+      if (artboardSettings.preset !== 'auto' && !artboardSettings.exportCodeOnly) {
+        // Export entire Artboard as SVG
+        const artboardPxW = toPx(artboardSettings.width, artboardSettings.unit);
+        const artboardPxH = toPx(artboardSettings.height, artboardSettings.unit);
+        const codeW = toPx(activeSettings.width || activeSettings.size, activeSettings.unit);
+        const codeH = toPx(activeSettings.height || activeSettings.size, activeSettings.unit);
+
+        let fitScale = 1;
+        const paddingPx = toPx(artboardSettings.padding || 5, artboardSettings.unit);
+        const availW = Math.max(10, artboardPxW - (2 * paddingPx));
+        const availH = Math.max(10, artboardPxH - (2 * paddingPx));
+
+        if (artboardSettings.fit === 'fit') {
+          fitScale = Math.min(availW / codeW, availH / codeH);
+        } else if (artboardSettings.fit === 'fill-width') {
+          fitScale = availW / codeW;
+        }
+
+        const scaledW = codeW * fitScale;
+        const scaledH = codeH * fitScale;
+
+        let baseX = (artboardPxW - scaledW) / 2;
+        let baseY = (artboardPxH - scaledH) / 2;
+        if (artboardSettings.alignment?.includes('left')) baseX = paddingPx;
+        if (artboardSettings.alignment?.includes('right')) baseX = artboardPxW - paddingPx - scaledW;
+        if (artboardSettings.alignment?.startsWith('top')) baseY = paddingPx;
+        if (artboardSettings.alignment?.startsWith('bottom')) baseY = artboardPxH - paddingPx - scaledH;
+
+        const codeX = Math.round(baseX + (artboardSettings.xOffset || 0));
+        const codeY = Math.round(baseY + (artboardSettings.yOffset || 0));
+
+        downloadArtboardSvg({
+          artboardWidth: artboardSettings.width,
+          artboardHeight: artboardSettings.height,
+          unit: artboardSettings.unit,
+          background: artboardSettings.background,
+          border: artboardSettings.border,
+          radius: artboardSettings.radius,
+          codeSvgElement: barcodeSvgRef.current,
+          codeX,
+          codeY,
+          fitScale,
+          filename,
+        });
+        toast.success(`Artboard SVG downloaded (${artboardSettings.width} × ${artboardSettings.height} ${artboardSettings.unit})!`);
+      } else {
+        // Code-only SVG download
+        downloadSvgElement(
+          barcodeSvgRef.current,
+          filename,
+          activeSettings.width || activeSettings.size,
+          activeSettings.height || activeSettings.size,
+          activeSettings.unit
+        );
+        toast.success(`Code SVG downloaded!`);
+      }
     } catch (err) {
       toast.error('Failed to download SVG.');
     }
@@ -285,6 +474,7 @@ export default function DesignerPage() {
     } else {
       setQrSettings(DEFAULT_QR_SETTINGS);
     }
+    setArtboardSettings(DEFAULT_ARTBOARD_SETTINGS);
     setDpi(300);
     toast.success('Settings reset to defaults.');
   };
@@ -328,7 +518,7 @@ export default function DesignerPage() {
             </h1>
           </div>
           <p className="text-sm text-slate-500 mt-1">
-            Generate crisp, print-ready barcodes and QR codes with precise measurement units.
+            Generate crisp, print-ready barcodes and QR codes with customizable artboards and precise physical dimensions.
           </p>
         </div>
 
@@ -364,7 +554,7 @@ export default function DesignerPage() {
       {/* Main Two-Column Layout */}
       <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 lg:h-[calc(100vh-10.5rem)] lg:overflow-hidden items-start">
         {/* Left Column: Controls (scrolls independently on desktop) */}
-        <div className="order-2 lg:order-1 lg:col-span-7 space-y-6 lg:h-full lg:overflow-y-auto lg:pr-3 min-h-0 w-full">
+        <div className="order-2 lg:order-1 lg:col-span-7 space-y-4 lg:h-full lg:overflow-y-auto lg:pr-3 min-h-0 w-full">
           {/* Card 1: Data Source & Content */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -450,7 +640,6 @@ export default function DesignerPage() {
                   </p>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    {/* 1-click check digit auto-fix suggestion */}
                     {validationResult.canAutoFixCheckDigit && validationResult.suggestedFullNumber && (
                       <button
                         type="button"
@@ -467,7 +656,6 @@ export default function DesignerPage() {
                       </button>
                     )}
 
-                    {/* Generate valid number when format needs numbers */}
                     {type === 'barcode' && ['EAN13', 'EAN8', 'UPC'].includes(barcodeSettings.format) && (
                       <button
                         type="button"
@@ -485,15 +673,36 @@ export default function DesignerPage() {
             </div>
           </div>
 
-          {/* Card 2: Visual Styling Controls & Measurement Sizing */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
-              <h2 className="font-semibold text-slate-900 text-base">
-                {type === 'barcode' ? 'Barcode Sizing & Design' : 'QR Code Sizing & Styling'}
-              </h2>
-              <span className="text-xs text-slate-400">Step 2</span>
-            </div>
+          {/* Collapsible Section 1: Artboard */}
+          <CollapsibleSection
+            title="Artboard"
+            subtitle="Label or card canvas the code is placed on"
+            icon={Layers}
+            badge={artboardSettings.preset === 'auto' ? 'Auto' : artboardSettings.preset.replace('_', ' ')}
+            isOpen={openSections.artboard}
+            onToggle={() => toggleSection('artboard')}
+          >
+            <ArtboardControls
+              settings={artboardSettings}
+              onChange={setArtboardSettings}
+              codeDimensions={{
+                widthPx: type === 'barcode' ? toPx(barcodeSettings.width, barcodeSettings.unit) : toPx(qrSettings.size, qrSettings.unit),
+                heightPx: type === 'barcode' ? toPx(barcodeSettings.height, barcodeSettings.unit) : toPx(qrSettings.size, qrSettings.unit),
+              }}
+              scannabilityWarning={warnings.scannabilityWarning}
+              codeExceedsWarning={warnings.codeExceedsWarning}
+            />
+          </CollapsibleSection>
 
+          {/* Collapsible Section 2: Code Size */}
+          <CollapsibleSection
+            title="Code Size"
+            subtitle="Width, height, and module scaling of the code"
+            icon={Maximize2}
+            badge={`${type === 'barcode' ? `${barcodeSettings.width}×${barcodeSettings.height}` : `${qrSettings.size}×${qrSettings.size}`} ${activeSettings.unit}`}
+            isOpen={openSections.codeSize}
+            onToggle={() => toggleSection('codeSize')}
+          >
             {type === 'barcode' ? (
               <BarcodeControls
                 settings={barcodeSettings}
@@ -501,6 +710,7 @@ export default function DesignerPage() {
                 validationError={!validationResult.isValid ? validationResult.error : null}
                 calculatedModuleWidth={calculatedModuleWidth}
                 sizeError={sizeError}
+                section="size"
               />
             ) : (
               <QrControls
@@ -508,9 +718,59 @@ export default function DesignerPage() {
                 onChange={setQrSettings}
                 validationError={!validationResult.isValid ? validationResult.error : null}
                 sizeError={sizeError}
+                section="size"
               />
             )}
-          </div>
+          </CollapsibleSection>
+
+          {/* Collapsible Section 3: Colors & Styling */}
+          <CollapsibleSection
+            title="Colors & Styling"
+            subtitle="Symbology, foreground & background colors, style"
+            icon={Palette}
+            isOpen={openSections.colors}
+            onToggle={() => toggleSection('colors')}
+          >
+            {type === 'barcode' ? (
+              <BarcodeControls
+                settings={barcodeSettings}
+                onChange={setBarcodeSettings}
+                validationError={!validationResult.isValid ? validationResult.error : null}
+                section="colors"
+              />
+            ) : (
+              <QrControls
+                settings={qrSettings}
+                onChange={setQrSettings}
+                validationError={!validationResult.isValid ? validationResult.error : null}
+                section="colors"
+              />
+            )}
+          </CollapsibleSection>
+
+          {/* Collapsible Section 4: Label Text */}
+          <CollapsibleSection
+            title="Label Text"
+            subtitle="Optional caption or product price under code"
+            icon={Type}
+            badge={activeSettings.label ? 'Set' : 'None'}
+            isOpen={openSections.label}
+            onToggle={() => toggleSection('label')}
+          >
+            {type === 'barcode' ? (
+              <BarcodeControls
+                settings={barcodeSettings}
+                onChange={setBarcodeSettings}
+                section="label"
+              />
+            ) : (
+              <QrControls
+                settings={qrSettings}
+                onChange={setQrSettings}
+                section="label"
+              />
+            )}
+          </CollapsibleSection>
         </div>
 
         {/* Right Column: Live Preview & Action Controls */}
@@ -520,9 +780,13 @@ export default function DesignerPage() {
             format={activeSettings.format}
             value={value}
             settings={activeSettings}
+            artboardSettings={artboardSettings}
+            onArtboardChange={setArtboardSettings}
             isValid={isValid}
-            validationError={validationResult.error || sizeError}
+            validationError={validationResult.error || sizeError || artboardError}
             captureRef={captureRef}
+            codeCaptureRef={codeCaptureRef}
+            barcodeSvgRef={barcodeSvgRef}
             onSave={handleSave}
             onDownloadPng={handleDownloadPng}
             onDownloadSvg={handleDownloadSvg}
@@ -531,6 +795,7 @@ export default function DesignerPage() {
             dpi={dpi}
             onDpiChange={handleDpiChange}
             onCalculatedModuleWidth={setCalculatedModuleWidth}
+            onWarningsUpdate={setWarnings}
           />
         </div>
       </div>

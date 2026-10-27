@@ -41,52 +41,94 @@ export const validateBarcode = (format, value) => {
 
   switch (format) {
     case 'EAN13': {
-      if (!/^\d{12,13}$/.test(trimmed)) {
-        return { isValid: false, error: 'EAN-13 requires exactly 12 or 13 numeric digits.' };
+      if (!/^\d+$/.test(trimmed)) {
+        return { isValid: false, error: 'EAN-13 must contain numeric digits only.' };
       }
-      if (trimmed.length === 13) {
-        const expected = calculateEan13CheckDigit(trimmed.slice(0, 12));
-        const actual = parseInt(trimmed[12], 10);
-        if (expected !== actual) {
-          return {
-            isValid: false,
-            error: `Invalid EAN-13 check digit. Expected ${expected} at the end, but got ${actual}.`,
-          };
-        }
+      if (trimmed.length === 12) {
+        const expected = calculateEan13CheckDigit(trimmed);
+        return {
+          isValid: false,
+          error: `EAN-13 requires 13 digits. 12 data digits entered; valid check digit is ${expected}.`,
+          canAutoFixCheckDigit: true,
+          suggestedCheckDigit: String(expected),
+          suggestedFullNumber: trimmed + expected,
+        };
+      }
+      if (trimmed.length !== 13) {
+        return { isValid: false, error: `EAN-13 requires exactly 13 numeric digits (currently ${trimmed.length}).` };
+      }
+      const expected = calculateEan13CheckDigit(trimmed.slice(0, 12));
+      const actual = parseInt(trimmed[12], 10);
+      if (expected !== actual) {
+        return {
+          isValid: false,
+          error: `Invalid EAN-13 check digit: expected ${expected}, got ${actual}.`,
+          canAutoFixCheckDigit: true,
+          suggestedCheckDigit: String(expected),
+          suggestedFullNumber: trimmed.slice(0, 12) + expected,
+        };
       }
       return { isValid: true, error: null };
     }
 
     case 'EAN8': {
-      if (!/^\d{7,8}$/.test(trimmed)) {
-        return { isValid: false, error: 'EAN-8 requires exactly 7 or 8 numeric digits.' };
+      if (!/^\d+$/.test(trimmed)) {
+        return { isValid: false, error: 'EAN-8 must contain numeric digits only.' };
       }
-      if (trimmed.length === 8) {
-        const expected = calculateEan8CheckDigit(trimmed.slice(0, 7));
-        const actual = parseInt(trimmed[7], 10);
-        if (expected !== actual) {
-          return {
-            isValid: false,
-            error: `Invalid EAN-8 check digit. Expected ${expected} at the end, but got ${actual}.`,
-          };
-        }
+      if (trimmed.length === 7) {
+        const expected = calculateEan8CheckDigit(trimmed);
+        return {
+          isValid: false,
+          error: `EAN-8 requires 8 digits. 7 data digits entered; valid check digit is ${expected}.`,
+          canAutoFixCheckDigit: true,
+          suggestedCheckDigit: String(expected),
+          suggestedFullNumber: trimmed + expected,
+        };
+      }
+      if (trimmed.length !== 8) {
+        return { isValid: false, error: `EAN-8 requires exactly 8 numeric digits (currently ${trimmed.length}).` };
+      }
+      const expected = calculateEan8CheckDigit(trimmed.slice(0, 7));
+      const actual = parseInt(trimmed[7], 10);
+      if (expected !== actual) {
+        return {
+          isValid: false,
+          error: `Invalid EAN-8 check digit: expected ${expected}, got ${actual}.`,
+          canAutoFixCheckDigit: true,
+          suggestedCheckDigit: String(expected),
+          suggestedFullNumber: trimmed.slice(0, 7) + expected,
+        };
       }
       return { isValid: true, error: null };
     }
 
     case 'UPC': {
-      if (!/^\d{11,12}$/.test(trimmed)) {
-        return { isValid: false, error: 'UPC-A requires exactly 11 or 12 numeric digits.' };
+      if (!/^\d+$/.test(trimmed)) {
+        return { isValid: false, error: 'UPC-A must contain numeric digits only.' };
       }
-      if (trimmed.length === 12) {
-        const expected = calculateUpcCheckDigit(trimmed.slice(0, 11));
-        const actual = parseInt(trimmed[11], 10);
-        if (expected !== actual) {
-          return {
-            isValid: false,
-            error: `Invalid UPC check digit. Expected ${expected} at the end, but got ${actual}.`,
-          };
-        }
+      if (trimmed.length === 11) {
+        const expected = calculateUpcCheckDigit(trimmed);
+        return {
+          isValid: false,
+          error: `UPC-A requires 12 digits. 11 data digits entered; valid check digit is ${expected}.`,
+          canAutoFixCheckDigit: true,
+          suggestedCheckDigit: String(expected),
+          suggestedFullNumber: trimmed + expected,
+        };
+      }
+      if (trimmed.length !== 12) {
+        return { isValid: false, error: `UPC-A requires exactly 12 numeric digits (currently ${trimmed.length}).` };
+      }
+      const expected = calculateUpcCheckDigit(trimmed.slice(0, 11));
+      const actual = parseInt(trimmed[11], 10);
+      if (expected !== actual) {
+        return {
+          isValid: false,
+          error: `Invalid UPC check digit: expected ${expected}, got ${actual}.`,
+          canAutoFixCheckDigit: true,
+          suggestedCheckDigit: String(expected),
+          suggestedFullNumber: trimmed.slice(0, 11) + expected,
+        };
       }
       return { isValid: true, error: null };
     }

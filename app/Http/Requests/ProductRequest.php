@@ -43,6 +43,8 @@ class ProductRequest extends FormRequest
             'quantity' => ['nullable', 'integer', 'min:0'],
             'low_stock_threshold' => ['nullable', 'integer', 'min:0'],
             'description' => ['nullable', 'string'],
+            'auto_generate_barcode' => ['nullable', 'boolean'],
+            'auto_barcode_format' => ['nullable', 'string', 'in:CODE128,EAN13,EAN8,UPC'],
         ];
     }
 

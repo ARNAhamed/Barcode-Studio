@@ -60,3 +60,8 @@ export const emptyProductTrash = async () => {
   const response = await api.delete('/products/trash/empty');
   return response.data;
 };
+
+export const bulkGenerateBarcodes = async (data = {}) => {
+  const response = await api.post('/products/bulk-generate-barcodes', data);
+  return response.data;
+};

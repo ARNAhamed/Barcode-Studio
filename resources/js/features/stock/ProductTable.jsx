@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import {
   ArrowUpDown,
   ArrowUp,
@@ -10,11 +12,14 @@ import {
   Search,
   X,
   PackageOpen,
+  Wand2,
+  Loader2,
 } from 'lucide-react';
 import Badge from '../../components/Badge';
 import Skeleton from '../../components/Skeleton';
 import EmptyState from '../../components/EmptyState';
 import Pagination from '../../components/Pagination';
+import { bulkGenerateBarcodes } from '../../api/products';
 
 export default function ProductTable({
   products = [],
@@ -30,6 +35,51 @@ export default function ProductTable({
   onDelete,
 }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkFormat, setBulkFormat] = useState('CODE128');
+  const [isBulkGenerating, setIsBulkGenerating] = useState(false);
+
+  // Clear selection on page/search change
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [page, searchTerm]);
+
+  const handleToggleSelect = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    if (products.length === 0) return;
+    if (selectedIds.length === products.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(products.map((p) => p.id));
+    }
+  };
+
+  const handleBulkGenerate = async () => {
+    setIsBulkGenerating(true);
+    try {
+      const targetIds = selectedIds.length > 0 ? selectedIds : undefined;
+      const res = await bulkGenerateBarcodes({
+        product_ids: targetIds,
+        format: bulkFormat,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['products-summary'] });
+      setSelectedIds([]);
+      toast.success(res.message || `${res.count} barcodes generated`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to generate missing barcodes.');
+    } finally {
+      setIsBulkGenerating(false);
+    }
+  };
 
   const handleHeaderSort = (column) => {
     if (sortField === column) {
@@ -78,9 +128,9 @@ export default function ProductTable({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
-      {/* Table Toolbar */}
-      <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-4">
-        <div className="relative w-full sm:w-80">
+      {/* Table Toolbar & Bulk Actions */}
+      <div className="p-3.5 sm:p-4 border-b border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="relative w-full sm:w-72">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
@@ -99,6 +149,44 @@ export default function ProductTable({
             </button>
           )}
         </div>
+
+        {/* Bulk Action Controls */}
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {selectedIds.length > 0 && (
+            <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg">
+              {selectedIds.length} selected
+            </span>
+          )}
+
+          <div className="flex items-center gap-1.5">
+            <select
+              value={bulkFormat}
+              onChange={(e) => setBulkFormat(e.target.value)}
+              className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg px-2 py-1.5 border-0 focus:ring-1 focus:ring-indigo-500 cursor-pointer transition-colors"
+              title="Barcode format for bulk generation"
+            >
+              <option value="CODE128">CODE128</option>
+              <option value="EAN13">EAN-13</option>
+              <option value="EAN8">EAN-8</option>
+              <option value="UPC">UPC-A</option>
+            </select>
+
+            <button
+              type="button"
+              onClick={handleBulkGenerate}
+              disabled={isBulkGenerating}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 active:bg-indigo-200 rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+              title="Generate missing barcodes for selected or missing products"
+            >
+              {isBulkGenerating ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Wand2 className="w-3.5 h-3.5" />
+              )}
+              <span>Generate missing barcodes</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Desktop / Tablet Table (768px and above) - table-fixed without horizontal scroll */}
@@ -106,10 +194,19 @@ export default function ProductTable({
         <table className="w-full table-fixed text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              <th className="py-3 pl-3 sm:pl-4 pr-1 w-[36px] min-w-[36px] text-center">
+                <input
+                  type="checkbox"
+                  checked={products.length > 0 && selectedIds.length === products.length}
+                  onChange={handleToggleSelectAll}
+                  className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                  title="Select all products"
+                />
+              </th>
               <th className="py-3 px-3 sm:px-4 w-auto min-w-0 truncate">Product</th>
               <th
                 onClick={() => handleHeaderSort('sku')}
-                className="hidden lg:table-cell py-3 px-3 w-[18%] xl:w-[14%] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
+                className="hidden lg:table-cell py-3 px-3 w-[17%] xl:w-[13%] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
               >
                 <div className="flex items-center gap-1.5 truncate">
                   <span>SKU</span>
@@ -119,7 +216,7 @@ export default function ProductTable({
               <th className="hidden xl:table-cell py-3 px-3 xl:w-[15%] truncate">Barcode / EAN</th>
               <th
                 onClick={() => handleHeaderSort('category')}
-                className="hidden xl:table-cell py-3 px-3 xl:w-[13%] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
+                className="hidden xl:table-cell py-3 px-3 xl:w-[12%] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
               >
                 <div className="flex items-center gap-1.5 truncate">
                   <span>Category</span>
@@ -128,7 +225,7 @@ export default function ProductTable({
               </th>
               <th
                 onClick={() => handleHeaderSort('price')}
-                className="py-3 px-3 w-[85px] min-w-[85px] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
+                className="py-3 px-3 w-[80px] min-w-[80px] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
               >
                 <div className="flex items-center gap-1.5 truncate">
                   <span>Price</span>
@@ -137,14 +234,14 @@ export default function ProductTable({
               </th>
               <th
                 onClick={() => handleHeaderSort('quantity')}
-                className="py-3 px-3 w-[65px] min-w-[65px] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
+                className="py-3 px-3 w-[60px] min-w-[60px] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
               >
                 <div className="flex items-center gap-1.5 truncate">
                   <span>Qty</span>
                   {getSortIcon('quantity')}
                 </div>
               </th>
-              <th className="py-3 px-3 w-[115px] min-w-[115px] truncate">Status</th>
+              <th className="py-3 px-3 w-[110px] min-w-[110px] truncate">Status</th>
               <th className="py-3 pr-4 pl-2 text-right w-[132px] min-w-[132px] shrink-0 truncate">Actions</th>
             </tr>
           </thead>
@@ -154,7 +251,7 @@ export default function ProductTable({
               <Skeleton type="table-row" count={5} />
             ) : products.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 px-4 text-center">
+                <td colSpan={9} className="py-12 px-4 text-center">
                   <EmptyState
                     icon={PackageOpen}
                     title="No products found"
@@ -171,8 +268,20 @@ export default function ProductTable({
               products.map((product) => (
                 <tr
                   key={product.id}
-                  className="hover:bg-slate-50/80 transition-colors group"
+                  className={`hover:bg-slate-50/80 transition-colors group ${
+                    selectedIds.includes(product.id) ? 'bg-indigo-50/30' : ''
+                  }`}
                 >
+                  {/* Row Checkbox */}
+                  <td className="py-3 pl-3 sm:pl-4 pr-1 text-center min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(product.id)}
+                      onChange={() => handleToggleSelect(product.id)}
+                      className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                    />
+                  </td>
+
                   {/* Name, SKU under name on <1024px, and Description */}
                   <td className="py-3 px-3 sm:px-4 min-w-0">
                     <div
@@ -310,9 +419,20 @@ export default function ProductTable({
           </div>
         ) : (
           products.map((product) => (
-            <div key={product.id} className="p-4 space-y-2.5 bg-white hover:bg-slate-50/50 transition-colors">
-              {/* Row 1: Name & Status */}
-              <div className="flex items-start justify-between gap-2">
+            <div
+              key={product.id}
+              className={`p-4 space-y-2.5 bg-white hover:bg-slate-50/50 transition-colors ${
+                selectedIds.includes(product.id) ? 'bg-indigo-50/25' : ''
+              }`}
+            >
+              {/* Row 1: Checkbox, Name & Status */}
+              <div className="flex items-start justify-between gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(product.id)}
+                  onChange={() => handleToggleSelect(product.id)}
+                  className="w-4 h-4 mt-0.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer shrink-0"
+                />
                 <div className="min-w-0 flex-1">
                   <h3 className="font-semibold text-slate-900 text-sm truncate" title={product.name}>
                     {product.name}

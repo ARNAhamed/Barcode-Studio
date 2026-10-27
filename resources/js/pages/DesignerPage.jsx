@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Barcode, QrCode, PenTool, Sparkles, ArrowLeft } from 'lucide-react';
+import { Barcode, QrCode, PenTool, Sparkles, ArrowLeft, Wand2, Check } from 'lucide-react';
 
 import BarcodeControls from '../features/designer/BarcodeControls';
 import QrControls from '../features/designer/QrControls';
@@ -12,6 +12,7 @@ import Skeleton from '../components/Skeleton';
 
 import { getCode, createCode, updateCode } from '../api/codes';
 import { getProduct } from '../api/products';
+import { generateBarcodeNumber } from '../api/barcodes';
 import { validateBarcode, validateQr } from '../utils/validators';
 import { validateDimension, fromPx, toPx } from '../utils/units';
 import {
@@ -67,6 +68,21 @@ export default function DesignerPage() {
   const [barcodeSettings, setBarcodeSettings] = useState(DEFAULT_BARCODE_SETTINGS);
   const [qrSettings, setQrSettings] = useState(DEFAULT_QR_SETTINGS);
   const [calculatedModuleWidth, setCalculatedModuleWidth] = useState(null);
+  const [isGeneratingValue, setIsGeneratingValue] = useState(false);
+
+  const handleGenerateValidNumber = async () => {
+    setIsGeneratingValue(true);
+    try {
+      const targetFormat = barcodeSettings.format || 'EAN13';
+      const res = await generateBarcodeNumber(targetFormat);
+      setValue(res.number);
+      toast.success(`Generated valid ${res.format}: ${res.number}`, { duration: 3000 });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to generate barcode number.');
+    } finally {
+      setIsGeneratingValue(false);
+    }
+  };
 
   // Fetch code if in edit mode (/designer/:id)
   const { data: codeData, isLoading: isLoadingCode } = useQuery({
@@ -395,10 +411,25 @@ export default function DesignerPage() {
                 <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
                   Encoded Value <span className="text-rose-500">*</span>
                 </label>
-                <span className="text-xs text-slate-400">
-                  {type === 'barcode' ? 'SKU or digits' : 'URL, text or SKU'}
-                </span>
+                <div className="flex items-center gap-2">
+                  {type === 'barcode' && ['EAN13', 'EAN8', 'UPC', 'CODE128'].includes(barcodeSettings.format) && (
+                    <button
+                      type="button"
+                      onClick={handleGenerateValidNumber}
+                      disabled={isGeneratingValue}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                      title={`Generate valid ${barcodeSettings.format} number`}
+                    >
+                      <Wand2 className="w-3 h-3" />
+                      <span>{isGeneratingValue ? 'Generating...' : 'Generate Valid Number'}</span>
+                    </button>
+                  )}
+                  <span className="text-xs text-slate-400">
+                    {type === 'barcode' ? 'SKU or digits' : 'URL, text or SKU'}
+                  </span>
+                </div>
               </div>
+
               <input
                 type="text"
                 value={value}
@@ -410,10 +441,46 @@ export default function DesignerPage() {
                     : 'border-slate-300 focus:border-indigo-500 focus:ring-indigo-100'
                 }`}
               />
+
+              {/* Inline error and auto-fix actions */}
               {!validationResult.isValid && (
-                <p className="mt-1.5 text-xs text-rose-500 font-medium">
-                  {validationResult.error}
-                </p>
+                <div className="mt-2 space-y-2">
+                  <p className="text-xs text-rose-500 font-medium">
+                    {validationResult.error}
+                  </p>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* 1-click check digit auto-fix suggestion */}
+                    {validationResult.canAutoFixCheckDigit && validationResult.suggestedFullNumber && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setValue(validationResult.suggestedFullNumber);
+                          toast.success(`Check digit added: ${validationResult.suggestedFullNumber}`);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>
+                          Add correct check digit (+{validationResult.suggestedCheckDigit}): <strong>{validationResult.suggestedFullNumber}</strong>
+                        </span>
+                      </button>
+                    )}
+
+                    {/* Generate valid number when format needs numbers */}
+                    {type === 'barcode' && ['EAN13', 'EAN8', 'UPC'].includes(barcodeSettings.format) && (
+                      <button
+                        type="button"
+                        onClick={handleGenerateValidNumber}
+                        disabled={isGeneratingValue}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        <Wand2 className="w-3.5 h-3.5" />
+                        <span>Generate valid {barcodeSettings.format} number</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>

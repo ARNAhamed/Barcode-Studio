@@ -72,6 +72,9 @@ Two-column layout: **controls (left)**, **live preview (right, sticky)**.
   - SVG download uses physical units (e.g. `width="50mm"`) when unit != px.
 - Optional label text under the code (e.g. product name / price).
 - Validation: show a clear inline error if the value is invalid for the chosen format (e.g. EAN13 needs 12–13 digits), or if size is non-positive or too small to scan.
+- **Automatic Number Generator**:
+  - When the selected format requires valid structured digits (EAN13, EAN8, UPC) and the value is empty or invalid, show a "Generate valid number" action.
+  - If 12 digits are entered for EAN13, offer a 1-click action to auto-calculate and append the correct GS1 check digit.
 - Buttons: **Save to Gallery**, **Download PNG**, **Download SVG** (barcode), **Reset**.
 - After save, show toast and redirect to Gallery.
 
@@ -80,6 +83,9 @@ Two-column layout: **controls (left)**, **live preview (right, sticky)**.
 - Columns: Image (optional), Name, SKU, Barcode Number, Category, Price, Quantity, Status (In stock / Low / Out), Actions.
 - Actions: Edit, Delete (moves to Recycle Bin with Undo toast), **Generate Code** (opens Designer with the product pre-selected).
 - Add/Edit product in a slide-over drawer or modal form.
+  - Includes a "Generate" button with a Wand icon next to the Barcode Number field, plus a format selector (`CODE128`, `EAN13`, `EAN8`, `UPC`), auto-filling a valid unique number with correct check digit.
+  - Option to auto-generate barcode number on product creation if left blank.
+- **Bulk Action**: "Generate missing barcodes" allows selecting products with empty barcodes and generating unique numbers in batch.
 - Low stock rule: quantity <= `low_stock_threshold` (default 10) shows an amber badge; 0 shows a red badge.
 - Summary cards on top: Total products, Low stock, Out of stock.
 - Header includes "Recycle Bin" button with count badge (opens `/bin?tab=products`).
@@ -125,6 +131,14 @@ Two-column layout: **controls (left)**, **live preview (right, sticky)**.
 | timestamps | | |
 | deleted_at | timestamp nullable | soft deletes |
 
+**barcode_sequences**
+| column | type | notes |
+|---|---|---|
+| id | bigint PK | |
+| format | string | unique (EAN13, EAN8, UPC, CODE128) |
+| last_number | bigint unsigned | sequence counter |
+| timestamps | | |
+
 ## 4. API Endpoints (prefix `/api`)
 
 | Method | Endpoint | Purpose |
@@ -151,6 +165,9 @@ Two-column layout: **controls (left)**, **live preview (right, sticky)**.
 | DELETE | `/products/{id}/force` | permanently delete single product |
 | POST | `/products/trash/restore-all` | restore all trashed products |
 | DELETE | `/products/trash/empty` | permanently delete all trashed products |
+| POST | `/products/bulk-generate-barcodes` | bulk auto-generate barcodes for products with empty numbers |
+| POST | `/barcodes/generate` | generate unique valid barcode number `{ format }` |
+| POST | `/barcodes/validate` | validate format and check digit `{ format, number }` |
 
 Backend rules: use Form Requests for validation, API Resources for responses, consistent JSON errors, run `php artisan storage:link`. React calls the API at the relative path `/api` (same origin, no CORS needed).
 

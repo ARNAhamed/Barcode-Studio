@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ProductRequest;
 use App\Http\Resources\ProductResource;
 use App\Models\Product;
+use App\Services\BarcodeNumberGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
@@ -87,13 +89,62 @@ class ProductController extends Controller
     /**
      * Store a newly created product in storage.
      */
-    public function store(ProductRequest $request): JsonResponse
+    public function store(ProductRequest $request, BarcodeNumberGenerator $generator): JsonResponse
     {
-        $product = Product::create($request->validated());
+        $data = $request->validated();
+
+        if (empty($data['barcode_number']) && $request->boolean('auto_generate_barcode')) {
+            $format = $request->input('auto_barcode_format', config('barcode.default_product_format', 'CODE128'));
+            $data['barcode_number'] = $generator->generate($format);
+        }
+
+        unset($data['auto_generate_barcode'], $data['auto_barcode_format']);
+
+        $product = Product::create($data);
 
         return (new ProductResource($product))
             ->response()
             ->setStatusCode(201);
+    }
+
+    /**
+     * Bulk auto-generate unique barcode numbers for products with missing barcodes.
+     */
+    public function bulkGenerateBarcodes(Request $request, BarcodeNumberGenerator $generator): JsonResponse
+    {
+        $request->validate([
+            'product_ids' => 'nullable|array',
+            'product_ids.*' => 'integer|exists:products,id',
+            'format' => 'nullable|string|in:CODE128,EAN13,EAN8,UPC',
+        ]);
+
+        $format = $request->input('format', config('barcode.default_product_format', 'CODE128'));
+        $productIds = $request->input('product_ids');
+
+        $query = Product::where(function ($q) {
+            $q->whereNull('barcode_number')
+              ->orWhere('barcode_number', '');
+        });
+
+        if (!empty($productIds)) {
+            $query->whereIn('id', $productIds);
+        }
+
+        $products = $query->get();
+        $count = 0;
+
+        DB::transaction(function () use ($products, $format, $generator, &$count) {
+            foreach ($products as $product) {
+                $newNumber = $generator->generate($format);
+                $product->update(['barcode_number' => $newNumber]);
+                $count++;
+            }
+        });
+
+        return response()->json([
+            'count' => $count,
+            'message' => "{$count} barcodes generated.",
+        ]);
     }
 
     /**

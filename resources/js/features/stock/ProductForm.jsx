@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
+import { Wand2, Loader2 } from 'lucide-react';
 import Button from '../../components/Button';
+import { generateBarcodeNumber } from '../../api/barcodes';
 
 export default function ProductForm({
   product = null,
@@ -21,7 +24,28 @@ export default function ProductForm({
     description: '',
   });
 
+  const [barcodeFormat, setBarcodeFormat] = useState('CODE128');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [autoGenerateOnCreate, setAutoGenerateOnCreate] = useState(false);
   const [clientErrors, setClientErrors] = useState({});
+
+  const handleGenerateBarcode = async () => {
+    setIsGenerating(true);
+    try {
+      const res = await generateBarcodeNumber(barcodeFormat);
+      setFormData((prev) => ({ ...prev, barcode_number: res.number }));
+      setClientErrors((prev) => {
+        const next = { ...prev };
+        delete next.barcode_number;
+        return next;
+      });
+      toast.success(`Generated valid ${res.format}: ${res.number}`, { duration: 3000 });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to generate barcode number.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   useEffect(() => {
     if (product) {
@@ -92,6 +116,8 @@ export default function ProductForm({
       quantity: parseInt(formData.quantity || '0', 10),
       low_stock_threshold: parseInt(formData.low_stock_threshold || '10', 10),
       description: formData.description.trim() || null,
+      auto_generate_barcode: !isEditing && autoGenerateOnCreate && !formData.barcode_number.trim(),
+      auto_barcode_format: barcodeFormat,
     };
 
     onSubmit(payload);
@@ -151,16 +177,45 @@ export default function ProductForm({
         </div>
 
         <div>
-          <label htmlFor="barcode_number" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-            Barcode / EAN <span className="text-slate-400 font-normal">(optional)</span>
-          </label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label htmlFor="barcode_number" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+              Barcode / EAN <span className="text-slate-400 font-normal">(optional)</span>
+            </label>
+            <div className="flex items-center gap-1.5">
+              <select
+                value={barcodeFormat}
+                onChange={(e) => setBarcodeFormat(e.target.value)}
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg px-2 py-1 border-0 focus:ring-1 focus:ring-indigo-500 cursor-pointer transition-colors"
+                title="Select format to generate"
+              >
+                <option value="CODE128">CODE128</option>
+                <option value="EAN13">EAN-13</option>
+                <option value="EAN8">EAN-8</option>
+                <option value="UPC">UPC-A</option>
+              </select>
+              <button
+                type="button"
+                onClick={handleGenerateBarcode}
+                disabled={isGenerating}
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 active:bg-indigo-200 rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                title="Generate valid unique barcode number"
+              >
+                {isGenerating ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Wand2 className="w-3.5 h-3.5" />
+                )}
+                <span>Generate</span>
+              </button>
+            </div>
+          </div>
           <input
             id="barcode_number"
             name="barcode_number"
             type="text"
             value={formData.barcode_number}
             onChange={handleChange}
-            placeholder="e.g. 8901234567890"
+            placeholder="e.g. 8901234567890 or PRD-000001"
             className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-sm font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
               getFieldError('barcode_number')
                 ? 'border-rose-400 focus:ring-rose-200'
@@ -169,6 +224,20 @@ export default function ProductForm({
           />
           {getFieldError('barcode_number') && (
             <p className="mt-1 text-xs text-rose-500">{getFieldError('barcode_number')}</p>
+          )}
+
+          {!isEditing && (
+            <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={autoGenerateOnCreate}
+                onChange={(e) => setAutoGenerateOnCreate(e.target.checked)}
+                className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+              />
+              <span className="text-xs text-slate-500">
+                Auto-generate {barcodeFormat} on save if left empty
+              </span>
+            </label>
           )}
         </div>
       </div>

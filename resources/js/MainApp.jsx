@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Sidebar from './components/Sidebar';
 import GalleryPage from './pages/GalleryPage';
@@ -9,8 +9,17 @@ import RecycleBinPage from './pages/RecycleBinPage';
 import PrintLabelsPage from './pages/PrintLabelsPage';
 
 export default function MainApp() {
+  const location = useLocation();
+  const isTwoPane =
+    location.pathname.startsWith('/designer') ||
+    location.pathname.startsWith('/print');
+
   return (
-    <div className="min-h-screen bg-[#FAFAFA] flex flex-col lg:flex-row w-full text-gray-900">
+    <div
+      className={`min-h-screen bg-[#FAFAFA] flex flex-col lg:flex-row w-full text-gray-900 ${
+        isTwoPane ? 'lg:h-screen lg:max-h-screen lg:overflow-hidden' : ''
+      }`}
+    >
       <Toaster
         position="top-right"
         toastOptions={{
@@ -43,8 +52,16 @@ export default function MainApp() {
       <Sidebar />
 
       {/* Main Content Area */}
-      <div className="flex-1 lg:pl-56 print:pl-0 print:m-0 flex flex-col min-h-screen min-w-0 max-w-full">
-        <main className="flex-1 p-4 sm:p-6 lg:p-6 print:p-0 print:m-0 max-w-7xl print:max-w-none w-full mx-auto min-w-0 flex flex-col">
+      <div
+        className={`flex-1 lg:pl-56 print:pl-0 print:m-0 flex flex-col min-h-screen min-w-0 max-w-full ${
+          isTwoPane ? 'lg:min-h-0 lg:h-screen lg:max-h-screen lg:overflow-hidden' : ''
+        }`}
+      >
+        <main
+          className={`flex-1 p-4 sm:p-6 lg:p-6 print:p-0 print:m-0 max-w-7xl print:max-w-none w-full mx-auto min-w-0 flex flex-col ${
+            isTwoPane ? 'lg:min-h-0 lg:h-full lg:overflow-hidden lg:pb-4' : ''
+          }`}
+        >
           <Routes>
             <Route path="/" element={<GalleryPage />} />
             <Route path="/designer" element={<DesignerPage />} />

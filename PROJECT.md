@@ -55,7 +55,9 @@ barcode-designer/
 
 ### 2.2 Designer (`/designer` and `/designer/:id`)
 Two-pane layout: **live preview (left, ~65-70% width, fixed in place)** and **editor controls (right, ~30-35% width, clamped min 340px to max 440px, scrolls independently)**.
-At 1366x768 and above, the page (body) does not scroll: height is tied to the visible window (`height: calc(100dvh - <top header height>)`).
+At 1024px and above, the page body and main content area do NOT scroll: height is strictly tied to the visible window (`height: calc(100dvh - <top header height>)` with `overflow: hidden`).
+The left pane is a flex column: header bar (`shrink-0`), canvas (`flex-1 min-h-0 overflow-hidden`, centered content), and footer (`shrink-0`).
+The right pane (editor) has its own `overflow-y-auto` with a thin scrollbar and `overscroll-behavior: contain`, so scrolling the editor never scrolls the page or preview, and scrolling over the preview never scrolls the editor.
 Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and the editor underneath.
 
 - **Preview Pane (Left)**: Built as a 3-part flex column:
@@ -63,7 +65,7 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
   - **Canvas (flex-1, min-h-0, overflow-hidden, centered content)**: No horizontal scrollbar. Artboard wrapper is sized precisely to its scaled dimensions so DOM flow matches visual scale. "Fit" zoom fits artboard inside canvas in BOTH width and height with small margin (recalculated via ResizeObserver). At zoom > Fit, user can pan by dragging or scrolling inside the canvas without scrolling the pane or window.
   - **Fixed Footer (shrink-0)**: ALWAYS fully visible inside the window. Holds size info, compact DPI selector, and **Save to Gallery**, **PNG**, **SVG**, and **Reset** buttons neatly wrapped (`flex-wrap, gap-2`, two rows at most).
 - **Editor Panel (Right)**:
-  - Scrolls independently on desktop, ends inside the window. Compact with tighter spacing, 13–14px text, 36px inputs, and small "Collapse all / Expand all" control.
+  - Scrolls independently on desktop, ends inside the window with `overscroll-behavior: contain`.
   - Compact with tighter spacing, 13–14px text, 36px inputs, and small "Collapse all / Expand all" control.
   - Collapsible sections (**Artboard**, **Code Size**, **Colors**, **Label Text**) with most used section open by default.
   - Related small inputs placed side by side in two columns (e.g. Width and Height, Foreground and Background).
@@ -90,14 +92,27 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 - **Code Sizing & Options**:
   - Barcode: Width and height inputs, format (CODE128, EAN13, EAN8, UPC, CODE39, ITF14), line color, background color, show text toggle, font size.
   - QR Code: Single size input (square), error correction (L/M/Q/H), dot style, corner style, foreground and background colors, optional center logo upload.
+- **Label Text (Barcode & QR modes)**:
+  - Custom label text field or product metadata.
+  - **Font size**: Number input plus slider in the selected unit family (default `pt`, range 6–72 pt, default 12 pt, decimals allowed; or `px`). Quick step buttons: `A-` (-1) and `A+` (+1).
+  - **Gap between code and text**: Number input plus slider in the selected unit (`px`, `mm`, `cm`, `inch`, stored internally in `px`), range 0–50 px equivalent (default 4 px). Quick step buttons: `-` (-1) and `+` (+1).
+  - **Font weight**: Toggle button group between `Regular` (400) and `Bold` (700).
+  - **Text alignment**: Alignment selector with `Left`, `Center`, and `Right` (default `Center`).
+  - **Artboard & Export integration**:
+    - The code plus its label are treated and positioned together as one unified object.
+    - "Fit to artboard" and vertical/horizontal alignment rules take total object height (code + gap + label) into account.
+    - If label is wider than the barcode/QR code, text wraps neatly onto two lines or shrinks with an inline warning, never clipping.
+    - Human-readable text under barcode bars and custom label are separated cleanly and never overlap.
+    - Show calculated label height in the "Artboard: ..." size info, and show a clear warning if the label/code exceeds artboard boundaries.
+    - Live preview, saved Gallery cards, PNG, and SVG downloads at chosen DPI reflect exact font size, gap, weight, and alignment.
+    - Saved in `codes.settings` as `label_font_size`, `label_font_unit`, `label_gap`, `label_weight`, and `label_align`. Legacy codes without these fields default to 12 pt, 4 px gap, Regular, Center.
 - **Export & Save**:
   - Export DPI selector: 72, 150, 300, 600 (default 300).
   - PNG and SVG downloads export the whole artboard at chosen DPI/physical units.
   - Checkbox: "Export code only (without artboard)" for legacy behavior.
-  - Save artboard settings in `codes.settings`: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit mode, x/y offset, export_code_only.
-  - Reopening `/designer/:id` restores full artboard and code state. Legacy saved codes default to `Auto` preset.
+  - Save artboard settings in `codes.settings`: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit mode, x/y offset, export_code_only, label text settings.
+  - Reopening `/designer/:id` restores full artboard, code, and label styling state. Legacy saved codes default to `Auto` preset.
   - Preview saved to Gallery is the artboard; Gallery cards use `object-contain` so various aspect ratios render cleanly without distortion.
-- Optional label text under the code (product name, price, or custom label).
 - Validation: show a clear inline error if the value is invalid for the chosen format, or if size is non-positive or too small to scan.
 - **Automatic Number Generator**:
   - When the selected format requires valid structured digits (EAN13, EAN8, UPC) and the value is empty or invalid, show a "Generate valid number" action.
@@ -139,13 +154,36 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 - Header includes "Recycle Bin" button with count badge (opens `/bin?tab=products`).
 
 ### 2.4 Print Labels (`/print`)
-- **Layout**: Swapped two-pane layout on desktop — **live paper sheet preview on the LEFT (~65-70% width, fixed)** and **settings on the RIGHT (~30-35% width, clamped min 340px to max 440px, scrolls independently)**. At 1366x768 and above, page body does not scroll: height is tied to window (`height: calc(100dvh - <top header height>)`). Three-part preview structure: header bar (shrink-0), canvas (flex-1, min-h-0, overflow-hidden, paper auto-scaled to fit via ResizeObserver in width and height), and footer/header with page navigation. Stacked on mobile/tablet below 1024px with the paper preview sticky at the top (compact, max 40vh). Zero horizontal scrollbar at all window sizes.
+- **Layout**: Swapped two-pane layout on desktop — **live paper sheet preview on the LEFT (~65-70% width, fixed in place)** and **settings on the RIGHT (~30-35% width, clamped min 340px to max 440px, scrolls independently)**.
+  - At 1024px and above, the page body and main content area do NOT scroll: height is strictly tied to the visible window (`height: calc(100dvh - <top header height>)` with `overflow: hidden`).
+  - Three-part preview structure: header bar (`shrink-0`), canvas (`flex-1 min-h-0 overflow-hidden`, paper auto-scaled to fit via ResizeObserver in width and height), and fixed footer with sheet size info and page navigation.
+  - Right pane (editor/settings) has independent `overflow-y-auto` with thin scrollbar and `overscroll-behavior: contain`. Scrolling settings never scrolls preview or page.
+  - Stacked on mobile/tablet below 1024px with paper preview sticky at the top (compact, max 40vh) and settings underneath.
+  - Zero horizontal scrollbar at all window sizes.
 - **Choose what to print**:
   - Multi-select list of saved designs from Gallery with live search, preview thumbnails, and format/type filter (All / Barcode / QR). Excludes trashed codes.
   - Copies per code selector (default 1) with "Set all to N" batch shortcut.
   - "Add all codes for selected products" quick action; pre-selection via URL query (`/print?code_ids=1,2,3` or `/print?product_ids=4,5`).
 - **Sheet settings**:
-  - Paper size: A4 (210 x 297 mm) or Letter (215.9 x 279.4 mm), with Portrait / Landscape orientation toggle.
+  - **Paper size options**:
+    - `A4` (210 x 297 mm, default)
+    - `Letter` (215.9 x 279.4 mm / 8.5 x 11 in)
+    - `A3` (297 x 420 mm)
+    - `A5` (148 x 210 mm)
+    - `A6` (105 x 148 mm)
+    - `Legal` (215.9 x 355.6 mm / 8.5 x 14 in)
+    - `4 x 6 inch` (101.6 x 152.4 mm, shipping label roll)
+    - `Custom`: Displays manual Width and Height inputs in selected unit (`mm`, `cm`, `inch`) supporting decimals.
+  - Orientation toggle (Portrait / Landscape) that swaps width and height.
+  - **Validation for Custom Paper**: Minimum 20 mm, maximum 1000 mm (or unit equivalent) on each side; no empty, zero, or negative numbers; inline validation error. Displays final calculated size beneath input, e.g. "Paper: 210 x 297 mm".
+  - **Custom Size Integration**:
+    - Live preview paper auto-scales to fit canvas in both width and height via ResizeObserver.
+    - Grid calculation ("Match my design size" and label-per-page count), margins, and page counts respect the exact custom paper dimensions.
+    - Browser print stylesheet sets exact `@page { size: <w>mm <h>mm; margin: 0; }`.
+    - PDF export creates pages with exact custom dimensions in mm.
+    - Note under Print button when custom paper is used: "Choose the same paper size in the print dialog and set the scale to 100%."
+    - Warning alert if grid and margins do not fit on the custom paper size.
+    - Saved in `print_presets` table and restored when preset is loaded.
   - Standard label sheet presets (columns x rows, label size in mm):
     - `3x8` (63.5 x 33.9 mm)
     - `2x7` (99.1 x 38.1 mm)
@@ -211,7 +249,7 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 | type | enum(`barcode`,`qr`) | |
 | format | string | e.g. CODE128, QR |
 | value | text | encoded content |
-| settings | json | design options (colors, styles, unit, width, height, dpi, lock_aspect_ratio, artboard: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, export_code_only) |
+| settings | json | design options (colors, styles, unit, width, height, dpi, lock_aspect_ratio, artboard: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, export_code_only; label: text, font_size, font_unit, gap, weight, alignment) |
 | preview_path | string nullable | saved PNG in `storage/app/public/previews` |
 | timestamps | | |
 | deleted_at | timestamp nullable | soft deletes |
@@ -229,7 +267,7 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 |---|---|---|
 | id | bigint PK | |
 | name | string | required, e.g. "Avery 3x8" |
-| paper_size | string | `a4`, `letter` |
+| paper_size | string | `a4`, `letter`, `a3`, `a5`, `a6`, `legal`, `4x6`, `custom` |
 | orientation | enum(`portrait`,`landscape`) | default `portrait` |
 | columns | integer | number of columns |
 | rows | integer | number of rows |
@@ -351,6 +389,7 @@ Backend rules: use Form Requests for validation, API Resources for responses, co
    - Code preview centered on neutral light gray background (`bg-zinc-100`), name and metadata below, actions as ghost icon buttons (visible on hover on desktop, always visible on touch).
 10. **Workspaces (Designer & Print):**
     - Neutral light gray canvas (`bg-zinc-100`), white artboard/paper sheet with hairline border (`border-gray-200`) and subtle boundary, without heavy drop shadows.
+    - Two-pane independent scrolling at 1024px and above: Page body and root container do NOT scroll (`overflow: hidden`, `height: calc(100dvh - <header height>)`). Left pane (preview) is fixed with auto-fit content; right pane (editor/settings) has independent `overflow-y-auto` with thin scrollbar and `overscroll-behavior: contain`. Scrolling over one pane never moves the other pane or the outer window. Below 1024px, preview is sticky at top with controls scrolling underneath. List pages (Gallery, Stock, Bin) retain standard vertical document scrolling.
 11. **Modals & Drawers:**
     - White surface, 12px radius (`rounded-xl`), dim blurred overlay (`bg-gray-900/40 backdrop-blur-xs`), clean header with title and close icon, generous spacing, fixed footer with secondary and primary buttons aligned right.
     - Fits window (`max-h-[calc(100dvh-2rem)]`), scrollable body, full-screen on mobile (`390px`).

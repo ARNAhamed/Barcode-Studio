@@ -26,7 +26,12 @@ export default function PaperPreview({
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
 
-  const { widthMm, heightMm } = getPaperDimensions(config.paper_size, config.orientation);
+  const { widthMm, heightMm } = getPaperDimensions(
+    config.paper_size,
+    config.orientation,
+    config.custom_width,
+    config.custom_height
+  );
 
   // 1mm = 3.7795275591 px at 96 DPI
   const MM_TO_PX = 3.7795275591;

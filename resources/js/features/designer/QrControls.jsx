@@ -1,6 +1,7 @@
 import React from 'react';
 import { Upload, X, AlertTriangle } from 'lucide-react';
 import { UNITS, convertUnit } from '../../utils/units';
+import LabelTextControls from './LabelTextControls';
 
 const DOT_STYLES = [
   { value: 'square', label: 'Square' },
@@ -285,18 +286,11 @@ export default function QrControls({
   );
 
   const renderLabelSection = () => (
-    <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1.5">
-        Custom Label Under Code <span className="text-gray-400 font-normal">(optional)</span>
-      </label>
-      <input
-        type="text"
-        value={settings.label || ''}
-        onChange={(e) => onChange({ ...settings, label: e.target.value })}
-        placeholder="e.g. Scan to order online"
-        className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors"
-      />
-    </div>
+    <LabelTextControls
+      settings={settings}
+      onChange={onChange}
+      activeUnit={settings.unit || 'px'}
+    />
   );
 
   if (section === 'size') return renderSizeSection();

@@ -52,6 +52,8 @@ const DEFAULT_CONFIG = {
   gap_vertical: 0,
   corner_radius: 1.5,
   unit: 'mm',
+  custom_width: 210,
+  custom_height: 297,
 };
 
 const DEFAULT_PLACEMENT = {
@@ -111,7 +113,11 @@ export default function PrintLabelsPage() {
         gap_vertical: config.gap_vertical,
         corner_radius: config.corner_radius || 0,
         unit: config.unit || 'mm',
-        settings: placement,
+        settings: {
+          ...placement,
+          custom_width: config.custom_width,
+          custom_height: config.custom_height,
+        },
       });
     },
     onSuccess: (res) => {
@@ -267,7 +273,7 @@ export default function PrintLabelsPage() {
   const fitValidation = useMemo(() => validateSheetFit(config), [config]);
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 w-full lg:h-[calc(100dvh-4.25rem)] lg:overflow-hidden">
+    <div className="flex flex-col flex-1 min-h-0 w-full h-full lg:overflow-hidden">
       {/* Page Header (Hidden on print) */}
       <div className="no-print shrink-0 pb-2.5 mb-3 border-b border-gray-200">
         <PageHeader
@@ -275,26 +281,33 @@ export default function PrintLabelsPage() {
           description="Generate label sheets on A4 or US Letter paper with precise Avery & custom grids."
           className="pb-0 border-0"
           action={
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="md"
-                onClick={handleExportPdf}
-                disabled={selectedItems.length === 0 || isExportingPdf}
-                isLoading={isExportingPdf}
-                icon={FileDown}
-              >
-                Download PDF
-              </Button>
-              <Button
-                variant="primary"
-                size="md"
-                onClick={handlePrint}
-                disabled={selectedItems.length === 0}
-                icon={Printer}
-              >
-                Print Labels
-              </Button>
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={handleExportPdf}
+                  disabled={selectedItems.length === 0 || isExportingPdf}
+                  isLoading={isExportingPdf}
+                  icon={FileDown}
+                >
+                  Download PDF
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={handlePrint}
+                  disabled={selectedItems.length === 0}
+                  icon={Printer}
+                >
+                  Print Labels
+                </Button>
+              </div>
+              {config?.paper_size === 'custom' && (
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                  Choose the same paper size in the print dialog and set the scale to 100%.
+                </p>
+              )}
             </div>
           }
         />
@@ -317,7 +330,7 @@ export default function PrintLabelsPage() {
         </div>
 
         {/* Right Pane (Settings & Controls): scrolls independently on desktop */}
-        <div className="w-full lg:w-[380px] xl:w-[420px] min-w-0 lg:min-w-[340px] lg:max-w-[440px] shrink-0 order-2 lg:order-2 space-y-4 lg:overflow-y-auto lg:h-full pr-0 lg:pr-1 no-print">
+        <div className="w-full lg:w-[380px] xl:w-[420px] min-w-0 lg:min-w-[340px] lg:max-w-[440px] shrink-0 order-2 lg:order-2 space-y-4 lg:overflow-y-auto lg:h-full pr-0 lg:pr-1 [scrollbar-width:thin] [overscroll-behavior:contain] no-print">
           {/* Section 1: Choose What to Print */}
           <DesignSelector
             items={selectedItems}

@@ -27,7 +27,7 @@ class PrintPresetController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:100',
-            'paper_size' => 'required|string|in:a4,letter',
+            'paper_size' => 'required|string|in:a4,letter,a3,a5,a6,legal,4x6,custom',
             'orientation' => 'required|string|in:portrait,landscape',
             'columns' => 'required|integer|min:1|max:20',
             'rows' => 'required|integer|min:1|max:50',

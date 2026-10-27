@@ -1,6 +1,7 @@
 import React from 'react';
 import { Lock, Unlock, AlertTriangle, Info } from 'lucide-react';
 import { UNITS, convertUnit, toPx, fromPx } from '../../utils/units';
+import LabelTextControls from './LabelTextControls';
 
 const BARCODE_FORMATS = [
   { value: 'CODE128', label: 'CODE128 (Standard alphanumeric)' },
@@ -366,21 +367,11 @@ export default function BarcodeControls({
   );
 
   const renderLabelSection = () => (
-    <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1.5">
-        Custom Label Under Code <span className="text-gray-400 font-normal">(optional)</span>
-      </label>
-      <input
-        type="text"
-        value={settings.label || ''}
-        onChange={(e) => onChange({ ...settings, label: e.target.value })}
-        placeholder="e.g. Ergonomic Keyboard - $89.50"
-        className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors"
-      />
-      <p className="mt-1 text-xs text-gray-500">
-        Displayed centered beneath the barcode in preview and downloads.
-      </p>
-    </div>
+    <LabelTextControls
+      settings={settings}
+      onChange={onChange}
+      activeUnit={settings.unit || 'px'}
+    />
   );
 
   if (section === 'size') return renderSizeSection();

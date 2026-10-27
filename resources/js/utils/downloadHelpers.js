@@ -72,7 +72,8 @@ export const downloadSvgElement = (
   filename = 'barcode.svg',
   physicalWidth = null,
   physicalHeight = null,
-  unit = 'px'
+  unit = 'px',
+  labelOptions = null
 ) => {
   if (!svgElement) return;
 
@@ -84,13 +85,36 @@ export const downloadSvgElement = (
     clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
   }
 
-  // Ensure viewBox exists to preserve aspect ratio and scalability
-  const originalWidth = clone.getAttribute('width') || clone.getBoundingClientRect()?.width || 200;
-  const originalHeight = clone.getAttribute('height') || clone.getBoundingClientRect()?.height || 100;
+  let originalWidth = parseFloat(clone.getAttribute('width')) || clone.getBoundingClientRect()?.width || 200;
+  let originalHeight = parseFloat(clone.getAttribute('height')) || clone.getBoundingClientRect()?.height || 100;
 
-  if (!clone.getAttribute('viewBox')) {
-    clone.setAttribute('viewBox', `0 0 ${originalWidth} ${originalHeight}`);
+  if (labelOptions?.text) {
+    const fontUnit = labelOptions.fontUnit || 'pt';
+    const fontSize = parseFloat(labelOptions.fontSize) || 12;
+    const fontSizePx = fontUnit === 'pt' ? (fontSize * 96) / 72 : fontSize;
+    const gap = Math.max(0, parseFloat(labelOptions.gap) || 4);
+    const weight = labelOptions.weight === 'bold' ? 'bold' : 'normal';
+    const align = labelOptions.align || 'center';
+
+    const textElem = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    const textY = originalHeight + gap + fontSizePx * 0.85;
+    const textX = align === 'center' ? originalWidth / 2 : align === 'right' ? originalWidth : 0;
+    const anchor = align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start';
+
+    textElem.setAttribute('x', textX);
+    textElem.setAttribute('y', textY);
+    textElem.setAttribute('text-anchor', anchor);
+    textElem.setAttribute('font-size', `${fontSizePx}px`);
+    textElem.setAttribute('font-weight', weight);
+    textElem.setAttribute('font-family', 'system-ui, -apple-system, sans-serif');
+    textElem.setAttribute('fill', '#0F172A');
+    textElem.textContent = labelOptions.text;
+
+    clone.appendChild(textElem);
+    originalHeight = textY + fontSizePx * 0.35;
   }
+
+  clone.setAttribute('viewBox', `0 0 ${originalWidth} ${originalHeight}`);
 
   // If physical units specified, apply them (e.g. width="50mm" or width="5cm")
   if (physicalWidth && physicalHeight) {
@@ -101,6 +125,9 @@ export const downloadSvgElement = (
       clone.setAttribute('width', `${Math.round(physicalWidth)}px`);
       clone.setAttribute('height', `${Math.round(physicalHeight)}px`);
     }
+  } else {
+    clone.setAttribute('width', `${Math.round(originalWidth)}px`);
+    clone.setAttribute('height', `${Math.round(originalHeight)}px`);
   }
 
   const serializer = new XMLSerializer();
@@ -128,6 +155,9 @@ export const downloadArtboardSvg = ({
   codeY = 0,
   fitScale = 1,
   filename = 'artboard.svg',
+  labelOptions = null,
+  codeRawWidth = 260,
+  codeRawHeight = 100,
 }) => {
   // Convert physical artboard size to 96 DPI viewBox pixels
   let artboardPxW = artboardWidth;
@@ -153,6 +183,28 @@ export const downloadArtboardSvg = ({
     codeInnerXml = clone.outerHTML || new XMLSerializer().serializeToString(clone);
   }
 
+  let labelXml = '';
+  if (labelOptions?.text) {
+    const fontUnit = labelOptions.fontUnit || 'pt';
+    const fontSize = parseFloat(labelOptions.fontSize) || 12;
+    const fontSizePx = fontUnit === 'pt' ? (fontSize * 96) / 72 : fontSize;
+    const gap = Math.max(0, parseFloat(labelOptions.gap) || 4);
+    const weight = labelOptions.weight === 'bold' ? 'bold' : 'normal';
+    const align = labelOptions.align || 'center';
+
+    const textY = codeRawHeight + gap + fontSizePx * 0.85;
+    const textX = align === 'center' ? codeRawWidth / 2 : align === 'right' ? codeRawWidth : 0;
+    const anchor = align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start';
+
+    const escaped = String(labelOptions.text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+
+    labelXml = `<text x="${textX}" y="${textY}" text-anchor="${anchor}" font-size="${fontSizePx}" font-weight="${weight}" font-family="system-ui, -apple-system, sans-serif" fill="#0F172A">${escaped}</text>`;
+  }
+
   const svgContent = `<?xml version="1.0" encoding="utf-8" standalone="no"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
      width="${unit !== 'px' ? `${artboardWidth}${unit}` : `${Math.round(artboardPxW)}px`}"
@@ -164,6 +216,7 @@ export const downloadArtboardSvg = ({
         stroke-width="${strokeWidth}" />
   <g transform="translate(${codeX}, ${codeY}) scale(${fitScale})">
     ${codeInnerXml}
+    ${labelXml}
   </g>
 </svg>`;
 

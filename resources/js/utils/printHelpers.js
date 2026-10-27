@@ -14,6 +14,42 @@ export const PAPER_SIZES = {
     widthMm: 215.9,
     heightMm: 279.4,
   },
+  a3: {
+    id: 'a3',
+    name: 'A3',
+    widthMm: 297,
+    heightMm: 420,
+  },
+  a5: {
+    id: 'a5',
+    name: 'A5',
+    widthMm: 148,
+    heightMm: 210,
+  },
+  a6: {
+    id: 'a6',
+    name: 'A6',
+    widthMm: 105,
+    heightMm: 148,
+  },
+  legal: {
+    id: 'legal',
+    name: 'US Legal',
+    widthMm: 215.9,
+    heightMm: 355.6,
+  },
+  '4x6': {
+    id: '4x6',
+    name: '4 × 6 inch',
+    widthMm: 101.6,
+    heightMm: 152.4,
+  },
+  custom: {
+    id: 'custom',
+    name: 'Custom',
+    widthMm: 210,
+    heightMm: 297,
+  },
 };
 
 export const STANDARD_SHEET_PRESETS = [
@@ -100,10 +136,47 @@ export const STANDARD_SHEET_PRESETS = [
 ];
 
 /**
- * Get effective paper dimensions in mm considering orientation
+ * Validate custom paper width and height (20mm - 1000mm)
  */
-export const getPaperDimensions = (paperSizeKey = 'a4', orientation = 'portrait') => {
-  const base = PAPER_SIZES[paperSizeKey] || PAPER_SIZES.a4;
+export const validateCustomPaper = (widthMm, heightMm) => {
+  const w = parseFloat(widthMm);
+  const h = parseFloat(heightMm);
+
+  if (isNaN(w) || w === null || w === undefined || w <= 0) {
+    return { isValid: false, error: 'Paper width is required and must be greater than 0.' };
+  }
+  if (isNaN(h) || h === null || h === undefined || h <= 0) {
+    return { isValid: false, error: 'Paper height is required and must be greater than 0.' };
+  }
+  if (w < 20 || w > 1000) {
+    return { isValid: false, error: 'Width must be between 20 mm and 1000 mm (0.79–39.37 in).' };
+  }
+  if (h < 20 || h > 1000) {
+    return { isValid: false, error: 'Height must be between 20 mm and 1000 mm (0.79–39.37 in).' };
+  }
+
+  return { isValid: true, error: null };
+};
+
+/**
+ * Get effective paper dimensions in mm considering orientation and custom sizes
+ */
+export const getPaperDimensions = (
+  paperSizeKey = 'a4',
+  orientation = 'portrait',
+  customWidthMm = 210,
+  customHeightMm = 297
+) => {
+  let base;
+  if (paperSizeKey === 'custom') {
+    base = {
+      widthMm: parseFloat(customWidthMm) || 210,
+      heightMm: parseFloat(customHeightMm) || 297,
+    };
+  } else {
+    base = PAPER_SIZES[paperSizeKey] || PAPER_SIZES.a4;
+  }
+
   if (orientation === 'landscape') {
     return {
       widthMm: base.heightMm,
@@ -120,7 +193,12 @@ export const getPaperDimensions = (paperSizeKey = 'a4', orientation = 'portrait'
  * Calculate if label sheet configuration fits within paper bounds
  */
 export const validateSheetFit = (config) => {
-  const { widthMm, heightMm } = getPaperDimensions(config.paper_size, config.orientation);
+  const { widthMm, heightMm } = getPaperDimensions(
+    config.paper_size,
+    config.orientation,
+    config.custom_width,
+    config.custom_height
+  );
 
   const cols = parseInt(config.columns, 10) || 1;
   const rows = parseInt(config.rows, 10) || 1;
@@ -155,7 +233,12 @@ export const validateSheetFit = (config) => {
  * Build auto-grid matching design dimensions
  */
 export const calculateAutoGrid = (designWidthMm, designHeightMm, config) => {
-  const { widthMm, heightMm } = getPaperDimensions(config.paper_size, config.orientation);
+  const { widthMm, heightMm } = getPaperDimensions(
+    config.paper_size,
+    config.orientation,
+    config.custom_width,
+    config.custom_height
+  );
 
   const leftM = parseFloat(config.margin_left) || 8;
   const topM = parseFloat(config.margin_top) || 10;
@@ -284,14 +367,18 @@ export const exportSheetPdf = async ({
   placement = {},
   onProgress,
 }) => {
-  const { widthMm, heightMm } = getPaperDimensions(config.paper_size, config.orientation);
+  const { widthMm, heightMm } = getPaperDimensions(
+    config.paper_size,
+    config.orientation,
+    config.custom_width,
+    config.custom_height
+  );
   const orientation = config.orientation === 'landscape' ? 'landscape' : 'portrait';
-  const paperFormat = config.paper_size === 'letter' ? 'letter' : 'a4';
 
   const doc = new jsPDF({
     orientation,
     unit: 'mm',
-    format: paperFormat,
+    format: [widthMm, heightMm],
     compress: true,
   });
 
@@ -314,7 +401,7 @@ export const exportSheetPdf = async ({
 
   for (let pIdx = 0; pIdx < pages.length; pIdx++) {
     if (pIdx > 0) {
-      doc.addPage(paperFormat, orientation);
+      doc.addPage([widthMm, heightMm], orientation);
     }
 
     if (onProgress) {

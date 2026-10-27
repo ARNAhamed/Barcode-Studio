@@ -76,7 +76,10 @@ export default function SavePresetModal({
           <div className="flex items-center justify-between text-gray-600">
             <span>Paper:</span>
             <span className="font-semibold text-gray-900 uppercase">
-              {config?.paper_size} ({config?.orientation})
+              {config?.paper_size === 'custom'
+                ? `Custom (${Math.round((config?.custom_width || 210) * 10) / 10} × ${Math.round((config?.custom_height || 297) * 10) / 10} mm)`
+                : config?.paper_size}{' '}
+              ({config?.orientation})
             </span>
           </div>
           <div className="flex items-center justify-between text-gray-600">

@@ -56,6 +56,11 @@ const DEFAULT_BARCODE_SETTINGS = {
   lineColor: '#000000',
   background: '#ffffff',
   label: '',
+  labelFontSize: 12,
+  labelFontUnit: 'pt',
+  labelGap: 4,
+  labelWeight: 'normal',
+  labelAlign: 'center',
   dpi: 300,
 };
 
@@ -69,6 +74,11 @@ const DEFAULT_QR_SETTINGS = {
   background: '#ffffff',
   logo: null,
   label: '',
+  labelFontSize: 12,
+  labelFontUnit: 'pt',
+  labelGap: 4,
+  labelWeight: 'normal',
+  labelAlign: 'center',
   dpi: 300,
 };
 
@@ -415,13 +425,38 @@ export default function DesignerPage() {
   const handleDownloadSvg = () => {
     try {
       const filename = `${name.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'code'}.svg`;
+      const hasLabel = Boolean(activeSettings.label && activeSettings.label.trim());
+      const labelFontUnit = activeSettings.labelFontUnit || 'pt';
+      const labelFontSize = Number(activeSettings.labelFontSize || (labelFontUnit === 'pt' ? 12 : 16));
+      const labelFontSizePx = labelFontUnit === 'pt' ? (labelFontSize * 96) / 72 : labelFontSize;
+      const labelGapPx = hasLabel ? Math.max(0, Number(activeSettings.labelGap !== undefined ? activeSettings.labelGap : 4)) : 0;
+      const labelWeight = activeSettings.labelWeight || 'normal';
+      const labelAlign = activeSettings.labelAlign || 'center';
+
+      const labelOptions = hasLabel ? {
+        text: activeSettings.label,
+        fontSize: labelFontSize,
+        fontUnit: labelFontUnit,
+        gap: labelGapPx,
+        weight: labelWeight,
+        align: labelAlign,
+      } : null;
+
+      const codeW = toPx(activeSettings.width || activeSettings.size, activeSettings.unit);
+      const codeH = toPx(activeSettings.height || activeSettings.size, activeSettings.unit);
+
+      // Estimate label height
+      const estimatedCharWidth = labelFontSizePx * 0.55;
+      const estimatedTextWidth = hasLabel ? activeSettings.label.trim().length * estimatedCharWidth : 0;
+      const isLabelWider = hasLabel && estimatedTextWidth > codeW;
+      const labelLines = isLabelWider ? Math.min(3, Math.ceil(estimatedTextWidth / Math.max(80, codeW))) : 1;
+      const labelPxHeight = hasLabel ? Math.round(labelFontSizePx * 1.35 * labelLines) : 0;
+      const totalH = codeH + (hasLabel ? labelGapPx + labelPxHeight : 0);
 
       if (artboardSettings.preset !== 'auto' && !artboardSettings.exportCodeOnly) {
         // Export entire Artboard as SVG
         const artboardPxW = toPx(artboardSettings.width, artboardSettings.unit);
         const artboardPxH = toPx(artboardSettings.height, artboardSettings.unit);
-        const codeW = toPx(activeSettings.width || activeSettings.size, activeSettings.unit);
-        const codeH = toPx(activeSettings.height || activeSettings.size, activeSettings.unit);
 
         let fitScale = 1;
         const paddingPx = toPx(artboardSettings.padding || 5, artboardSettings.unit);
@@ -429,13 +464,13 @@ export default function DesignerPage() {
         const availH = Math.max(10, artboardPxH - (2 * paddingPx));
 
         if (artboardSettings.fit === 'fit') {
-          fitScale = Math.min(availW / codeW, availH / codeH);
+          fitScale = Math.min(availW / codeW, availH / totalH);
         } else if (artboardSettings.fit === 'fill-width') {
           fitScale = availW / codeW;
         }
 
         const scaledW = codeW * fitScale;
-        const scaledH = codeH * fitScale;
+        const scaledH = totalH * fitScale;
 
         let baseX = (artboardPxW - scaledW) / 2;
         let baseY = (artboardPxH - scaledH) / 2;
@@ -459,6 +494,9 @@ export default function DesignerPage() {
           codeY,
           fitScale,
           filename,
+          labelOptions,
+          codeRawWidth: codeW,
+          codeRawHeight: codeH,
         });
         toast.success(`Artboard SVG downloaded (${artboardSettings.width} × ${artboardSettings.height} ${artboardSettings.unit})!`);
       } else {
@@ -468,7 +506,8 @@ export default function DesignerPage() {
           filename,
           activeSettings.width || activeSettings.size,
           activeSettings.height || activeSettings.size,
-          activeSettings.unit
+          activeSettings.unit,
+          labelOptions
         );
         toast.success(`Code SVG downloaded!`);
       }
@@ -506,7 +545,7 @@ export default function DesignerPage() {
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 w-full lg:h-[calc(100dvh-4.25rem)] lg:overflow-hidden">
+    <div className="flex flex-col flex-1 min-h-0 w-full h-full lg:overflow-hidden">
       {/* Header */}
       <PageHeader
         title={id ? 'Edit Code' : 'Barcode & QR Designer'}
@@ -583,7 +622,7 @@ export default function DesignerPage() {
         </div>
 
         {/* Right Column: Controls Editor (clamped 340px to 440px, scrolls independently on desktop) */}
-        <div className="order-2 lg:order-2 w-full lg:w-[380px] xl:w-[420px] min-w-0 lg:min-w-[340px] lg:max-w-[440px] shrink-0 lg:h-full lg:overflow-y-auto lg:pr-1">
+        <div className="order-2 lg:order-2 w-full lg:w-[380px] xl:w-[420px] min-w-0 lg:min-w-[340px] lg:max-w-[440px] shrink-0 lg:h-full lg:overflow-y-auto lg:pr-1 [scrollbar-width:thin] [overscroll-behavior:contain]">
           <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100">
             {/* Card 1: Data Source & Content */}
             <div className="p-4 sm:p-5 space-y-3.5">

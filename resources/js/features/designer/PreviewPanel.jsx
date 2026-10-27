@@ -80,14 +80,34 @@ export default function PreviewPanel({
     ? toPx(settings.height || 100, codeUnit)
     : toPx(settings.size || 220, codeUnit);
 
+  // Label Text & Unified Object Dimensions
+  const hasLabel = Boolean(settings.label && settings.label.trim());
+  const labelFontUnit = settings.labelFontUnit || 'pt';
+  const labelFontSize = Number(settings.labelFontSize || (labelFontUnit === 'pt' ? 12 : 16));
+  const labelFontSizePx = labelFontUnit === 'pt' ? (labelFontSize * 96) / 72 : labelFontSize;
+  const labelGapPx = hasLabel ? Math.max(0, Number(settings.labelGap !== undefined ? settings.labelGap : 4)) : 0;
+  const labelWeight = settings.labelWeight || 'normal';
+  const labelAlign = settings.labelAlign || 'center';
+
+  // Estimate label height in px
+  const estimatedCharWidth = labelFontSizePx * 0.55;
+  const estimatedTextWidth = hasLabel ? settings.label.trim().length * estimatedCharWidth : 0;
+  const isLabelWider = hasLabel && estimatedTextWidth > codeRawPxWidth;
+  const labelLines = isLabelWider ? Math.min(3, Math.ceil(estimatedTextWidth / Math.max(80, codeRawPxWidth))) : 1;
+  const labelPxHeight = hasLabel ? Math.round(labelFontSizePx * 1.35 * labelLines) : 0;
+
+  // Unified code + label object raw size
+  const totalRawPxWidth = codeRawPxWidth;
+  const totalRawPxHeight = codeRawPxHeight + (hasLabel ? labelGapPx + labelPxHeight : 0);
+
   // Artboard Dimensions
   const isAuto = !artboardSettings || artboardSettings.preset === 'auto';
   const artboardUnit = artboardSettings?.unit || 'mm';
   const artboardPxWidth = isAuto
-    ? codeRawPxWidth
+    ? totalRawPxWidth
     : toPx(artboardSettings.width || 100, artboardUnit);
   const artboardPxHeight = isAuto
-    ? codeRawPxHeight
+    ? totalRawPxHeight
     : toPx(artboardSettings.height || 50, artboardUnit);
 
   // Padding on Artboard
@@ -95,22 +115,22 @@ export default function PreviewPanel({
   const availWidth = Math.max(10, artboardPxWidth - (2 * paddingPx));
   const availHeight = Math.max(10, artboardPxHeight - (2 * paddingPx));
 
-  // Fit Scale Calculation inside artboard
+  // Fit Scale Calculation inside artboard (includes label height + gap)
   const fitMode = artboardSettings?.fit || 'original';
   const fitScale = useMemo(() => {
     if (isAuto || fitMode === 'original') return 1;
     if (fitMode === 'fill-width') {
-      return availWidth / codeRawPxWidth;
+      return availWidth / totalRawPxWidth;
     }
     if (fitMode === 'fit') {
-      return Math.min(availWidth / codeRawPxWidth, availHeight / codeRawPxHeight);
+      return Math.min(availWidth / totalRawPxWidth, availHeight / totalRawPxHeight);
     }
     return 1;
-  }, [isAuto, fitMode, availWidth, availHeight, codeRawPxWidth, codeRawPxHeight]);
+  }, [isAuto, fitMode, availWidth, availHeight, totalRawPxWidth, totalRawPxHeight]);
 
   // Scaled Code Dimensions inside artboard
-  const scaledCodeW = codeRawPxWidth * fitScale;
-  const scaledCodeH = codeRawPxHeight * fitScale;
+  const scaledCodeW = totalRawPxWidth * fitScale;
+  const scaledCodeH = totalRawPxHeight * fitScale;
 
   // Base Alignment Position (relative to artboard)
   const alignment = artboardSettings?.alignment || 'center';
@@ -253,7 +273,7 @@ export default function PreviewPanel({
       const codeBottom = codeY + scaledCodeH;
 
       if (codeX < 0 || codeY < 0 || codeRight > artboardPxWidth || codeBottom > artboardPxHeight) {
-        codeExceedsWarning = 'Code object boundaries exceed the artboard edge. Some portions may be clipped when printed.';
+        codeExceedsWarning = 'Code and label boundaries exceed the artboard edge. Some portions may be clipped when printed.';
       }
 
       const marginDistanceX = Math.min(codeX, artboardPxWidth - codeRight);
@@ -470,8 +490,8 @@ export default function PreviewPanel({
                   position: isAuto ? 'static' : 'absolute',
                   left: isAuto ? 'auto' : `${codeX}px`,
                   top: isAuto ? 'auto' : `${codeY}px`,
-                  width: `${Math.round(codeRawPxWidth)}px`,
-                  height: `${Math.round(codeRawPxHeight)}px`,
+                  width: `${Math.round(totalRawPxWidth)}px`,
+                  height: `${Math.round(totalRawPxHeight)}px`,
                   transform: isAuto || fitScale === 1 ? 'none' : `scale(${fitScale})`,
                   transformOrigin: 'top left',
                   cursor: isAuto ? 'default' : isDragging ? 'grabbing' : 'grab',
@@ -483,19 +503,39 @@ export default function PreviewPanel({
                 title={!isAuto ? 'Click & drag to position code inside artboard' : undefined}
               >
                 {type === 'barcode' ? (
-                  <div className="flex flex-col items-center max-w-full">
+                  <div className="flex flex-col items-center w-full">
                     <svg ref={activeBarcodeRef} className="max-w-full h-auto block" />
-                    {settings.label && (
-                      <p className="mt-1 text-xs font-medium text-slate-800 text-center tracking-wide pointer-events-none">
+                    {hasLabel && (
+                      <p
+                        className="w-full break-words whitespace-normal leading-tight pointer-events-none select-none"
+                        style={{
+                          marginTop: `${labelGapPx}px`,
+                          fontSize: `${labelFontSizePx}px`,
+                          fontWeight: labelWeight === 'bold' ? 700 : 400,
+                          textAlign: labelAlign,
+                          color: '#0F172A',
+                          maxWidth: `${Math.round(codeRawPxWidth)}px`,
+                        }}
+                      >
                         {settings.label}
                       </p>
                     )}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center max-w-full">
+                  <div className="flex flex-col items-center w-full">
                     <div ref={qrContainerRef} className="flex justify-center max-w-full" />
-                    {settings.label && (
-                      <p className="mt-1.5 text-xs font-medium text-slate-800 text-center tracking-wide pointer-events-none">
+                    {hasLabel && (
+                      <p
+                        className="w-full break-words whitespace-normal leading-tight pointer-events-none select-none"
+                        style={{
+                          marginTop: `${labelGapPx}px`,
+                          fontSize: `${labelFontSizePx}px`,
+                          fontWeight: labelWeight === 'bold' ? 700 : 400,
+                          textAlign: labelAlign,
+                          color: '#0F172A',
+                          maxWidth: `${Math.round(codeRawPxWidth)}px`,
+                        }}
+                      >
                         {settings.label}
                       </p>
                     )}
@@ -528,18 +568,28 @@ export default function PreviewPanel({
                 <span className="text-gray-400">
                   ({Math.round((artboardPxWidth / 96) * dpi)} × {Math.round((artboardPxHeight / 96) * dpi)} px)
                 </span>
+                {hasLabel && (
+                  <span className="text-indigo-600 ml-1.5 font-medium">
+                    • Label: ~{fromPx(labelPxHeight, artboardUnit)} {artboardUnit}
+                  </span>
+                )}
               </span>
             ) : (
               <span>
                 Artboard (Auto):{' '}
                 <strong className="text-gray-900 font-mono">
                   {formatOutputDimensions({
-                    widthPx: codeRawPxWidth,
-                    heightPx: codeRawPxHeight,
+                    widthPx: totalRawPxWidth,
+                    heightPx: totalRawPxHeight,
                     unit: codeUnit,
                     dpi,
                   })}
                 </strong>
+                {hasLabel && (
+                  <span className="text-indigo-600 ml-1.5 font-medium">
+                    • Label: ~{fromPx(labelPxHeight, codeUnit)} {codeUnit}
+                  </span>
+                )}
               </span>
             )}
           </div>

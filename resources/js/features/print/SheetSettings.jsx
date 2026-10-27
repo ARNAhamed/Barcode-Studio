@@ -11,7 +11,7 @@ import {
   RotateCcw,
   Check,
 } from 'lucide-react';
-import { STANDARD_SHEET_PRESETS, validateSheetFit, calculateAutoGrid } from '../../utils/printHelpers';
+import { STANDARD_SHEET_PRESETS, validateSheetFit, calculateAutoGrid, validateCustomPaper } from '../../utils/printHelpers';
 import { convertUnit } from '../../utils/units';
 
 export default function SheetSettings({
@@ -25,6 +25,11 @@ export default function SheetSettings({
   onChangeStartPosition,
 }) {
   const currentUnit = config.unit || 'mm';
+
+  // Custom paper dimensions in mm
+  const customWidthMm = config.custom_width !== undefined ? Number(config.custom_width) : 210;
+  const customHeightMm = config.custom_height !== undefined ? Number(config.custom_height) : 297;
+  const customPaperValidation = validateCustomPaper(customWidthMm, customHeightMm);
 
   // Helper to convert mm values from config to the display unit
   const toDisplay = (valMm) => {
@@ -77,6 +82,19 @@ export default function SheetSettings({
       const presetId = parseInt(val.replace('saved_', ''), 10);
       const found = savedPresets.find((p) => p.id === presetId);
       if (found) {
+        const customW =
+          found.settings?.custom_width !== undefined
+            ? parseFloat(found.settings.custom_width)
+            : found.paper_size === 'custom'
+            ? 210
+            : undefined;
+        const customH =
+          found.settings?.custom_height !== undefined
+            ? parseFloat(found.settings.custom_height)
+            : found.paper_size === 'custom'
+            ? 297
+            : undefined;
+
         onChangeConfig({
           ...config,
           preset_id: val,
@@ -92,6 +110,8 @@ export default function SheetSettings({
           gap_vertical: parseFloat(found.gap_vertical),
           corner_radius: parseFloat(found.corner_radius || 0),
           unit: found.unit || 'mm',
+          custom_width: customW,
+          custom_height: customH,
         });
       }
       return;
@@ -114,6 +134,27 @@ export default function SheetSettings({
         gap_vertical: standard.gap_vertical,
         corner_radius: standard.corner_radius || 0,
         unit: standard.unit || 'mm',
+      });
+    }
+  };
+
+  // Orientation toggle handler (swaps width and height when custom paper size is selected)
+  const handleToggleOrientation = (newOrientation) => {
+    if (config.orientation === newOrientation) return;
+
+    if (config.paper_size === 'custom') {
+      onChangeConfig({
+        ...config,
+        orientation: newOrientation,
+        custom_width: customHeightMm,
+        custom_height: customWidthMm,
+        preset_id: 'custom',
+      });
+    } else {
+      onChangeConfig({
+        ...config,
+        orientation: newOrientation,
+        preset_id: 'custom',
       });
     }
   };
@@ -163,56 +204,130 @@ export default function SheetSettings({
       </div>
 
       {/* Paper Size & Orientation */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Paper Size
-          </label>
-          <select
-            value={config.paper_size}
-            onChange={(e) =>
-              onChangeConfig({ ...config, paper_size: e.target.value, preset_id: 'custom' })
-            }
-            className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
-          >
-            <option value="a4">A4 (210 × 297 mm)</option>
-            <option value="letter">US Letter (215.9 × 279.4 mm)</option>
-          </select>
-        </div>
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Paper Size
+            </label>
+            <select
+              value={config.paper_size}
+              onChange={(e) =>
+                onChangeConfig({
+                  ...config,
+                  paper_size: e.target.value,
+                  preset_id: 'custom',
+                  ...(e.target.value === 'custom' && config.custom_width === undefined
+                    ? { custom_width: 210, custom_height: 297 }
+                    : {}),
+                })
+              }
+              className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
+            >
+              <option value="a4">A4 (210 × 297 mm)</option>
+              <option value="letter">US Letter (215.9 × 279.4 mm)</option>
+              <option value="a3">A3 (297 × 420 mm)</option>
+              <option value="a5">A5 (148 × 210 mm)</option>
+              <option value="a6">A6 (105 × 148 mm)</option>
+              <option value="legal">US Legal (215.9 × 355.6 mm)</option>
+              <option value="4x6">4 × 6 inch (101.6 × 152.4 mm)</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
 
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Orientation
-          </label>
-          <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg h-9 items-center">
-            <button
-              type="button"
-              onClick={() =>
-                onChangeConfig({ ...config, orientation: 'portrait', preset_id: 'custom' })
-              }
-              className={`flex-1 h-8 rounded-md text-xs font-medium transition-colors cursor-pointer ${
-                config.orientation === 'portrait'
-                  ? 'bg-white text-gray-900 font-semibold'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Portrait
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                onChangeConfig({ ...config, orientation: 'landscape', preset_id: 'custom' })
-              }
-              className={`flex-1 h-8 rounded-md text-xs font-medium transition-colors cursor-pointer ${
-                config.orientation === 'landscape'
-                  ? 'bg-white text-gray-900 font-semibold'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Landscape
-            </button>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Orientation
+            </label>
+            <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg h-9 items-center">
+              <button
+                type="button"
+                onClick={() => handleToggleOrientation('portrait')}
+                className={`flex-1 h-8 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                  config.orientation === 'portrait'
+                    ? 'bg-white text-gray-900 font-semibold'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Portrait
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleOrientation('landscape')}
+                className={`flex-1 h-8 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                  config.orientation === 'landscape'
+                    ? 'bg-white text-gray-900 font-semibold'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Landscape
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Custom Paper Dimensions Inputs when 'custom' is selected */}
+        {config.paper_size === 'custom' && (
+          <div className="p-3 bg-gray-50/70 border border-gray-200 rounded-lg space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-gray-700">Custom Paper Dimensions</span>
+              <span className="text-[11px] text-gray-500 font-mono">
+                20 mm – 1000 mm ({toDisplay(20)} – {toDisplay(1000)} {currentUnit})
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-medium text-gray-600 mb-1">
+                  Width ({currentUnit})
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={toDisplay(customWidthMm)}
+                  onChange={(e) =>
+                    onChangeConfig({
+                      ...config,
+                      custom_width: fromDisplayToMm(e.target.value),
+                      preset_id: 'custom',
+                    })
+                  }
+                  className="w-full h-8 px-2.5 bg-white border border-gray-300 rounded-md text-xs font-mono text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-gray-600 mb-1">
+                  Height ({currentUnit})
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={toDisplay(customHeightMm)}
+                  onChange={(e) =>
+                    onChangeConfig({
+                      ...config,
+                      custom_height: fromDisplayToMm(e.target.value),
+                      preset_id: 'custom',
+                    })
+                  }
+                  className="w-full h-8 px-2.5 bg-white border border-gray-300 rounded-md text-xs font-mono text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+            </div>
+
+            {/* Inline validation error or Final paper size readout */}
+            {customPaperValidation.error ? (
+              <p className="text-xs text-red-600 font-medium">
+                {customPaperValidation.error}
+              </p>
+            ) : (
+              <p className="text-[11px] text-gray-500">
+                Paper: <strong className="text-gray-800 font-mono">{Math.round(customWidthMm * 10) / 10} × {Math.round(customHeightMm * 10) / 10} mm</strong> ({toDisplay(customWidthMm)} × {toDisplay(customHeightMm)} {currentUnit})
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Preset Dropdown & Save Action */}

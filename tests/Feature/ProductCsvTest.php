@@ -17,7 +17,7 @@ class ProductCsvTest extends TestCase
     public function test_export_products_csv(): void
     {
         // 1. Create active products
-        Product::create([
+        $p1 = Product::create([
             'name' => 'Active Product 1',
             'sku' => 'SKU-ACT-1',
             'barcode_number' => '111111111111',
@@ -28,7 +28,7 @@ class ProductCsvTest extends TestCase
             'description' => 'First product',
         ]);
 
-        Product::create([
+        $p2 = Product::create([
             'name' => 'Active Product 2',
             'sku' => 'SKU-ACT-2',
             'barcode_number' => '222222222222',
@@ -37,6 +37,16 @@ class ProductCsvTest extends TestCase
             'quantity' => 2,
             'low_stock_threshold' => 10,
             'description' => 'Second product',
+        ]);
+
+        $p3 = Product::create([
+            'name' => 'Active Product 3',
+            'sku' => 'SKU-ACT-3',
+            'barcode_number' => '444444444444',
+            'category' => 'Electronics',
+            'price' => 12.00,
+            'quantity' => 15,
+            'low_stock_threshold' => 5,
         ]);
 
         // 2. Create trashed product (should be excluded)
@@ -50,13 +60,15 @@ class ProductCsvTest extends TestCase
         ]);
         $trashed->delete();
 
-        // Request export
-        $response = $this->get('/api/products/export');
+        // 3. Test POST export with 3 selected IDs
+        $response = $this->postJson('/api/products/export', [
+            'ids' => [$p1->id, $p2->id, $p3->id],
+        ]);
 
         $response->assertOk();
         $response->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
         $this->assertMatchesRegularExpression(
-            '/products_export_\d{4}-\d{2}-\d{2}\.csv/',
+            '/stock-selected-3-\d{4}-\d{2}-\d{2}\.csv/',
             $response->headers->get('Content-Disposition')
         );
 
@@ -68,19 +80,32 @@ class ProductCsvTest extends TestCase
         // Check header row
         $this->assertStringContainsString('name,sku,barcode_number,category,price,quantity,low_stock_threshold,description', $content);
 
-        // Check active products present
+        // Check all 3 products present
         $this->assertStringContainsString('Active Product 1', $content);
         $this->assertStringContainsString('Active Product 2', $content);
+        $this->assertStringContainsString('Active Product 3', $content);
 
         // Check trashed product excluded
         $this->assertStringNotContainsString('Trashed Product', $content);
         $this->assertStringNotContainsString('SKU-TRASH-1', $content);
 
-        // Test filter param
-        $filterResponse = $this->get('/api/products/export?category=Electronics');
+        // 4. Test validation error when no IDs are selected and all_matching is false
+        $emptyResponse = $this->postJson('/api/products/export', ['ids' => []]);
+        $emptyResponse->assertStatus(422);
+
+        // 5. Test all_matching flag with filter
+        $filterResponse = $this->postJson('/api/products/export', [
+            'all_matching' => true,
+            'category' => 'Clothing',
+        ]);
+        $filterResponse->assertOk();
+        $this->assertMatchesRegularExpression(
+            '/stock-selected-1-\d{4}-\d{2}-\d{2}\.csv/',
+            $filterResponse->headers->get('Content-Disposition')
+        );
         $filterContent = $filterResponse->streamedContent();
-        $this->assertStringContainsString('Active Product 1', $filterContent);
-        $this->assertStringNotContainsString('Active Product 2', $filterContent);
+        $this->assertStringContainsString('Active Product 2', $filterContent);
+        $this->assertStringNotContainsString('Active Product 1', $filterContent);
     }
 
     /**

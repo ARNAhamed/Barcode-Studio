@@ -33,46 +33,43 @@ export default function ProductTable({
   onPageChange,
   onEdit,
   onDelete,
+  selectedIds = [],
+  onToggleSelect,
+  onToggleSelectAll,
+  isSelectAllMatching = false,
+  onSelectAllMatching,
+  onClearSelection,
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const [selectedIds, setSelectedIds] = useState([]);
   const [bulkFormat, setBulkFormat] = useState('CODE128');
   const [isBulkGenerating, setIsBulkGenerating] = useState(false);
 
-  // Clear selection on page/search change
-  useEffect(() => {
-    setSelectedIds([]);
-  }, [page, searchTerm]);
-
-  const handleToggleSelect = (id) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
-
-  const handleToggleSelectAll = () => {
-    if (products.length === 0) return;
-    if (selectedIds.length === products.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(products.map((p) => p.id));
-    }
-  };
+  const selectedCount = isSelectAllMatching
+    ? meta?.total || products.length
+    : selectedIds.length;
 
   const handleBulkGenerate = async () => {
     setIsBulkGenerating(true);
     try {
-      const targetIds = selectedIds.length > 0 ? selectedIds : undefined;
+      const targetIds = isSelectAllMatching
+        ? undefined
+        : selectedIds.length > 0
+        ? selectedIds
+        : undefined;
+
       const res = await bulkGenerateBarcodes({
         product_ids: targetIds,
+        all_matching: isSelectAllMatching,
         format: bulkFormat,
       });
 
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['products-summary'] });
-      setSelectedIds([]);
+      if (onClearSelection) {
+        onClearSelection();
+      }
       toast.success(res.message || `${res.count} barcodes generated`);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to generate missing barcodes.');
@@ -152,10 +149,18 @@ export default function ProductTable({
 
         {/* Bulk Action Controls */}
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          {selectedIds.length > 0 && (
-            <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg">
-              {selectedIds.length} selected
-            </span>
+          {selectedCount > 0 && (
+            <div className="flex items-center gap-1.5 bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-semibold">
+              <span>{selectedCount} selected</span>
+              <span className="text-slate-300">&bull;</span>
+              <button
+                type="button"
+                onClick={onClearSelection}
+                className="text-indigo-600 hover:text-indigo-800 underline font-medium cursor-pointer"
+              >
+                Clear selection
+              </button>
+            </div>
           )}
 
           <div className="flex items-center gap-1.5">
@@ -189,6 +194,37 @@ export default function ProductTable({
         </div>
       </div>
 
+      {/* Cross-page Selection Banner */}
+      {products.length > 0 &&
+        products.every((p) => selectedIds.includes(p.id)) &&
+        (meta?.total || 0) > products.length && (
+          <div className="bg-indigo-50 border-b border-indigo-100 px-4 py-2 text-xs text-slate-700 text-center font-medium">
+            {isSelectAllMatching ? (
+              <span>
+                All <strong>{meta.total}</strong> products across all pages are selected.{' '}
+                <button
+                  type="button"
+                  onClick={onClearSelection}
+                  className="font-semibold text-indigo-600 hover:text-indigo-800 underline ml-1 cursor-pointer"
+                >
+                  Clear selection
+                </button>
+              </span>
+            ) : (
+              <span>
+                All <strong>{products.length}</strong> products on this page are selected.{' '}
+                <button
+                  type="button"
+                  onClick={onSelectAllMatching}
+                  className="font-semibold text-indigo-600 hover:text-indigo-800 underline ml-1 cursor-pointer"
+                >
+                  Select all {meta.total} products
+                </button>
+              </span>
+            )}
+          </div>
+        )}
+
       {/* Desktop / Tablet Table (768px and above) - table-fixed without horizontal scroll */}
       <div className="hidden md:block w-full">
         <table className="w-full table-fixed text-left border-collapse">
@@ -197,10 +233,13 @@ export default function ProductTable({
               <th className="py-3 pl-3 sm:pl-4 pr-1 w-[36px] min-w-[36px] text-center">
                 <input
                   type="checkbox"
-                  checked={products.length > 0 && selectedIds.length === products.length}
-                  onChange={handleToggleSelectAll}
+                  checked={
+                    isSelectAllMatching ||
+                    (products.length > 0 && products.every((p) => selectedIds.includes(p.id)))
+                  }
+                  onChange={onToggleSelectAll}
                   className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                  title="Select all products"
+                  title="Select all on this page"
                 />
               </th>
               <th className="py-3 px-3 sm:px-4 w-auto min-w-0 truncate">Product</th>
@@ -276,8 +315,8 @@ export default function ProductTable({
                   <td className="py-3 pl-3 sm:pl-4 pr-1 text-center min-w-0">
                     <input
                       type="checkbox"
-                      checked={selectedIds.includes(product.id)}
-                      onChange={() => handleToggleSelect(product.id)}
+                      checked={isSelectAllMatching || selectedIds.includes(product.id)}
+                      onChange={() => onToggleSelect(product.id)}
                       className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
                     />
                   </td>
@@ -429,8 +468,8 @@ export default function ProductTable({
               <div className="flex items-start justify-between gap-2.5">
                 <input
                   type="checkbox"
-                  checked={selectedIds.includes(product.id)}
-                  onChange={() => handleToggleSelect(product.id)}
+                  checked={isSelectAllMatching || selectedIds.includes(product.id)}
+                  onChange={() => onToggleSelect(product.id)}
                   className="w-4 h-4 mt-0.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer shrink-0"
                 />
                 <div className="min-w-0 flex-1">

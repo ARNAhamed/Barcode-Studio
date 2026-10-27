@@ -117,18 +117,20 @@ class ProductController extends Controller
         $request->validate([
             'product_ids' => 'nullable|array',
             'product_ids.*' => 'integer|exists:products,id',
+            'all_matching' => 'nullable|boolean',
             'format' => 'nullable|string|in:CODE128,EAN13,EAN8,UPC',
         ]);
 
         $format = $request->input('format', config('barcode.default_product_format', 'CODE128'));
         $productIds = $request->input('product_ids');
+        $allMatching = $request->boolean('all_matching');
 
         $query = Product::where(function ($q) {
             $q->whereNull('barcode_number')
               ->orWhere('barcode_number', '');
         });
 
-        if (!empty($productIds)) {
+        if (!$allMatching && !empty($productIds)) {
             $query->whereIn('id', $productIds);
         }
 

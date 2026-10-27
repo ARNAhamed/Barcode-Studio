@@ -38,24 +38,11 @@ export default function StockPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
 
-  // Import / Export state
+  // Import / Export & Selection state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-
-  const handleExport = async () => {
-    setIsExporting(true);
-    try {
-      await exportProducts({
-        search: debouncedSearch || undefined,
-        sort: sortField,
-      });
-      toast.success('Products exported successfully.');
-    } catch (err) {
-      toast.error('Failed to export products.');
-    } finally {
-      setIsExporting(false);
-    }
-  };
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [isSelectAllMatching, setIsSelectAllMatching] = useState(false);
 
   // Debounce search input
   useEffect(() => {
@@ -226,6 +213,64 @@ export default function StockPage() {
     }
   };
 
+  // Computed selected counts & handlers
+  const totalMatching = productsResponse?.meta?.total || 0;
+  const selectedCount = isSelectAllMatching ? totalMatching : selectedIds.length;
+
+  const handleToggleSelect = (id) => {
+    setIsSelectAllMatching(false);
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    const currentPageProducts = productsResponse?.data || [];
+    if (currentPageProducts.length === 0) return;
+
+    const allPageSelected = currentPageProducts.every((p) =>
+      selectedIds.includes(p.id)
+    );
+
+    if (allPageSelected || isSelectAllMatching) {
+      setIsSelectAllMatching(false);
+      const pageIds = new Set(currentPageProducts.map((p) => p.id));
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.has(id)));
+    } else {
+      const pageIds = currentPageProducts.map((p) => p.id);
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+    }
+  };
+
+  const handleSelectAllMatching = () => {
+    setIsSelectAllMatching(true);
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds([]);
+    setIsSelectAllMatching(false);
+  };
+
+  const handleExport = async () => {
+    if (selectedCount === 0) return;
+    setIsExporting(true);
+    try {
+      await exportProducts({
+        ids: isSelectAllMatching ? [] : selectedIds,
+        all_matching: isSelectAllMatching,
+        search: debouncedSearch || undefined,
+        sort: sortField,
+      });
+      toast.success(
+        `${selectedCount} product${selectedCount === 1 ? '' : 's'} exported.`
+      );
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to export products.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const isFormSubmitting = createMutation.isPending || updateMutation.isPending;
 
   return (
@@ -254,15 +299,21 @@ export default function StockPage() {
           >
             Import
           </Button>
-          <Button
-            onClick={handleExport}
-            icon={Download}
-            variant="outline"
-            size="md"
-            isLoading={isExporting}
+          <span
+            title={selectedCount === 0 ? 'Select products to export' : undefined}
+            className="inline-flex"
           >
-            Export
-          </Button>
+            <Button
+              onClick={handleExport}
+              icon={Download}
+              variant="outline"
+              size="md"
+              disabled={selectedCount === 0 || isExporting}
+              isLoading={isExporting}
+            >
+              {selectedCount > 0 ? `Export (${selectedCount})` : 'Export'}
+            </Button>
+          </span>
           <Button
             onClick={handleOpenAdd}
             icon={Plus}
@@ -290,6 +341,12 @@ export default function StockPage() {
         onPageChange={setPage}
         onEdit={handleOpenEdit}
         onDelete={handleOpenDeleteModal}
+        selectedIds={selectedIds}
+        onToggleSelect={handleToggleSelect}
+        onToggleSelectAll={handleToggleSelectAll}
+        isSelectAllMatching={isSelectAllMatching}
+        onSelectAllMatching={handleSelectAllMatching}
+        onClearSelection={handleClearSelection}
       />
 
       {/* Slide-over Drawer for Add/Edit */}

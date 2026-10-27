@@ -14,34 +14,48 @@ class ProductCsvService
     ) {}
 
     /**
-     * Export products as a CSV download with UTF-8 BOM.
+     * Export selected products as a CSV download with UTF-8 BOM.
      */
     public function export(Request $request): StreamedResponse
     {
+        $allMatching = $request->boolean('all_matching');
+        $ids = $request->input('ids');
+
+        if (!$allMatching) {
+            $request->validate([
+                'ids' => ['required', 'array', 'min:1'],
+                'ids.*' => ['integer', 'exists:products,id'],
+            ]);
+        }
+
         $query = Product::query(); // Excludes trashed by default
 
-        if ($search = $request->input('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('sku', 'like', "%{$search}%")
-                    ->orWhere('barcode_number', 'like', "%{$search}%")
-                    ->orWhere('category', 'like', "%{$search}%");
-            });
-        }
-
-        if ($category = $request->input('category')) {
-            $query->where('category', $category);
-        }
-
-        if ($status = $request->input('status')) {
-            if ($status === 'out') {
-                $query->where('quantity', '<=', 0);
-            } elseif ($status === 'low') {
-                $query->where('quantity', '>', 0)
-                    ->whereColumn('quantity', '<=', 'low_stock_threshold');
-            } elseif ($status === 'in') {
-                $query->whereColumn('quantity', '>', 'low_stock_threshold');
+        if ($allMatching) {
+            if ($search = $request->input('search')) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('sku', 'like', "%{$search}%")
+                        ->orWhere('barcode_number', 'like', "%{$search}%")
+                        ->orWhere('category', 'like', "%{$search}%");
+                });
             }
+
+            if ($category = $request->input('category')) {
+                $query->where('category', $category);
+            }
+
+            if ($status = $request->input('status')) {
+                if ($status === 'out') {
+                    $query->where('quantity', '<=', 0);
+                } elseif ($status === 'low') {
+                    $query->where('quantity', '>', 0)
+                        ->whereColumn('quantity', '<=', 'low_stock_threshold');
+                } elseif ($status === 'in') {
+                    $query->whereColumn('quantity', '>', 'low_stock_threshold');
+                }
+            }
+        } else {
+            $query->whereIn('id', $ids);
         }
 
         $sort = $request->input('sort', '-created_at');
@@ -55,11 +69,13 @@ class ProductCsvService
             $query->latest();
         }
 
-        $filename = 'products_export_' . now()->format('Y-m-d') . '.csv';
+        $count = $query->count();
+        $filename = "stock-selected-{$count}-" . now()->format('Y-m-d') . '.csv';
 
         $headers = [
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Access-Control-Expose-Headers' => 'Content-Disposition',
             'Pragma' => 'no-cache',
             'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
             'Expires' => '0',

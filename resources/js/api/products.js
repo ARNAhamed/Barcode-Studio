@@ -67,13 +67,23 @@ export const bulkGenerateBarcodes = async (data = {}) => {
 };
 
 // CSV Export & Import API
-export const exportProducts = async (params = {}) => {
-  const response = await api.get('/products/export', {
-    params,
+export const exportProducts = async (payload = {}) => {
+  const response = await api.post('/products/export', payload, {
     responseType: 'blob',
   });
+
   const today = new Date().toISOString().split('T')[0];
-  const filename = `products_export_${today}.csv`;
+  let filename = `stock-selected-${payload.all_matching ? 'all' : payload.ids?.length || 0}-${today}.csv`;
+
+  const disposition = response.headers && response.headers['content-disposition'];
+  if (disposition && disposition.includes('filename=')) {
+    const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+    const matches = filenameRegex.exec(disposition);
+    if (matches != null && matches[1]) {
+      filename = matches[1].replace(/['"]/g, '');
+    }
+  }
+
   const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');

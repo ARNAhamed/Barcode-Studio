@@ -125,28 +125,28 @@ export default function ProductPickerModal({
         {/* Search & Bulk selection bar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 stroke-[1.5]" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search products by name, SKU..."
-              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-100"
+              className="w-full h-9 pl-9 pr-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
             />
           </div>
           <div className="flex items-center gap-2 text-xs">
             <button
               type="button"
               onClick={handleSelectAllWithCodes}
-              className="text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+              className="text-indigo-600 hover:text-indigo-700 font-medium cursor-pointer"
             >
               Select with codes
             </button>
-            <span className="text-slate-300">&bull;</span>
+            <span className="text-gray-300">&bull;</span>
             <button
               type="button"
               onClick={handleClear}
-              className="text-slate-500 hover:text-slate-700 cursor-pointer"
+              className="text-gray-500 hover:text-gray-700 font-medium cursor-pointer"
             >
               Clear
             </button>
@@ -158,7 +158,7 @@ export default function ProductPickerModal({
           {isLoading ? (
             <Skeleton count={4} className="h-14 mb-2" />
           ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-8 text-slate-500 text-xs sm:text-sm">
+            <div className="text-center py-8 text-gray-500 text-sm">
               No products found matching &ldquo;{search}&rdquo;.
             </div>
           ) : (
@@ -173,12 +173,12 @@ export default function ProductPickerModal({
                   onClick={() => {
                     if (hasCodes) toggleProduct(p.id);
                   }}
-                  className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                  className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
                     isSelected
-                      ? 'border-indigo-500 bg-indigo-50/60 shadow-2xs'
+                      ? 'border-indigo-600 bg-gray-50'
                       : hasCodes
-                      ? 'border-slate-200 hover:border-slate-300 bg-white cursor-pointer'
-                      : 'border-slate-200 bg-slate-50/70 opacity-80'
+                      ? 'border-gray-200 hover:border-gray-300 bg-white cursor-pointer'
+                      : 'border-gray-200 bg-gray-50/70 opacity-70'
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -187,19 +187,19 @@ export default function ProductPickerModal({
                       checked={isSelected}
                       disabled={!hasCodes}
                       onChange={() => toggleProduct(p.id)}
-                      className="w-4 h-4 rounded-sm text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500/20 border-gray-300 cursor-pointer"
                       onClick={(e) => e.stopPropagation()}
                     />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-xs sm:text-sm text-slate-900 truncate">
+                        <span className="font-medium text-xs sm:text-sm text-gray-900 truncate">
                           {p.name}
                         </span>
-                        <span className="text-xs font-mono text-slate-500 shrink-0">
+                        <span className="text-xs font-mono text-gray-500 shrink-0">
                           [{p.sku}]
                         </span>
                       </div>
-                      <div className="text-xs text-slate-400 truncate mt-0.5">
+                      <div className="text-xs text-gray-500 truncate mt-0.5">
                         {p.barcode_number ? `Barcode: ${p.barcode_number}` : 'No barcode number'}
                       </div>
                     </div>
@@ -213,8 +213,8 @@ export default function ProductPickerModal({
                       </Badge>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-amber-600 flex items-center gap-1 font-medium">
-                          <AlertCircle className="w-3.5 h-3.5" />
+                        <span className="text-xs text-gray-500 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 text-gray-400 stroke-[1.5]" />
                           No saved code
                         </span>
                         <button
@@ -223,10 +223,10 @@ export default function ProductPickerModal({
                             e.stopPropagation();
                             navigate(`/designer?product_id=${p.id}`);
                           }}
-                          className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                          className="h-7 px-2.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded-lg text-xs font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
                           title="Design a barcode for this product"
                         >
-                          <PlusCircle className="w-3 h-3" />
+                          <PlusCircle className="w-3.5 h-3.5 stroke-[1.5]" />
                           <span>Create code</span>
                         </button>
                       </div>

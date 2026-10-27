@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Plus, Package, Trash2, RotateCcw, Upload, Download } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 import Button from '../components/Button';
-import Drawer from '../components/Drawer';
 import Modal from '../components/Modal';
 import SummaryCards from '../features/stock/SummaryCards';
 import ProductTable from '../features/stock/ProductTable';
@@ -29,8 +29,9 @@ export default function StockPage() {
   const [sortField, setSortField] = useState('-created_at');
   const [page, setPage] = useState(1);
 
-  // Drawer state (Add / Edit)
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  // Modal state (Add / Edit) & Dirty tracking
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [isFormDirty, setIsFormDirty] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [serverErrors, setServerErrors] = useState({});
 
@@ -99,7 +100,10 @@ export default function StockPage() {
     onSuccess: () => {
       invalidateQueries();
       toast.success('Product created successfully!');
-      handleCloseDrawer();
+      setIsFormDirty(false);
+      setIsProductModalOpen(false);
+      setEditingProduct(null);
+      setServerErrors({});
     },
     onError: (err) => {
       if (err.response?.status === 422 && err.response?.data?.errors) {
@@ -117,7 +121,10 @@ export default function StockPage() {
     onSuccess: () => {
       invalidateQueries();
       toast.success('Product updated successfully!');
-      handleCloseDrawer();
+      setIsFormDirty(false);
+      setIsProductModalOpen(false);
+      setEditingProduct(null);
+      setServerErrors({});
     },
     onError: (err) => {
       if (err.response?.status === 422 && err.response?.data?.errors) {
@@ -164,25 +171,34 @@ export default function StockPage() {
     },
   });
 
-  // Open Drawer for Add
+  // Open Modal for Add
   const handleOpenAdd = () => {
     setEditingProduct(null);
     setServerErrors({});
-    setIsDrawerOpen(true);
+    setIsFormDirty(false);
+    setIsProductModalOpen(true);
   };
 
-  // Open Drawer for Edit
+  // Open Modal for Edit
   const handleOpenEdit = (product) => {
     setEditingProduct(product);
     setServerErrors({});
-    setIsDrawerOpen(true);
+    setIsFormDirty(false);
+    setIsProductModalOpen(true);
   };
 
-  // Close Drawer
-  const handleCloseDrawer = () => {
-    setIsDrawerOpen(false);
+  // Close Modal with Unsaved Changes check
+  const handleRequestCloseProductModal = () => {
+    if (isFormDirty) {
+      const confirmDiscard = window.confirm(
+        'You have unsaved changes. Are you sure you want to discard them?'
+      );
+      if (!confirmDiscard) return;
+    }
+    setIsProductModalOpen(false);
     setEditingProduct(null);
     setServerErrors({});
+    setIsFormDirty(false);
   };
 
   // Handle Form Submit
@@ -276,54 +292,52 @@ export default function StockPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <Package className="w-5 h-5" />
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Stock Management</h1>
-          </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Track product inventory, manage SKU data, and instantly generate linked barcodes and QR codes.
-          </p>
-        </div>
-
-        {/* Header Actions: Import, Export, Add Product */}
-        <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto flex-wrap">
-          <Button
-            onClick={() => setIsImportModalOpen(true)}
-            icon={Upload}
-            variant="outline"
-            size="md"
-          >
-            Import
-          </Button>
-          <span
-            title={selectedCount === 0 ? 'Select products to export' : undefined}
-            className="inline-flex"
-          >
+      <PageHeader
+        title="Stock Management"
+        description="Track product inventory, manage SKU data, and instantly generate linked barcodes."
+        action={
+          <div className="flex items-center gap-2 flex-nowrap shrink-0">
             <Button
-              onClick={handleExport}
-              icon={Download}
-              variant="outline"
+              onClick={() => setIsImportModalOpen(true)}
+              icon={Upload}
+              variant="secondary"
               size="md"
-              disabled={selectedCount === 0 || isExporting}
-              isLoading={isExporting}
+              title="Import products from CSV"
+              className="h-9 whitespace-nowrap"
             >
-              {selectedCount > 0 ? `Export (${selectedCount})` : 'Export'}
+              <span className="hidden md:inline">Import</span>
             </Button>
-          </span>
-          <Button
-            onClick={handleOpenAdd}
-            icon={Plus}
-            variant="primary"
-            size="md"
-          >
-            Add Product
-          </Button>
-        </div>
-      </div>
+            <span
+              title={selectedCount === 0 ? 'Select products to export' : 'Export selected products to CSV'}
+              className="inline-flex"
+            >
+              <Button
+                onClick={handleExport}
+                icon={Download}
+                variant="secondary"
+                size="md"
+                disabled={selectedCount === 0 || isExporting}
+                isLoading={isExporting}
+                className="h-9 whitespace-nowrap"
+              >
+                <span className="hidden md:inline">
+                  {selectedCount > 0 ? `Export (${selectedCount})` : 'Export'}
+                </span>
+                {selectedCount > 0 && <span className="md:hidden text-xs">({selectedCount})</span>}
+              </Button>
+            </span>
+            <Button
+              onClick={handleOpenAdd}
+              icon={Plus}
+              variant="primary"
+              size="md"
+              className="h-9 whitespace-nowrap"
+            >
+              Add Product
+            </Button>
+          </div>
+        }
+      />
 
       {/* Summary Cards */}
       <SummaryCards summary={summary} isLoading={isSummaryLoading} />
@@ -349,25 +363,51 @@ export default function StockPage() {
         onClearSelection={handleClearSelection}
       />
 
-      {/* Slide-over Drawer for Add/Edit */}
-      <Drawer
-        isOpen={isDrawerOpen}
-        onClose={handleCloseDrawer}
-        title={editingProduct ? 'Edit Product' : 'Add New Product'}
+      {/* Centered Modal for Add / Edit Product */}
+      <Modal
+        isOpen={isProductModalOpen}
+        onClose={handleRequestCloseProductModal}
+        title={editingProduct ? 'Edit Product' : 'Add Product'}
         description={
           editingProduct
             ? `Update product details and stock thresholds for SKU ${editingProduct.sku}`
             : 'Fill in the information below to add a new inventory item.'
         }
+        maxWidth="max-w-xl"
+        fullScreenMobile={true}
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              onClick={handleRequestCloseProductModal}
+              disabled={isFormSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="product-modal-form"
+              variant="primary"
+              size="md"
+              isLoading={isFormSubmitting}
+            >
+              {editingProduct ? 'Save Changes' : 'Save Product'}
+            </Button>
+          </>
+        }
       >
         <ProductForm
+          formId="product-modal-form"
           product={editingProduct}
           onSubmit={handleFormSubmit}
-          onCancel={handleCloseDrawer}
           isSubmitting={isFormSubmitting}
           serverErrors={serverErrors}
+          hideActions={true}
+          onDirtyChange={setIsFormDirty}
         />
-      </Drawer>
+      </Modal>
 
       {/* Move to Recycle Bin Confirmation Modal */}
       <Modal
@@ -395,15 +435,15 @@ export default function StockPage() {
         }
       >
         {productToDelete && (
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm space-y-1">
-            <p className="font-semibold text-slate-900">{productToDelete.name}</p>
-            <p className="text-xs font-mono text-slate-500">SKU: {productToDelete.sku}</p>
+          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 text-sm space-y-1">
+            <p className="font-medium text-gray-900">{productToDelete.name}</p>
+            <p className="text-xs font-mono text-gray-500">SKU: {productToDelete.sku}</p>
             {productToDelete.barcode_number && (
-              <p className="text-xs font-mono text-slate-500">
+              <p className="text-xs font-mono text-gray-500">
                 Barcode: {productToDelete.barcode_number}
               </p>
             )}
-            <p className="text-xs text-slate-500">Current Quantity: {productToDelete.quantity}</p>
+            <p className="text-xs text-gray-500">Current Quantity: {productToDelete.quantity}</p>
           </div>
         )}
       </Modal>

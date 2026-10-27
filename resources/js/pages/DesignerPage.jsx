@@ -23,6 +23,7 @@ import ArtboardControls from '../features/designer/ArtboardControls';
 import PreviewPanel from '../features/designer/PreviewPanel';
 import ProductPicker from '../features/designer/ProductPicker';
 import Skeleton from '../components/Skeleton';
+import PageHeader from '../components/PageHeader';
 
 import { getCode, createCode, updateCode } from '../api/codes';
 import { getProduct } from '../api/products';
@@ -71,7 +72,7 @@ const DEFAULT_QR_SETTINGS = {
   dpi: 300,
 };
 
-// Collapsible Section Accordion Card
+// Collapsible Section (separated by thin dividers)
 function CollapsibleSection({
   title,
   subtitle,
@@ -82,39 +83,37 @@ function CollapsibleSection({
   children,
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden transition-all">
+    <div className="transition-all">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-slate-50/60 transition-colors cursor-pointer select-none"
+        className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-gray-50/75 transition-colors cursor-pointer select-none"
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-            <Icon className="w-4 h-4" />
-          </div>
+        <div className="flex items-center gap-2.5 min-w-0">
+          {Icon && <Icon className="w-4 h-4 text-gray-500 stroke-[1.5] shrink-0" />}
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-slate-900 text-sm sm:text-base tracking-tight truncate">
+              <h3 className="font-semibold text-gray-900 text-sm tracking-tight truncate">
                 {title}
               </h3>
               {badge && (
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 truncate max-w-[140px]">
+                <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-normal truncate max-w-[140px]">
                   {badge}
                 </span>
               )}
             </div>
             {subtitle && (
-              <p className="text-xs text-slate-400 truncate mt-0.5">{subtitle}</p>
+              <p className="text-xs text-gray-500 truncate mt-0.5">{subtitle}</p>
             )}
           </div>
         </div>
         <ChevronDown
-          className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ml-2 ${
+          className={`w-4 h-4 text-gray-400 stroke-[1.5] transition-transform duration-150 shrink-0 ml-2 ${
             isOpen ? 'rotate-180' : ''
           }`}
         />
       </button>
-      {isOpen && <div className="p-5 pt-3 border-t border-slate-100">{children}</div>}
+      {isOpen && <div className="px-5 py-4 border-t border-gray-100">{children}</div>}
     </div>
   );
 }
@@ -155,6 +154,17 @@ export default function DesignerPage() {
 
   const toggleSection = (key) => {
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const areAllSectionsOpen = Object.values(openSections).every(Boolean);
+  const handleToggleAllSections = () => {
+    const nextState = !areAllSectionsOpen;
+    setOpenSections({
+      artboard: nextState,
+      codeSize: nextState,
+      colors: nextState,
+      label: nextState,
+    });
   };
 
   const handleGenerateValidNumber = async () => {
@@ -496,285 +506,58 @@ export default function DesignerPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col flex-1 min-h-0 w-full lg:h-[calc(100dvh-4.25rem)] lg:overflow-hidden">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
+      <PageHeader
+        title={id ? 'Edit Code' : 'Barcode & QR Designer'}
+        description="Design print-ready barcodes and QR codes with customizable artboards and precise physical dimensions."
+        className="shrink-0 pb-2.5 mb-3 border-b border-gray-200"
+        action={
+          <div className="flex items-center gap-2">
             {id && (
               <button
                 type="button"
                 onClick={() => navigate('/')}
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 h-9 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-4 h-4 stroke-[1.5]" />
+                <span>Back</span>
               </button>
             )}
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <PenTool className="w-5 h-5" />
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-              {id ? 'Edit Code' : 'Barcode & QR Designer'}
-            </h1>
-          </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Generate crisp, print-ready barcodes and QR codes with customizable artboards and precise physical dimensions.
-          </p>
-        </div>
-
-        {/* Toggle Barcode | QR Code */}
-        <div className="inline-flex p-1 bg-slate-200/70 rounded-xl self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={() => setType('barcode')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-              type === 'barcode'
-                ? 'bg-white text-indigo-600 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Barcode className="w-4 h-4" />
-            <span>Barcode</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setType('qr')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-              type === 'qr'
-                ? 'bg-white text-indigo-600 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <QrCode className="w-4 h-4" />
-            <span>QR Code</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Two-Column Layout */}
-      <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 lg:h-[calc(100vh-10.5rem)] lg:overflow-hidden items-start">
-        {/* Left Column: Controls (scrolls independently on desktop) */}
-        <div className="order-2 lg:order-1 lg:col-span-7 space-y-4 lg:h-full lg:overflow-y-auto lg:pr-3 min-h-0 w-full">
-          {/* Card 1: Data Source & Content */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h2 className="font-semibold text-slate-900 text-base">Content & Product Link</h2>
-              <span className="text-xs text-slate-400">Step 1</span>
-            </div>
-
-            {/* Code Name */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Code Label / Title <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Wireless Headphones SKU Barcode"
-                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
-              />
-            </div>
-
-            {/* Product Autocomplete Picker */}
-            <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                  Link with Stock Product <span className="text-slate-400 font-normal">(optional)</span>
-                </label>
-                {selectedProduct && (
-                  <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" /> Synced with stock
-                  </span>
-                )}
-              </div>
-              <ProductPicker
-                selectedProduct={selectedProduct}
-                onSelectProduct={handleSelectProduct}
-                onClearProduct={handleClearProduct}
-              />
-            </div>
-
-            {/* Encoded Content / Value */}
-            <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                  Encoded Value <span className="text-rose-500">*</span>
-                </label>
-                <div className="flex items-center gap-2">
-                  {type === 'barcode' && ['EAN13', 'EAN8', 'UPC', 'CODE128'].includes(barcodeSettings.format) && (
-                    <button
-                      type="button"
-                      onClick={handleGenerateValidNumber}
-                      disabled={isGeneratingValue}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
-                      title={`Generate valid ${barcodeSettings.format} number`}
-                    >
-                      <Wand2 className="w-3 h-3" />
-                      <span>{isGeneratingValue ? 'Generating...' : 'Generate Valid Number'}</span>
-                    </button>
-                  )}
-                  <span className="text-xs text-slate-400">
-                    {type === 'barcode' ? 'SKU or digits' : 'URL, text or SKU'}
-                  </span>
-                </div>
-              </div>
-
-              <input
-                type="text"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                placeholder={type === 'barcode' ? 'Enter barcode characters or digits' : 'https://example.com or custom text'}
-                className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-sm font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
-                  !validationResult.isValid
-                    ? 'border-rose-400 focus:ring-rose-100'
-                    : 'border-slate-300 focus:border-indigo-500 focus:ring-indigo-100'
+            <div className="inline-flex p-0.5 bg-gray-100 border border-gray-200 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setType('barcode')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                  type === 'barcode'
+                    ? 'bg-white text-indigo-600 font-semibold'
+                    : 'text-gray-600 hover:text-gray-900'
                 }`}
-              />
-
-              {/* Inline error and auto-fix actions */}
-              {!validationResult.isValid && (
-                <div className="mt-2 space-y-2">
-                  <p className="text-xs text-rose-500 font-medium">
-                    {validationResult.error}
-                  </p>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    {validationResult.canAutoFixCheckDigit && validationResult.suggestedFullNumber && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setValue(validationResult.suggestedFullNumber);
-                          toast.success(`Check digit added: ${validationResult.suggestedFullNumber}`);
-                        }}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>
-                          Add correct check digit (+{validationResult.suggestedCheckDigit}): <strong>{validationResult.suggestedFullNumber}</strong>
-                        </span>
-                      </button>
-                    )}
-
-                    {type === 'barcode' && ['EAN13', 'EAN8', 'UPC'].includes(barcodeSettings.format) && (
-                      <button
-                        type="button"
-                        onClick={handleGenerateValidNumber}
-                        disabled={isGeneratingValue}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                      >
-                        <Wand2 className="w-3.5 h-3.5" />
-                        <span>Generate valid {barcodeSettings.format} number</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
+              >
+                <Barcode className="w-3.5 h-3.5 stroke-[1.5]" />
+                <span>Barcode</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setType('qr')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                  type === 'qr'
+                    ? 'bg-white text-indigo-600 font-semibold'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <QrCode className="w-3.5 h-3.5 stroke-[1.5]" />
+                <span>QR Code</span>
+              </button>
             </div>
           </div>
+        }
+      />
 
-          {/* Collapsible Section 1: Artboard */}
-          <CollapsibleSection
-            title="Artboard"
-            subtitle="Label or card canvas the code is placed on"
-            icon={Layers}
-            badge={artboardSettings.preset === 'auto' ? 'Auto' : artboardSettings.preset.replace('_', ' ')}
-            isOpen={openSections.artboard}
-            onToggle={() => toggleSection('artboard')}
-          >
-            <ArtboardControls
-              settings={artboardSettings}
-              onChange={setArtboardSettings}
-              codeDimensions={{
-                widthPx: type === 'barcode' ? toPx(barcodeSettings.width, barcodeSettings.unit) : toPx(qrSettings.size, qrSettings.unit),
-                heightPx: type === 'barcode' ? toPx(barcodeSettings.height, barcodeSettings.unit) : toPx(qrSettings.size, qrSettings.unit),
-              }}
-              scannabilityWarning={warnings.scannabilityWarning}
-              codeExceedsWarning={warnings.codeExceedsWarning}
-            />
-          </CollapsibleSection>
-
-          {/* Collapsible Section 2: Code Size */}
-          <CollapsibleSection
-            title="Code Size"
-            subtitle="Width, height, and module scaling of the code"
-            icon={Maximize2}
-            badge={`${type === 'barcode' ? `${barcodeSettings.width}×${barcodeSettings.height}` : `${qrSettings.size}×${qrSettings.size}`} ${activeSettings.unit}`}
-            isOpen={openSections.codeSize}
-            onToggle={() => toggleSection('codeSize')}
-          >
-            {type === 'barcode' ? (
-              <BarcodeControls
-                settings={barcodeSettings}
-                onChange={setBarcodeSettings}
-                validationError={!validationResult.isValid ? validationResult.error : null}
-                calculatedModuleWidth={calculatedModuleWidth}
-                sizeError={sizeError}
-                section="size"
-              />
-            ) : (
-              <QrControls
-                settings={qrSettings}
-                onChange={setQrSettings}
-                validationError={!validationResult.isValid ? validationResult.error : null}
-                sizeError={sizeError}
-                section="size"
-              />
-            )}
-          </CollapsibleSection>
-
-          {/* Collapsible Section 3: Colors & Styling */}
-          <CollapsibleSection
-            title="Colors & Styling"
-            subtitle="Symbology, foreground & background colors, style"
-            icon={Palette}
-            isOpen={openSections.colors}
-            onToggle={() => toggleSection('colors')}
-          >
-            {type === 'barcode' ? (
-              <BarcodeControls
-                settings={barcodeSettings}
-                onChange={setBarcodeSettings}
-                validationError={!validationResult.isValid ? validationResult.error : null}
-                section="colors"
-              />
-            ) : (
-              <QrControls
-                settings={qrSettings}
-                onChange={setQrSettings}
-                validationError={!validationResult.isValid ? validationResult.error : null}
-                section="colors"
-              />
-            )}
-          </CollapsibleSection>
-
-          {/* Collapsible Section 4: Label Text */}
-          <CollapsibleSection
-            title="Label Text"
-            subtitle="Optional caption or product price under code"
-            icon={Type}
-            badge={activeSettings.label ? 'Set' : 'None'}
-            isOpen={openSections.label}
-            onToggle={() => toggleSection('label')}
-          >
-            {type === 'barcode' ? (
-              <BarcodeControls
-                settings={barcodeSettings}
-                onChange={setBarcodeSettings}
-                section="label"
-              />
-            ) : (
-              <QrControls
-                settings={qrSettings}
-                onChange={setQrSettings}
-                section="label"
-              />
-            )}
-          </CollapsibleSection>
-        </div>
-
-        {/* Right Column: Live Preview & Action Controls */}
-        <div className="order-1 lg:order-2 lg:col-span-5 w-full sticky top-0 lg:static z-20 bg-slate-50 lg:bg-transparent pb-3 lg:pb-0 lg:h-full lg:overflow-y-auto lg:pl-1 min-h-0">
+      {/* Main Two-Pane Layout: PREVIEW on LEFT (65-70%), EDITOR on RIGHT (30-35%, clamped 340-440px) */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-4 lg:gap-5 items-stretch w-full overflow-hidden">
+        {/* Left Column: Live Preview (fills remaining width, fixed on desktop, sticky on mobile) */}
+        <div className="order-1 lg:order-1 lg:flex-1 w-full min-w-0 sticky top-0 lg:static z-20 bg-[#FAFAFA] lg:bg-transparent pb-3 lg:pb-0 h-[360px] sm:h-[400px] lg:h-full lg:overflow-hidden flex flex-col">
           <PreviewPanel
             type={type}
             format={activeSettings.format}
@@ -797,6 +580,238 @@ export default function DesignerPage() {
             onCalculatedModuleWidth={setCalculatedModuleWidth}
             onWarningsUpdate={setWarnings}
           />
+        </div>
+
+        {/* Right Column: Controls Editor (clamped 340px to 440px, scrolls independently on desktop) */}
+        <div className="order-2 lg:order-2 w-full lg:w-[380px] xl:w-[420px] min-w-0 lg:min-w-[340px] lg:max-w-[440px] shrink-0 lg:h-full lg:overflow-y-auto lg:pr-1">
+          <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100">
+            {/* Card 1: Data Source & Content */}
+            <div className="p-4 sm:p-5 space-y-3.5">
+              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-semibold text-gray-900">Content & Product Link</h2>
+                  <span className="text-[11px] text-gray-400">Step 1</span>
+                </div>
+                {/* Collapse all / expand all toggle control */}
+                <button
+                  type="button"
+                  onClick={handleToggleAllSections}
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
+                >
+                  {areAllSectionsOpen ? 'Collapse all' : 'Expand all'}
+                </button>
+              </div>
+
+              {/* Code Name */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                  Code Label / Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Wireless Headphones SKU Barcode"
+                  className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors"
+                />
+              </div>
+
+              {/* Product Autocomplete Picker */}
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="text-xs font-medium text-gray-700">
+                    Link with Stock Product <span className="text-gray-400 font-normal">(optional)</span>
+                  </label>
+                  {selectedProduct && (
+                    <span className="text-xs text-green-700 flex items-center gap-1 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Synced with stock
+                    </span>
+                  )}
+                </div>
+                <ProductPicker
+                  selectedProduct={selectedProduct}
+                  onSelectProduct={handleSelectProduct}
+                  onClearProduct={handleClearProduct}
+                />
+              </div>
+
+              {/* Encoded Content / Value */}
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="text-xs font-medium text-gray-700">
+                    Encoded Value <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {type === 'barcode' && ['EAN13', 'EAN8', 'UPC', 'CODE128'].includes(barcodeSettings.format) && (
+                      <button
+                        type="button"
+                        onClick={handleGenerateValidNumber}
+                        disabled={isGeneratingValue}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded-lg border border-gray-200 transition-colors cursor-pointer disabled:opacity-50"
+                        title={`Generate valid ${barcodeSettings.format} number`}
+                      >
+                        <Wand2 className="w-3 h-3 stroke-[1.5]" />
+                        <span>{isGeneratingValue ? 'Generating...' : 'Generate Valid Number'}</span>
+                      </button>
+                    )}
+                    <span className="text-xs text-gray-400">
+                      {type === 'barcode' ? 'SKU or digits' : 'URL, text or SKU'}
+                    </span>
+                  </div>
+                </div>
+
+                <input
+                  type="text"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  placeholder={type === 'barcode' ? 'Enter barcode characters or digits' : 'https://example.com or custom text'}
+                  className={`w-full h-9 px-3 bg-white border rounded-lg text-sm font-mono text-gray-900 placeholder:text-gray-400 focus:outline-none transition-colors ${
+                    !validationResult.isValid
+                      ? 'border-red-400 focus:ring-2 focus:ring-red-100'
+                      : 'border-gray-300 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20'
+                  }`}
+                />
+
+                {/* Inline error and auto-fix actions */}
+                {!validationResult.isValid && (
+                  <div className="mt-2 space-y-2">
+                    <p className="text-xs text-red-600 font-medium">
+                      {validationResult.error}
+                    </p>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {validationResult.canAutoFixCheckDigit && validationResult.suggestedFullNumber && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setValue(validationResult.suggestedFullNumber);
+                            toast.success(`Check digit added: ${validationResult.suggestedFullNumber}`);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Check className="w-3.5 h-3.5 stroke-[1.5]" />
+                          <span>
+                            Add correct check digit (+{validationResult.suggestedCheckDigit}): <strong>{validationResult.suggestedFullNumber}</strong>
+                          </span>
+                        </button>
+                      )}
+
+                      {type === 'barcode' && ['EAN13', 'EAN8', 'UPC'].includes(barcodeSettings.format) && (
+                        <button
+                          type="button"
+                          onClick={handleGenerateValidNumber}
+                          disabled={isGeneratingValue}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          <Wand2 className="w-3.5 h-3.5 stroke-[1.5]" />
+                          <span>Generate valid {barcodeSettings.format} number</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Collapsible Section 1: Artboard */}
+            <CollapsibleSection
+              title="Artboard"
+              subtitle="Label or card canvas the code is placed on"
+              icon={Layers}
+              badge={artboardSettings.preset === 'auto' ? 'Auto' : artboardSettings.preset.replace('_', ' ')}
+              isOpen={openSections.artboard}
+              onToggle={() => toggleSection('artboard')}
+            >
+              <ArtboardControls
+                settings={artboardSettings}
+                onChange={setArtboardSettings}
+                codeDimensions={{
+                  widthPx: type === 'barcode' ? toPx(barcodeSettings.width, barcodeSettings.unit) : toPx(qrSettings.size, qrSettings.unit),
+                  heightPx: type === 'barcode' ? toPx(barcodeSettings.height, barcodeSettings.unit) : toPx(qrSettings.size, qrSettings.unit),
+                }}
+                scannabilityWarning={warnings.scannabilityWarning}
+                codeExceedsWarning={warnings.codeExceedsWarning}
+              />
+            </CollapsibleSection>
+
+            {/* Collapsible Section 2: Code Size */}
+            <CollapsibleSection
+              title="Code Size"
+              subtitle="Width, height, and module scaling of the code"
+              icon={Maximize2}
+              badge={`${type === 'barcode' ? `${barcodeSettings.width}×${barcodeSettings.height}` : `${qrSettings.size}×${qrSettings.size}`} ${activeSettings.unit}`}
+              isOpen={openSections.codeSize}
+              onToggle={() => toggleSection('codeSize')}
+            >
+              {type === 'barcode' ? (
+                <BarcodeControls
+                  settings={barcodeSettings}
+                  onChange={setBarcodeSettings}
+                  validationError={!validationResult.isValid ? validationResult.error : null}
+                  calculatedModuleWidth={calculatedModuleWidth}
+                  sizeError={sizeError}
+                  section="size"
+                />
+              ) : (
+                <QrControls
+                  settings={qrSettings}
+                  onChange={setQrSettings}
+                  validationError={!validationResult.isValid ? validationResult.error : null}
+                  sizeError={sizeError}
+                  section="size"
+                />
+              )}
+            </CollapsibleSection>
+
+            {/* Collapsible Section 3: Colors & Styling */}
+            <CollapsibleSection
+              title="Colors & Styling"
+              subtitle="Symbology, foreground & background colors, style"
+              icon={Palette}
+              isOpen={openSections.colors}
+              onToggle={() => toggleSection('colors')}
+            >
+              {type === 'barcode' ? (
+                <BarcodeControls
+                  settings={barcodeSettings}
+                  onChange={setBarcodeSettings}
+                  validationError={!validationResult.isValid ? validationResult.error : null}
+                  section="colors"
+                />
+              ) : (
+                <QrControls
+                  settings={qrSettings}
+                  onChange={setQrSettings}
+                  validationError={!validationResult.isValid ? validationResult.error : null}
+                  section="colors"
+                />
+              )}
+            </CollapsibleSection>
+
+            {/* Collapsible Section 4: Label Text */}
+            <CollapsibleSection
+              title="Label Text"
+              subtitle="Optional caption or product price under code"
+              icon={Type}
+              badge={activeSettings.label ? 'Set' : 'None'}
+              isOpen={openSections.label}
+              onToggle={() => toggleSection('label')}
+            >
+              {type === 'barcode' ? (
+                <BarcodeControls
+                  settings={barcodeSettings}
+                  onChange={setBarcodeSettings}
+                  section="label"
+                />
+              ) : (
+                <QrControls
+                  settings={qrSettings}
+                  onChange={setQrSettings}
+                  section="label"
+                />
+              )}
+            </CollapsibleSection>
+          </div>
         </div>
       </div>
     </div>

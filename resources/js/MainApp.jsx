@@ -10,28 +10,29 @@ import PrintLabelsPage from './pages/PrintLabelsPage';
 
 export default function MainApp() {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row w-full">
+    <div className="min-h-screen bg-[#FAFAFA] flex flex-col lg:flex-row w-full text-gray-900">
       <Toaster
         position="top-right"
         toastOptions={{
           duration: 3500,
           style: {
-            background: '#0F172A',
-            color: '#FFFFFF',
-            fontSize: '14px',
-            borderRadius: '12px',
-            padding: '12px 16px',
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+            background: '#FFFFFF',
+            color: '#111827',
+            border: '1px solid #E5E7EB',
+            fontSize: '13px',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05)',
           },
           success: {
             iconTheme: {
-              primary: '#22C55E',
+              primary: '#16A34A',
               secondary: '#FFFFFF',
             },
           },
           error: {
             iconTheme: {
-              primary: '#EF4444',
+              primary: '#DC2626',
               secondary: '#FFFFFF',
             },
           },
@@ -42,8 +43,8 @@ export default function MainApp() {
       <Sidebar />
 
       {/* Main Content Area */}
-      <div className="flex-1 lg:pl-64 print:pl-0 print:m-0 flex flex-col min-h-screen min-w-0 max-w-full">
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 print:p-0 print:m-0 max-w-7xl print:max-w-none w-full mx-auto min-w-0">
+      <div className="flex-1 lg:pl-56 print:pl-0 print:m-0 flex flex-col min-h-screen min-w-0 max-w-full">
+        <main className="flex-1 p-4 sm:p-6 lg:p-6 print:p-0 print:m-0 max-w-7xl print:max-w-none w-full mx-auto min-w-0 flex flex-col">
           <Routes>
             <Route path="/" element={<GalleryPage />} />
             <Route path="/designer" element={<DesignerPage />} />

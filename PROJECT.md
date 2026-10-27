@@ -54,9 +54,19 @@ barcode-designer/
 - Delete asks for confirmation ("Move to Recycle Bin") and shows a toast with an Undo action after deleting.
 
 ### 2.2 Designer (`/designer` and `/designer/:id`)
-Two-column layout: **controls (left)**, **live preview (right, sticky/fixed)**.
-Controls are grouped into collapsible sections (**Artboard**, **Code Size**, **Colors**, **Label Text**) to keep the panel organized and avoid overcrowding.
+Two-pane layout: **live preview (left, ~65-70% width, fixed in place)** and **editor controls (right, ~30-35% width, clamped min 340px to max 440px, scrolls independently)**.
+At 1366x768 and above, the page (body) does not scroll: height is tied to the visible window (`height: calc(100dvh - <top header height>)`).
+Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and the editor underneath.
 
+- **Preview Pane (Left)**: Built as a 3-part flex column:
+  - **Header Bar (shrink-0)**: Left: "Live Preview" on one line (`whitespace-nowrap`) with format badge (e.g. `CODE128`). Right: compact zoom controls (Fit, 50%, 100%, 200%, `-`, `+`, and real zoom % label). Flex-wrap with `gap-2` so nothing is clipped on narrow panels.
+  - **Canvas (flex-1, min-h-0, overflow-hidden, centered content)**: No horizontal scrollbar. Artboard wrapper is sized precisely to its scaled dimensions so DOM flow matches visual scale. "Fit" zoom fits artboard inside canvas in BOTH width and height with small margin (recalculated via ResizeObserver). At zoom > Fit, user can pan by dragging or scrolling inside the canvas without scrolling the pane or window.
+  - **Fixed Footer (shrink-0)**: ALWAYS fully visible inside the window. Holds size info, compact DPI selector, and **Save to Gallery**, **PNG**, **SVG**, and **Reset** buttons neatly wrapped (`flex-wrap, gap-2`, two rows at most).
+- **Editor Panel (Right)**:
+  - Scrolls independently on desktop, ends inside the window. Compact with tighter spacing, 13–14px text, 36px inputs, and small "Collapse all / Expand all" control.
+  - Compact with tighter spacing, 13–14px text, 36px inputs, and small "Collapse all / Expand all" control.
+  - Collapsible sections (**Artboard**, **Code Size**, **Colors**, **Label Text**) with most used section open by default.
+  - Related small inputs placed side by side in two columns (e.g. Width and Height, Foreground and Background).
 - Toggle at top: **Barcode | QR Code**.
 - **Source of data**: either type custom text OR pick a product from stock (autocomplete). Picking a product auto-fills the value (SKU / barcode number / URL).
 - **Artboard Canvas Controls**:
@@ -75,9 +85,7 @@ Controls are grouped into collapsible sections (**Artboard**, **Code Size**, **C
   - Fine position: X and Y offset inputs, plus interactive drag-and-drop inside the preview (mouse and touch) kept inside artboard bounds. "Reset position" button.
   - Barcode scannability warning if scaling makes bars thinner than minimum scannable threshold (< 1px).
 - **Artboard Preview**:
-  - Artboard displayed with realistic drop shadow on a neutral gray workspace, scaled to fit the preview panel without overflowing.
-  - Zoom controls toolbar: `Fit`, `50%`, `100%`, `200%`, `+` and `-` buttons, and zoom percentage indicator.
-  - Size indicator under preview: e.g. `Artboard: 100 x 50 mm (1181 x 591 px at 300 DPI)`.
+  - Scaled to fit the preview panel canvas without overflowing.
   - Preview panel stays fixed on desktop while controls scroll independently; sticky on mobile.
 - **Code Sizing & Options**:
   - Barcode: Width and height inputs, format (CODE128, EAN13, EAN8, UPC, CODE39, ITF14), line color, background color, show text toggle, font size.
@@ -94,27 +102,32 @@ Controls are grouped into collapsible sections (**Artboard**, **Code Size**, **C
 - **Automatic Number Generator**:
   - When the selected format requires valid structured digits (EAN13, EAN8, UPC) and the value is empty or invalid, show a "Generate valid number" action.
   - If 12 digits are entered for EAN13, offer a 1-click action to auto-calculate and append the correct GS1 check digit.
-- Buttons: **Save to Gallery**, **Download PNG**, **Download SVG**, **Reset**.
 - After save, show toast and redirect to Gallery.
 
 ### 2.3 Stock Management (`/stock`)
 - Table of products with search, sort, pagination (10 per page).
-- Columns: Image (optional), Name, SKU, Barcode Number, Category, Price, Quantity, Status (In stock / Low / Out), Actions.
+- **Row & Table Density**: Compact rows (~44-48px height, `py-2` on cells), text 14px, secondary text 12-13px, header ~40px with small gray label, 1px dividers, subtle hover. Tight two-line cells with 28-32px action icon buttons. Checkbox, text, and action buttons centered vertically.
+- Columns: Name & SKU, Barcode Number, Category, Price, Quantity, Status (In stock / Low / Out), Actions.
 - Actions: Edit, Delete (moves to Recycle Bin with Undo toast), **Generate Code** (opens Designer with the product pre-selected).
-- Add/Edit product in a slide-over drawer or modal form.
-  - Includes a "Generate" button with a Wand icon next to the Barcode Number field, plus a format selector (`CODE128`, `EAN13`, `EAN8`, `UPC`), auto-filling a valid unique number with correct check digit.
-  - Option to auto-generate barcode number on product creation if left blank.
+- **Add / Edit Product in a Pop-up Modal** (replacing the drawer):
+  - Centered modal fitting window (`max-h-[calc(100dvh-2rem)]`, width ~560-640px `max-w-xl`, full-screen on mobile).
+  - Fixed header (title + close icon), scrollable body, fixed footer with Cancel (secondary) and Save (primary).
+  - Clean two-column grid on desktop: Name full width, SKU and Barcode with "Generate" Wand button side by side, Category and Price side by side, Quantity and Low stock threshold side by side, Description full width. One column on mobile.
+  - Inline validation messages, autofocus first field, close on Escape, confirm before closing if unsaved changes.
+- **Header Actions on ONE Row**:
+  - Order: **Import** (secondary), **Export** (secondary), **Add Product** (primary, last).
+  - Placed on one row, right-aligned, `gap-2`, 36px height (`h-9`), `whitespace-nowrap`, never wrapping.
+  - Below 768px: Import and Export display as icon-only buttons with tooltips while Add Product keeps its label, still on one row.
 - **Row Selection & Bulk Actions**:
   - Row checkboxes, "Select all on this page" in table header, and live selected count in toolbar (`3 selected`) with a "Clear selection" link.
   - When the current page is fully selected, offer a "Select all {N} products across all pages" link.
   - Selection persists across page changes and searches until cleared or an action succeeds.
   - "Generate missing barcodes" applies to selected products (or all with empty barcodes if none selected).
 - **CSV Export & Import**:
-  - Header actions: Compact "Import" (`Upload` icon) and "Export" (`Download` icon) buttons next to "Add Product".
   - **Export (`POST /api/products/export`)**: Exports only the selected products. Disabled when 0 products are selected (with tooltip: "Select products to export"). Button displays count, e.g. `Export (3)`. Payload accepts `{ ids: [...], all_matching: boolean, search, category, status }`. Validates IDs and excludes trashed products. Output CSV has UTF-8 BOM, standard columns (`name, sku, barcode_number, category, price, quantity, low_stock_threshold, description`), and date-based filename (e.g. `stock-selected-3-YYYY-MM-DD.csv`). Shows success toast upon completion.
   - **Sample Template (`GET /api/products/import/template`)**: Downloads `products_import_template.csv` with standard headers and 2 example rows.
   - **Import 3-Step Modal**:
-    - Built as a structured 3-part flex column: fixed header (shrink-0), scrollable body (flex-1 min-h-0 overflow-y-auto), and fixed bottom footer (shrink-0, border-t, bg-white) so buttons (Back, Cancel, Import) are never cut off.
+    - Structured 3-part flex column: fixed header (shrink-0), scrollable body (flex-1 min-h-0 overflow-y-auto), and fixed bottom footer (shrink-0, border-t, bg-white) so buttons (Back, Cancel, Import) are never cut off.
     - Centered vertically within window at every size with `max-h-[calc(100vh-2rem)]` (or `100dvh`), full-screen on mobile (`390px`).
     - Compact summary counters and options box to maximize preview visibility on 1366x768 and 1920x1080.
     - Zero horizontal scrolling; capped table height (~40vh) with internal vertical scroll, truncated error messages with title tooltips.
@@ -126,7 +139,7 @@ Controls are grouped into collapsible sections (**Artboard**, **Code Size**, **C
 - Header includes "Recycle Bin" button with count badge (opens `/bin?tab=products`).
 
 ### 2.4 Print Labels (`/print`)
-- Layout: Two panes on desktop — controls and settings on the left (scrolls independently), live paper sheet preview on the right (fixed, does not scroll with settings). Stacked on mobile/tablet with the paper preview sticky at the top. Zero horizontal scrollbar at all window sizes.
+- **Layout**: Swapped two-pane layout on desktop — **live paper sheet preview on the LEFT (~65-70% width, fixed)** and **settings on the RIGHT (~30-35% width, clamped min 340px to max 440px, scrolls independently)**. At 1366x768 and above, page body does not scroll: height is tied to window (`height: calc(100dvh - <top header height>)`). Three-part preview structure: header bar (shrink-0), canvas (flex-1, min-h-0, overflow-hidden, paper auto-scaled to fit via ResizeObserver in width and height), and footer/header with page navigation. Stacked on mobile/tablet below 1024px with the paper preview sticky at the top (compact, max 40vh). Zero horizontal scrollbar at all window sizes.
 - **Choose what to print**:
   - Multi-select list of saved designs from Gallery with live search, preview thumbnails, and format/type filter (All / Barcode / QR). Excludes trashed codes.
   - Copies per code selector (default 1) with "Set all to N" batch shortcut.
@@ -272,29 +285,82 @@ Backend rules: use Form Requests for validation, API Resources for responses, co
 
 ## 5. UI / UX Design System
 
-**Principles:** simple, clean, lots of whitespace, one primary action per screen, instant feedback.
+**Aesthetic:** Calm, minimalistic, flat interface. Fewer colors, zero decorations, generous whitespace, clear hierarchy. No gradients, glows, colored shadows, decorative blobs, heavy borders, or unnecessary animations. 150ms transitions on color and background only.
 
-**Colors (Tailwind config extend)**
-| role | hex |
-|---|---|
-| Primary | `#4F46E5` (indigo-600) |
-| Primary hover | `#4338CA` |
-| Accent | `#14B8A6` (teal) |
-| Background | `#F8FAFC` |
-| Surface (cards) | `#FFFFFF` |
-| Border | `#E2E8F0` |
-| Text | `#0F172A` / muted `#64748B` |
-| Success | `#22C55E` |
-| Warning | `#F59E0B` |
-| Danger | `#EF4444` |
+**Design Tokens**
+| Token | Value | Usage |
+|---|---|---|
+| Page Background | `#FAFAFA` (`bg-neutral-50` / `var(--color-background)`) | App backdrop |
+| Workspace / Canvas | `#F4F4F5` (`bg-zinc-100`) | Preview panels for Designer & Print |
+| Surface (Cards, Sheets) | `#FFFFFF` (`bg-white`) | Cards, tables, sheets, modals |
+| Border | `#E5E7EB` (`border-gray-200`) | 1px hairline dividers and cards |
+| Strong Border | `#D1D5DB` (`border-gray-300`) | Input fields and interactive controls |
+| Text Primary | `#111827` (`text-gray-900`) | Headings, body text, data values |
+| Text Secondary | `#6B7280` (`text-gray-500`) | Labels, descriptions, secondary metadata |
+| Text Disabled / Placeholder | `#9CA3AF` (`text-gray-400`) | Placeholders, inactive hints |
+| Accent (Single Color) | `#4F46E5` (hover `#4338CA`) | Primary buttons, active nav, focus rings, links |
+| Status: Success | `#16A34A` | Small indicator dot + plain text |
+| Status: Warning | `#D97706` | Small indicator dot + plain text |
+| Status: Danger | `#DC2626` | Destructive confirm, error text, dot + text |
 
-**Typography:** Inter (Google Fonts). Headings semibold, body regular.
-**Shape:** cards `rounded-2xl`, inputs/buttons `rounded-xl`, soft shadows (`shadow-sm`), 150ms transitions.
-**Icons (lucide-react):** `LayoutGrid` (Gallery), `PenTool` (Designer), `Package` (Stock), `Printer` (Print Labels), `QrCode`, `Barcode`, `Download`, `Trash2`, `Pencil`, `Plus`, `Search`, `AlertTriangle`.
-**Layout:** left sidebar (collapses to bottom/hamburger on mobile) with the 4 nav items + app logo. Active item highlighted in primary color.
-**States required everywhere:** loading skeletons, empty states, error toasts, success toasts, disabled buttons while saving.
-**Responsive:** mobile-first; designer stacks controls above preview on small screens.
-**Accessibility:** labels on all inputs, visible focus rings, sufficient contrast.
+**Typography:**
+- Font: Inter (`var(--font-sans)`).
+- Page titles: 20px semibold (`text-xl font-semibold text-gray-900`).
+- Section titles: 14px semibold (`text-sm font-semibold text-gray-900`).
+- Body text: 14px regular (`text-sm text-gray-700`).
+- Small & helper text: 12–13px (`text-xs text-gray-500`).
+- No all-caps tracking-wide labels, except small table header labels (`text-xs font-medium text-gray-500`).
+
+**Shape & Elevation:**
+- Radius: `rounded-lg` (8px) for buttons, inputs, cards, and modals. No pill shapes except small count badges.
+- Shadows: None on cards and tables (`shadow-none`). Soft shadow only on modals, drawers, dropdowns, and toasts (`shadow-md` / `shadow-lg`).
+
+**Icons:**
+- `lucide-react`, standard size 16px (18px max), stroke width 1.5, neutral gray by default (`text-gray-400` / `text-gray-500`).
+- No colored icon tiles, colored boxes, or decorative backgrounds behind icons.
+
+**Component Guidelines:**
+1. **Buttons (3 variants only):**
+   - **Primary:** solid accent (`bg-indigo-600 hover:bg-indigo-700 text-white`), height 32–36px (`h-8` / `h-9`), text 14px, rounded-lg, no shadows.
+   - **Secondary:** white with 1px border (`bg-white border border-gray-300 text-gray-700 hover:bg-gray-50`), height 32–36px, rounded-lg.
+   - **Ghost:** borderless (`text-gray-600 hover:text-gray-900 hover:bg-gray-100`), height 32–36px, rounded-lg.
+   - **Danger:** secondary button with red text (`border-gray-300 text-red-600 hover:bg-red-50`), solid red (`bg-red-600 text-white`) only in the final confirmation step of destructive actions.
+2. **Inputs, Selects, Textareas:**
+   - White surface, 1px border (`border-gray-300`), 8px radius (`rounded-lg`), 36px height (`h-9`), accent focus ring (`focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600`).
+   - Plain labels above fields, helper and error text under them.
+3. **Cards:**
+   - White surface, 1px border (`border-gray-200`), no shadow, no colored left borders, no gradients, generous padding (`p-5` or `p-6`).
+4. **Tables:**
+   - Compact rows (~44–48px height, `py-2` on cells), text 14px, secondary text 12–13px, header ~40px without heavy background. 1px row dividers (`divide-y divide-gray-100`), subtle row hover (`hover:bg-gray-50/75`), no zebra striping. Checkbox, text, and action icons (28–32px) vertically centered. Tight two-line cells with reduced gap.
+   - **Column Alignment**: The Product column and its checkbox are left-aligned (`text-left`). All other columns (SKU, Barcode / EAN, Category, Price, Qty, Status, and Actions) have **center-aligned header labels and center-aligned cell contents** (`text-center`). Sort arrows sit beside centered header labels in an inline-flex container (`inline-flex items-center justify-center gap-1`) without shifting the label text off-center. Applied consistently across Stock, Recycle Bin, and CSV import tables.
+5. **Badges:**
+   - Neutral gray background with dark gray text (`bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded`).
+   - Semantic status badges use a small colored dot plus plain text (`text-gray-700`), not filled pills.
+6. **Navigation Sidebar:**
+   - White surface, 1px right border (`border-gray-200`), width ~224px (`w-56`).
+   - Small logo mark + app name (no oversized promo/upgrade tiles).
+   - Nav items are 36px high (`h-9`) with 16px icons. Active item: light gray background (`bg-gray-100 text-indigo-600 font-medium`), inactive item: `text-gray-600 hover:text-gray-900 hover:bg-gray-50`.
+   - Recycle Bin count is small, plain gray text (`text-xs text-gray-400`), not a red pill.
+7. **Page Headers:**
+   - Shared flex row across all pages: title (`text-xl font-semibold text-gray-900`) and one-line description (max-width ~640px, text 13-14px gray, truncated or neatly wrapped) on left.
+   - Action buttons right-aligned, vertically aligned with title's line.
+   - Uniform height, padding, and bottom margin (`mb-6`) across all pages. On narrow screens actions wrap neatly under the title, left-aligned.
+8. **Summary Cards (Stock):**
+   - Plain bordered white cards with small gray label, large number (`text-2xl font-semibold text-gray-900`), and optional muted helper text. No colored left borders or tinted backgrounds. Low stock number amber and out-of-stock red only if > 0.
+9. **Gallery Cards:**
+   - Code preview centered on neutral light gray background (`bg-zinc-100`), name and metadata below, actions as ghost icon buttons (visible on hover on desktop, always visible on touch).
+10. **Workspaces (Designer & Print):**
+    - Neutral light gray canvas (`bg-zinc-100`), white artboard/paper sheet with hairline border (`border-gray-200`) and subtle boundary, without heavy drop shadows.
+11. **Modals & Drawers:**
+    - White surface, 12px radius (`rounded-xl`), dim blurred overlay (`bg-gray-900/40 backdrop-blur-xs`), clean header with title and close icon, generous spacing, fixed footer with secondary and primary buttons aligned right.
+    - Fits window (`max-h-[calc(100dvh-2rem)]`), scrollable body, full-screen on mobile (`390px`).
+    - Form layouts use clean 2-column grid on desktop, single column on mobile, inline validation, autofocus first field, close on Escape, unsaved changes confirmation.
+12. **Toasts:**
+    - Small white surface, 1px border (`border-gray-200`), soft shadow, small colored icon, clean text.
+13. **Empty States:**
+    - One simple outline icon in gray (stroke 1.5), short title, one-line gray description, single action button. No colored illustrations or graphic blobs.
+14. **Skeletons:**
+    - Flat light gray blocks (`bg-gray-200/75 animate-pulse rounded-lg`).
 
 ## 6. Frontend Folder Structure (inside `resources/js/`)
 ```

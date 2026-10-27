@@ -1,67 +1,56 @@
 import React from 'react';
-import { Package, AlertTriangle, AlertCircle } from 'lucide-react';
 import Skeleton from '../../components/Skeleton';
 
 export default function SummaryCards({ summary, isLoading }) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        <Skeleton count={3} className="h-28" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Skeleton count={3} className="h-24" />
       </div>
     );
   }
 
+  const total = summary?.total ?? 0;
+  const low = summary?.low ?? 0;
+  const out = summary?.out ?? 0;
+
   const cards = [
     {
       title: 'Total Products',
-      value: summary?.total ?? 0,
+      value: total,
       description: 'Active items in inventory',
-      icon: Package,
-      iconBg: 'bg-indigo-50 text-indigo-600',
-      borderAccent: 'border-l-indigo-500',
+      valueColor: 'text-gray-900',
     },
     {
       title: 'Low Stock Alert',
-      value: summary?.low ?? 0,
+      value: low,
       description: 'At or below threshold',
-      icon: AlertTriangle,
-      iconBg: 'bg-amber-50 text-amber-600',
-      borderAccent: 'border-l-amber-500',
+      valueColor: low > 0 ? 'text-[#D97706]' : 'text-gray-900',
     },
     {
       title: 'Out of Stock',
-      value: summary?.out ?? 0,
-      description: 'Needs immediate replenishment',
-      icon: AlertCircle,
-      iconBg: 'bg-rose-50 text-rose-600',
-      borderAccent: 'border-l-rose-500',
+      value: out,
+      description: 'Needs replenishment',
+      valueColor: out > 0 ? 'text-[#DC2626]' : 'text-gray-900',
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-      {cards.map((card) => {
-        const Icon = card.icon;
-        return (
-          <div
-            key={card.title}
-            className={`bg-white rounded-2xl border border-slate-200 border-l-4 ${card.borderAccent} p-5 shadow-xs transition-shadow hover:shadow-sm flex items-center justify-between`}
-          >
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                {card.title}
-              </p>
-              <h3 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1 tracking-tight">
-                {card.value}
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">{card.description}</p>
-            </div>
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${card.iconBg}`}>
-              <Icon className="w-6 h-6" />
-            </div>
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {cards.map((card) => (
+        <div
+          key={card.title}
+          className="bg-white rounded-lg border border-gray-200 p-5"
+        >
+          <p className="text-xs text-gray-500 font-medium">
+            {card.title}
+          </p>
+          <div className={`text-2xl font-semibold mt-1 tracking-tight ${card.valueColor}`}>
+            {card.value}
           </div>
-        );
-      })}
+          <p className="text-xs text-gray-400 mt-1">{card.description}</p>
+        </div>
+      ))}
     </div>
   );
 }

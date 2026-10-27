@@ -70,26 +70,26 @@ export default function QrControls({
   const sizeSliderMax = unitConfig.max;
 
   const renderSizeSection = () => (
-    <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-slate-200">
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2 border-b border-gray-100">
         <div>
-          <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
+          <span className="text-xs font-semibold text-gray-900">
             QR Dimensions
           </span>
-          <p className="text-[11px] text-slate-500">QR codes are strictly square (1:1 aspect ratio)</p>
+          <p className="text-xs text-gray-500">QR codes are strictly square (1:1 aspect ratio)</p>
         </div>
 
         {/* Unit Selector Segmented Control */}
-        <div className="inline-flex p-0.5 bg-slate-200 rounded-lg self-start sm:self-auto">
+        <div className="inline-flex p-0.5 bg-gray-100 border border-gray-200 rounded-lg self-start sm:self-auto">
           {UNITS.map((u) => (
             <button
               key={u.value}
               type="button"
               onClick={() => handleUnitChange(u.value)}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+              className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${
                 currentUnit === u.value
-                  ? 'bg-white text-indigo-600 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white text-indigo-600 font-semibold'
+                  : 'text-gray-600 hover:text-gray-900'
               }`}
             >
               {u.label}
@@ -101,7 +101,7 @@ export default function QrControls({
       {/* Manual Size Number Input & Slider */}
       <div className="space-y-3">
         <div>
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
             Square Size ({currentUnit})
           </label>
           <input
@@ -111,12 +111,12 @@ export default function QrControls({
             max={unitConfig.max}
             value={settings.size}
             onChange={(e) => handleSizeChange(e.target.value)}
-            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-mono text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+            className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm font-mono text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors"
           />
         </div>
 
         <div>
-          <div className="flex justify-between items-center text-[11px] text-slate-500 mb-1">
+          <div className="flex justify-between items-center text-xs text-gray-500 mb-1">
             <span>Quick Size Slider</span>
             <span className="font-mono">{settings.size} {currentUnit}</span>
           </div>
@@ -133,8 +133,8 @@ export default function QrControls({
       </div>
 
       {sizeError && (
-        <p className="text-xs text-rose-500 font-medium flex items-center gap-1.5 mt-1">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
+        <p className="text-xs text-red-600 font-medium flex items-center gap-1.5 mt-1">
+          <AlertTriangle className="w-4 h-4 shrink-0 stroke-[1.5]" />
           <span>{sizeError}</span>
         </p>
       )}
@@ -145,13 +145,13 @@ export default function QrControls({
     <div className="space-y-4">
       {/* Error Correction */}
       <div>
-        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+        <label className="block text-xs font-medium text-gray-700 mb-1.5">
           Error Correction Level
         </label>
         <select
           value={settings.errorCorrection || 'Q'}
           onChange={(e) => onChange({ ...settings, errorCorrection: e.target.value })}
-          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+          className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors cursor-pointer"
         >
           {ERROR_CORRECTION_LEVELS.map((lvl) => (
             <option key={lvl.value} value={lvl.value}>
@@ -164,13 +164,13 @@ export default function QrControls({
       {/* Dot Style & Corner Style */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-medium text-gray-700 mb-1.5">
             Dot Pattern Style
           </label>
           <select
             value={settings.dotStyle || 'rounded'}
             onChange={(e) => onChange({ ...settings, dotStyle: e.target.value })}
-            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+            className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors cursor-pointer"
           >
             {DOT_STYLES.map((style) => (
               <option key={style.value} value={style.value}>
@@ -181,13 +181,13 @@ export default function QrControls({
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-medium text-gray-700 mb-1.5">
             Corner Style
           </label>
           <select
             value={settings.cornerStyle || 'extra-rounded'}
             onChange={(e) => onChange({ ...settings, cornerStyle: e.target.value })}
-            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+            className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors cursor-pointer"
           >
             {CORNER_STYLES.map((c) => (
               <option key={c.value} value={c.value}>
@@ -201,7 +201,7 @@ export default function QrControls({
       {/* Colors */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-medium text-gray-700 mb-1.5">
             Foreground Color
           </label>
           <div className="flex items-center gap-2">
@@ -209,19 +209,19 @@ export default function QrControls({
               type="color"
               value={settings.foreground || '#0F172A'}
               onChange={(e) => onChange({ ...settings, foreground: e.target.value })}
-              className="w-10 h-10 p-0.5 border border-slate-300 rounded-xl cursor-pointer bg-white"
+              className="w-9 h-9 p-0.5 border border-gray-300 rounded-lg cursor-pointer bg-white"
             />
             <input
               type="text"
               value={settings.foreground || '#0F172A'}
               onChange={(e) => onChange({ ...settings, foreground: e.target.value })}
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono text-slate-800"
+              className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-xs font-mono text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-medium text-gray-700 mb-1.5">
             Code Background
           </label>
           <div className="flex items-center gap-2">
@@ -229,13 +229,13 @@ export default function QrControls({
               type="color"
               value={settings.background || '#ffffff'}
               onChange={(e) => onChange({ ...settings, background: e.target.value })}
-              className="w-10 h-10 p-0.5 border border-slate-300 rounded-xl cursor-pointer bg-white"
+              className="w-9 h-9 p-0.5 border border-gray-300 rounded-lg cursor-pointer bg-white"
             />
             <input
               type="text"
               value={settings.background || '#ffffff'}
               onChange={(e) => onChange({ ...settings, background: e.target.value })}
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono text-slate-800"
+              className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-xs font-mono text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
             />
           </div>
         </div>
@@ -243,35 +243,35 @@ export default function QrControls({
 
       {/* Center Logo Upload */}
       <div>
-        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-          Center Brand Logo <span className="text-slate-400 font-normal">(optional)</span>
+        <label className="block text-xs font-medium text-gray-700 mb-1.5">
+          Center Brand Logo <span className="text-gray-400 font-normal">(optional)</span>
         </label>
         {settings.logo ? (
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
               <img
                 src={settings.logo}
                 alt="Center logo"
-                className="w-10 h-10 object-contain rounded-lg bg-white border border-slate-200 p-1"
+                className="w-9 h-9 object-contain rounded-md bg-white border border-gray-200 p-0.5"
               />
               <div>
-                <p className="text-xs font-semibold text-slate-800">Logo attached</p>
-                <p className="text-[11px] text-slate-500">Rendered in the center of the QR code</p>
+                <p className="text-xs font-medium text-gray-900">Logo attached</p>
+                <p className="text-xs text-gray-500">Rendered in the center of the QR code</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => onChange({ ...settings, logo: null })}
-              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+              className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4 stroke-[1.5]" />
             </button>
           </div>
         ) : (
-          <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-slate-50/50 transition-colors">
-            <Upload className="w-5 h-5 text-slate-400 mb-1" />
-            <span className="text-xs font-medium text-slate-600">Click to upload brand logo</span>
-            <span className="text-[11px] text-slate-400 mt-0.5">PNG, JPG or SVG (square works best)</span>
+          <label className="flex flex-col items-center justify-center p-3.5 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors">
+            <Upload className="w-4 h-4 text-gray-400 mb-1 stroke-[1.5]" />
+            <span className="text-xs font-medium text-gray-700">Click to upload brand logo</span>
+            <span className="text-xs text-gray-400 mt-0.5">PNG, JPG or SVG (square works best)</span>
             <input
               type="file"
               accept="image/*"
@@ -286,15 +286,15 @@ export default function QrControls({
 
   const renderLabelSection = () => (
     <div>
-      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-        Custom Label Under Code <span className="text-slate-400 font-normal">(optional)</span>
+      <label className="block text-xs font-medium text-gray-700 mb-1.5">
+        Custom Label Under Code <span className="text-gray-400 font-normal">(optional)</span>
       </label>
       <input
         type="text"
         value={settings.label || ''}
         onChange={(e) => onChange({ ...settings, label: e.target.value })}
         placeholder="e.g. Scan to order online"
-        className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+        className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors"
       />
     </div>
   );

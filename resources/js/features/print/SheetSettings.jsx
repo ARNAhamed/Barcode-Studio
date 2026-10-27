@@ -132,30 +132,28 @@ export default function SheetSettings({
   const totalSlotsPerSheet = (parseInt(config.columns, 10) || 1) * (parseInt(config.rows, 10) || 1);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4">
+    <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-            <FileText className="w-4 h-4" />
-          </div>
+          <FileText className="w-4 h-4 text-gray-500 stroke-[1.5]" />
           <div>
-            <h2 className="text-sm font-semibold text-slate-900">2. Sheet Settings</h2>
-            <p className="text-xs text-slate-500">Paper size, grid, margins & gaps</p>
+            <h2 className="text-sm font-semibold text-gray-900">2. Sheet Settings</h2>
+            <p className="text-xs text-gray-500">Paper size, grid, margins & gaps</p>
           </div>
         </div>
 
         {/* Unit Selector */}
-        <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-xs font-semibold">
+        <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded-lg text-xs font-medium">
           {['mm', 'cm', 'inch'].map((u) => (
             <button
               key={u}
               type="button"
               onClick={() => onChangeConfig({ ...config, unit: u })}
-              className={`px-2 py-0.5 rounded-md transition-colors ${
+              className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
                 currentUnit === u
-                  ? 'bg-white text-indigo-600 shadow-2xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white text-indigo-600 font-semibold'
+                  : 'text-gray-600 hover:text-gray-900'
               }`}
             >
               {u}
@@ -167,7 +165,7 @@ export default function SheetSettings({
       {/* Paper Size & Orientation */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
             Paper Size
           </label>
           <select
@@ -175,7 +173,7 @@ export default function SheetSettings({
             onChange={(e) =>
               onChangeConfig({ ...config, paper_size: e.target.value, preset_id: 'custom' })
             }
-            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+            className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
           >
             <option value="a4">A4 (210 × 297 mm)</option>
             <option value="letter">US Letter (215.9 × 279.4 mm)</option>
@@ -183,19 +181,19 @@ export default function SheetSettings({
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
             Orientation
           </label>
-          <div className="flex gap-1.5 bg-slate-100 p-1 rounded-xl">
+          <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg h-9 items-center">
             <button
               type="button"
               onClick={() =>
                 onChangeConfig({ ...config, orientation: 'portrait', preset_id: 'custom' })
               }
-              className={`flex-1 py-1 rounded-lg text-xs font-medium transition-colors ${
+              className={`flex-1 h-8 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                 config.orientation === 'portrait'
-                  ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white text-gray-900 font-semibold'
+                  : 'text-gray-600 hover:text-gray-900'
               }`}
             >
               Portrait
@@ -205,10 +203,10 @@ export default function SheetSettings({
               onClick={() =>
                 onChangeConfig({ ...config, orientation: 'landscape', preset_id: 'custom' })
               }
-              className={`flex-1 py-1 rounded-lg text-xs font-medium transition-colors ${
+              className={`flex-1 h-8 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                 config.orientation === 'landscape'
-                  ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white text-gray-900 font-semibold'
+                  : 'text-gray-600 hover:text-gray-900'
               }`}
             >
               Landscape
@@ -218,18 +216,18 @@ export default function SheetSettings({
       </div>
 
       {/* Preset Dropdown & Save Action */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">
+          <label className="block text-xs font-medium text-gray-700">
             Sheet Preset
           </label>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onOpenSaveModal}
-              className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold inline-flex items-center gap-1 cursor-pointer"
+              className="text-xs text-indigo-600 hover:text-indigo-700 font-medium inline-flex items-center gap-1 cursor-pointer"
             >
-              <Bookmark className="w-3 h-3" />
+              <Bookmark className="w-3.5 h-3.5 stroke-[1.5]" />
               <span>Save current</span>
             </button>
             {config.preset_id?.startsWith('saved_') && (
@@ -239,10 +237,10 @@ export default function SheetSettings({
                   const id = parseInt(config.preset_id.replace('saved_', ''), 10);
                   onDeleteSavedPreset(id);
                 }}
-                className="text-xs text-rose-500 hover:text-rose-700 font-medium inline-flex items-center gap-1 cursor-pointer"
+                className="text-xs text-red-600 hover:text-red-700 font-medium inline-flex items-center gap-1 cursor-pointer"
                 title="Delete this saved preset"
               >
-                <Trash2 className="w-3 h-3" />
+                <Trash2 className="w-3.5 h-3.5 stroke-[1.5]" />
                 <span>Delete</span>
               </button>
             )}
@@ -252,7 +250,7 @@ export default function SheetSettings({
         <select
           value={config.preset_id || 'custom'}
           onChange={handlePresetChange}
-          className="w-full px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+          className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
         >
           <optgroup label="Standard Presets">
             {STANDARD_SHEET_PRESETS.map((p) => (
@@ -275,20 +273,20 @@ export default function SheetSettings({
 
       {/* "Match My Design Size" Action */}
       {sharedArtboard && (
-        <div className="bg-gradient-to-r from-indigo-50 to-teal-50 border border-indigo-100 rounded-xl p-3 flex items-center justify-between gap-2">
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-900">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-900">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0 stroke-[1.5]" />
               <span>Match my design size</span>
             </div>
-            <p className="text-[11px] text-indigo-700 truncate mt-0.5">
+            <p className="text-xs text-gray-500 truncate mt-0.5">
               All designs share artboard {sharedArtboard.widthMm} × {sharedArtboard.heightMm} mm
             </p>
           </div>
           <button
             type="button"
             onClick={handleMatchDesignSize}
-            className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-lg text-xs font-semibold shrink-0 transition-colors shadow-2xs cursor-pointer"
+            className="h-8 px-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-lg text-xs font-medium shrink-0 transition-colors cursor-pointer"
           >
             Auto-fit Grid
           </button>
@@ -298,7 +296,7 @@ export default function SheetSettings({
       {/* Grid: Columns & Rows */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Columns</label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Columns</label>
           <input
             type="number"
             min="1"
@@ -311,11 +309,11 @@ export default function SheetSettings({
                 preset_id: 'custom',
               })
             }
-            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+            className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Rows</label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Rows</label>
           <input
             type="number"
             min="1"
@@ -328,7 +326,7 @@ export default function SheetSettings({
                 preset_id: 'custom',
               })
             }
-            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+            className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
           />
         </div>
       </div>
@@ -336,7 +334,7 @@ export default function SheetSettings({
       {/* Label Dimensions (Width & Height) */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
             Label Width ({currentUnit})
           </label>
           <input
@@ -351,11 +349,11 @@ export default function SheetSettings({
                 preset_id: 'custom',
               })
             }
-            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+            className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
             Label Height ({currentUnit})
           </label>
           <input
@@ -370,7 +368,7 @@ export default function SheetSettings({
                 preset_id: 'custom',
               })
             }
-            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+            className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
           />
         </div>
       </div>
@@ -378,7 +376,7 @@ export default function SheetSettings({
       {/* Margins: Top & Left */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
             Top Margin ({currentUnit})
           </label>
           <input
@@ -393,11 +391,11 @@ export default function SheetSettings({
                 preset_id: 'custom',
               })
             }
-            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+            className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
             Left Margin ({currentUnit})
           </label>
           <input
@@ -412,7 +410,7 @@ export default function SheetSettings({
                 preset_id: 'custom',
               })
             }
-            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+            className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
           />
         </div>
       </div>
@@ -420,7 +418,7 @@ export default function SheetSettings({
       {/* Gaps: Horizontal & Vertical */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
             Horiz. Gap ({currentUnit})
           </label>
           <input
@@ -435,11 +433,11 @@ export default function SheetSettings({
                 preset_id: 'custom',
               })
             }
-            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+            className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
             Vert. Gap ({currentUnit})
           </label>
           <input
@@ -454,7 +452,7 @@ export default function SheetSettings({
                 preset_id: 'custom',
               })
             }
-            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+            className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
           />
         </div>
       </div>
@@ -462,7 +460,7 @@ export default function SheetSettings({
       {/* Corner Radius & Start Position */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
             Corner Radius ({currentUnit})
           </label>
           <input
@@ -477,12 +475,12 @@ export default function SheetSettings({
                 preset_id: 'custom',
               })
             }
-            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+            className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
             Start at Label Slot
           </label>
           <div className="flex items-center gap-1.5">
@@ -497,13 +495,13 @@ export default function SheetSettings({
                   isNaN(val) ? 1 : Math.max(1, Math.min(val, totalSlotsPerSheet))
                 );
               }}
-              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+              className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm font-semibold text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
             />
             {startPosition > 1 && (
               <button
                 type="button"
                 onClick={() => onChangeStartPosition(1)}
-                className="px-2 py-1 text-[11px] text-slate-500 hover:text-slate-800 bg-slate-100 rounded-lg shrink-0"
+                className="h-9 px-2.5 text-xs text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg shrink-0 cursor-pointer transition-colors"
                 title="Reset start position to 1"
               >
                 Reset
@@ -512,17 +510,17 @@ export default function SheetSettings({
           </div>
         </div>
       </div>
-      <p className="text-[11px] text-slate-400">
+      <p className="text-xs text-gray-500">
         Start slot skips partly used slots on sheet 1 (1 to {totalSlotsPerSheet}). Click any slot in preview to set.
       </p>
 
       {/* Layout Validation Alert */}
       {!fitValidation.isValid && (
-        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-start gap-2.5 text-xs text-rose-700 font-medium">
-          <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2.5 text-xs text-red-700">
+          <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 stroke-[1.5] mt-0.5" />
           <div>
-            <p className="font-semibold">Grid exceeds paper size!</p>
-            <p className="mt-0.5 text-rose-600">{fitValidation.message}</p>
+            <p className="font-semibold text-red-800">Grid exceeds paper size!</p>
+            <p className="mt-0.5 text-red-600">{fitValidation.message}</p>
           </div>
         </div>
       )}

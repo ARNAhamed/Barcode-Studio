@@ -2,17 +2,10 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   ZoomIn,
   ZoomOut,
-  Maximize,
   ChevronLeft,
   ChevronRight,
-  Eye,
-  EyeOff,
-  Check,
-  Printer,
-  FileDown,
 } from 'lucide-react';
 import { getPaperDimensions } from '../../utils/printHelpers';
-import { convertUnit } from '../../utils/units';
 
 export default function PaperPreview({
   config,
@@ -24,9 +17,14 @@ export default function PaperPreview({
   startPosition = 1,
   onChangeStartPosition,
 }) {
-  const containerRef = useRef(null);
-  const [zoomMode, setZoomMode] = useState('fit'); // 'fit' | '50' | '100'
-  const [scale, setScale] = useState(0.8);
+  const canvasRef = useRef(null);
+  const [zoomMode, setZoomMode] = useState('fit'); // 'fit' | '50' | '100' | 'manual'
+  const [scale, setScale] = useState(0.5);
+  const [canvasSize, setCanvasSize] = useState({ width: 500, height: 400 });
+
+  // Panning state for dragging canvas when zoomed
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
 
   const { widthMm, heightMm } = getPaperDimensions(config.paper_size, config.orientation);
 
@@ -35,28 +33,37 @@ export default function PaperPreview({
   const sheetWidthPx = widthMm * MM_TO_PX;
   const sheetHeightPx = heightMm * MM_TO_PX;
 
-  // Auto-fit calculation
+  // Measure canvas size with ResizeObserver
   useEffect(() => {
-    const updateScale = () => {
-      if (!containerRef.current) return;
-      const containerWidth = containerRef.current.clientWidth - 32; // padding
-      const containerHeight = window.innerHeight * 0.75;
-
-      if (zoomMode === 'fit') {
-        const scaleX = containerWidth / sheetWidthPx;
-        const scaleY = containerHeight / sheetHeightPx;
-        setScale(Math.min(1.0, Math.min(scaleX, scaleY)));
-      } else if (zoomMode === '50') {
-        setScale(0.5);
-      } else if (zoomMode === '100') {
-        setScale(1.0);
+    if (!canvasRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setCanvasSize({ width, height });
+        }
       }
-    };
+    });
+    observer.observe(canvasRef.current);
+    return () => observer.disconnect();
+  }, []);
 
-    updateScale();
-    window.addEventListener('resize', updateScale);
-    return () => window.removeEventListener('resize', updateScale);
-  }, [zoomMode, sheetWidthPx, sheetHeightPx]);
+  // Calculate Scale to fit paper in BOTH width and height with small margin
+  useEffect(() => {
+    if (zoomMode === 'fit') {
+      const padding = 24;
+      const availW = Math.max(40, canvasSize.width - padding);
+      const availH = Math.max(40, canvasSize.height - padding);
+      const scaleX = availW / sheetWidthPx;
+      const scaleY = availH / sheetHeightPx;
+      const fitScale = Math.min(scaleX, scaleY);
+      setScale(Math.max(0.05, parseFloat(fitScale.toFixed(3))));
+    } else if (zoomMode === '50') {
+      setScale(0.5);
+    } else if (zoomMode === '100') {
+      setScale(1.0);
+    }
+  }, [zoomMode, canvasSize, sheetWidthPx, sheetHeightPx]);
 
   const { pages = [], totalLabels = 0, totalPages = 1 } = paginationData;
   const activePageObj = pages[currentPage - 1] || pages[0] || { cells: [] };
@@ -74,8 +81,36 @@ export default function PaperPreview({
 
   const showLabelBorders = placement.showBorders !== false;
 
+  // Canvas Panning Handlers
+  const handleCanvasPointerDown = (e) => {
+    if (e.target.closest('.print-label-cell')) return;
+    if (!canvasRef.current) return;
+    isPanningRef.current = true;
+    panStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      scrollLeft: canvasRef.current.scrollLeft,
+      scrollTop: canvasRef.current.scrollTop,
+    };
+    canvasRef.current.setPointerCapture?.(e.pointerId);
+  };
+
+  const handleCanvasPointerMove = (e) => {
+    if (!isPanningRef.current || !canvasRef.current) return;
+    const dx = e.clientX - panStartRef.current.x;
+    const dy = e.clientY - panStartRef.current.y;
+    canvasRef.current.scrollLeft = panStartRef.current.scrollLeft - dx;
+    canvasRef.current.scrollTop = panStartRef.current.scrollTop - dy;
+  };
+
+  const handleCanvasPointerUp = (e) => {
+    if (!isPanningRef.current) return;
+    canvasRef.current?.releasePointerCapture?.(e.pointerId);
+    isPanningRef.current = false;
+  };
+
   return (
-    <div className="w-full flex flex-col h-full select-none" ref={containerRef}>
+    <div className="w-full flex flex-col h-full select-none bg-white rounded-lg border border-gray-200 overflow-hidden">
       {/* Print-only CSS stylesheet injected into DOM */}
       <style>{`
         @media print {
@@ -134,43 +169,42 @@ export default function PaperPreview({
         }
       `}</style>
 
-      {/* Preview Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white/90 backdrop-blur-xs border border-slate-200/80 rounded-xl p-2.5 mb-3 shadow-2xs no-print">
+      {/* 1. Header Bar (shrink-0): Label count, border toggle, and compact zoom controls */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 border-b border-gray-100 bg-white shrink-0 min-w-0 no-print">
         {/* Left: Info & Border Toggle */}
-        <div className="flex items-center gap-3">
-          <div className="text-xs font-semibold text-slate-800">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="text-xs font-semibold text-gray-900 truncate">
             {totalLabels} label{totalLabels === 1 ? '' : 's'}
-            <span className="text-slate-400 font-normal ml-1">
-              ({totalPages} page{totalPages === 1 ? '' : 's'} &bull; {cols * rows} / sheet)
-            </span>
-          </div>
+          </span>
+          <span className="text-[11px] text-gray-500 font-normal shrink-0">
+            ({totalPages}p &bull; {cols * rows}/sheet)
+          </span>
 
-          <label className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 cursor-pointer">
+          <label className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900 cursor-pointer ml-1">
             <input
               type="checkbox"
               checked={showLabelBorders}
               onChange={(e) =>
                 onChangePlacement({ ...placement, showBorders: e.target.checked })
               }
-              className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+              className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
             />
-            <span>Show label borders</span>
+            <span className="text-xs">Show borders</span>
           </label>
         </div>
 
-        {/* Right: Zoom & Page Navigation */}
-        <div className="flex items-center gap-2">
-          {/* Zoom controls */}
-          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 text-xs">
+        {/* Right: Zoom controls (Fit, 50%, 100%, -, %, +) */}
+        <div className="flex items-center gap-0.5 bg-gray-100 p-0.5 rounded-lg border border-gray-200 min-w-0 text-xs">
+          <div className="inline-flex items-center">
             {['fit', '50', '100'].map((mode) => (
               <button
                 key={mode}
                 type="button"
                 onClick={() => setZoomMode(mode)}
-                className={`px-2 py-0.5 rounded-md font-medium transition-colors ${
+                className={`px-1.5 sm:px-2 py-0.5 rounded text-xs transition-colors cursor-pointer ${
                   zoomMode === mode
-                    ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white text-indigo-600 font-semibold shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 {mode === 'fit' ? 'Fit' : `${mode}%`}
@@ -178,43 +212,67 @@ export default function PaperPreview({
             ))}
           </div>
 
-          {/* Page Selector if multiple pages */}
-          {totalPages > 1 && (
-            <div className="flex items-center gap-1 pl-2 border-l border-slate-200">
-              <button
-                type="button"
-                disabled={currentPage <= 1}
-                onClick={() => onChangeCurrentPage(currentPage - 1)}
-                className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 rounded-md cursor-pointer"
-                title="Previous page"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-xs font-semibold text-slate-700">
-                {currentPage} / {totalPages}
-              </span>
-              <button
-                type="button"
-                disabled={currentPage >= totalPages}
-                onClick={() => onChangeCurrentPage(currentPage + 1)}
-                className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 rounded-md cursor-pointer"
-                title="Next page"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+          <div className="h-3 w-px bg-gray-300 mx-0.5 shrink-0" />
+
+          {/* Minus icon */}
+          <button
+            type="button"
+            onClick={() => {
+              setZoomMode('manual');
+              setScale((prev) => Math.max(0.1, parseFloat((prev - 0.1).toFixed(2))));
+            }}
+            className="p-1 text-gray-500 hover:text-gray-800 rounded transition-colors cursor-pointer shrink-0"
+            title="Zoom out"
+            aria-label="Zoom out"
+          >
+            <ZoomOut className="w-3.5 h-3.5 stroke-[1.5]" />
+          </button>
+
+          {/* Real Zoom % */}
+          <span className="text-[11px] font-mono text-gray-600 px-1 text-center whitespace-nowrap min-w-[34px] shrink-0">
+            {Math.round(scale * 100)}%
+          </span>
+
+          {/* Plus icon */}
+          <button
+            type="button"
+            onClick={() => {
+              setZoomMode('manual');
+              setScale((prev) => Math.min(2.0, parseFloat((prev + 0.1).toFixed(2))));
+            }}
+            className="p-1 text-gray-500 hover:text-gray-800 rounded transition-colors cursor-pointer shrink-0"
+            title="Zoom in"
+            aria-label="Zoom in"
+          >
+            <ZoomIn className="w-3.5 h-3.5 stroke-[1.5]" />
+          </button>
         </div>
       </div>
 
-      {/* Scaled Preview Canvas Area (Screen interactive view) */}
-      <div className="flex-1 flex items-center justify-center overflow-auto min-h-[380px] sm:min-h-[480px] p-2 no-print">
+      {/* 2. Scaled Preview Canvas Area (flex-1, min-h-0, overflow-auto, centered content) */}
+      <div
+        ref={canvasRef}
+        onPointerDown={handleCanvasPointerDown}
+        onPointerMove={handleCanvasPointerMove}
+        onPointerUp={handleCanvasPointerUp}
+        onPointerCancel={handleCanvasPointerUp}
+        className="flex-1 min-h-0 w-full bg-[#F4F4F5] relative overflow-auto p-3 select-none flex items-center justify-center [scrollbar-width:thin] no-print"
+        onWheel={(e) => {
+          if (e.ctrlKey) {
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 0.05 : -0.05;
+            setZoomMode('manual');
+            setScale((prev) => Math.min(2.0, Math.max(0.1, parseFloat((prev + delta).toFixed(2)))));
+          }
+        }}
+      >
+        {/* Scaled Sheet Wrapper: sized precisely to scaled pixels so layout flow never overflows in Fit */}
         <div
           style={{
-            width: `${sheetWidthPx * scale}px`,
-            height: `${sheetHeightPx * scale}px`,
+            width: `${Math.round(sheetWidthPx * scale)}px`,
+            height: `${Math.round(sheetHeightPx * scale)}px`,
           }}
-          className="relative transition-all duration-150 shrink-0"
+          className="relative transition-all duration-150 shrink-0 m-auto select-none"
         >
           {/* Paper Sheet container */}
           <div
@@ -224,7 +282,7 @@ export default function PaperPreview({
               transform: `scale(${scale})`,
               transformOrigin: 'top left',
             }}
-            className="absolute top-0 left-0 bg-white shadow-xl border border-slate-300/80 rounded-sm overflow-hidden"
+            className="absolute top-0 left-0 bg-white border border-gray-300 rounded-sm overflow-hidden shadow-xs"
           >
             {/* Render label cells for current active page */}
             {activePageObj.cells?.map((cell) => {
@@ -258,125 +316,39 @@ export default function PaperPreview({
                   title={
                     cell.isUsedSlot
                       ? `Slot #${cell.slot} (Skipped used slot). Click to set as start position.`
-                      : cell.item
-                      ? `Slot #${cell.slot}: ${cell.item.name}`
-                      : `Slot #${cell.slot} (Empty). Click to set start position.`
-                  }
-                  className={`box-border transition-colors cursor-pointer flex items-center justify-center overflow-hidden ${
-                    showLabelBorders
-                      ? 'border border-dashed border-slate-300 hover:border-indigo-400'
-                      : 'hover:outline-1 hover:outline-dashed hover:outline-indigo-300'
-                  } ${
-                    cell.isUsedSlot
-                      ? 'bg-slate-100/90 text-slate-400'
                       : isStartSlot
-                      ? 'bg-indigo-50/40 ring-1 ring-indigo-500'
-                      : 'bg-white'
+                      ? `Slot #${cell.slot} (Start Position)`
+                      : `Slot #${cell.slot}. Click to start printing from here.`
+                  }
+                  className={`print-label-cell flex items-center justify-center transition-colors cursor-pointer ${
+                    cell.isUsedSlot
+                      ? 'bg-gray-100/80 opacity-40'
+                      : isStartSlot
+                      ? 'ring-2 ring-indigo-500 bg-indigo-50/20'
+                      : showLabelBorders
+                      ? 'border border-dashed border-gray-300 hover:border-indigo-400'
+                      : 'hover:bg-gray-50/50'
                   }`}
                 >
-                  {/* Hatched pattern or label for used slot */}
-                  {cell.isUsedSlot ? (
-                    <div className="text-[10px] font-semibold text-slate-400 flex flex-col items-center justify-center">
-                      <span>#{cell.slot}</span>
-                      <span className="text-[9px] text-slate-400/80 uppercase">Used</span>
-                    </div>
-                  ) : cell.isEmpty ? (
-                    <span className="text-[9px] text-slate-300 font-mono">#{cell.slot}</span>
-                  ) : (
-                    /* Render code preview */
-                    <div
-                      className={`w-full h-full flex overflow-hidden ${
-                        placement.alignment === 'top-left'
-                          ? 'items-start justify-start'
-                          : placement.alignment === 'top-center'
-                          ? 'items-start justify-center'
-                          : 'items-center justify-center'
-                      }`}
-                    >
-                      {cell.item?.preview_url ? (
-                        <img
-                          src={cell.item.preview_url}
-                          alt={cell.item.name}
-                          style={{
-                            maxWidth: placement.fit === 'fill' ? '100%' : '100%',
-                            maxHeight: placement.fit === 'fill' ? '100%' : '100%',
-                            width: placement.fit === 'fill' ? '100%' : 'auto',
-                            height: placement.fit === 'fill' ? '100%' : 'auto',
-                            objectFit: placement.fit === 'fill' ? 'fill' : 'contain',
-                            border:
-                              placement.showArtboardBorder && cell.item.settings?.artboard?.borderWidth
-                                ? `${cell.item.settings.artboard.borderWidth}px solid ${cell.item.settings.artboard.borderColor || '#000000'}`
-                                : 'none',
-                            backgroundColor:
-                              placement.showBackground !== false &&
-                              cell.item.settings?.artboard?.background
-                                ? cell.item.settings.artboard.background
-                                : 'transparent',
-                          }}
-                          className="pointer-events-none"
-                        />
-                      ) : (
-                        <div className="text-center">
-                          <span className="text-xs font-bold text-slate-800 truncate block">
-                            {cell.item?.name}
-                          </span>
-                          <span className="text-[10px] font-mono text-slate-500">
-                            {cell.item?.value}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                  {/* Slot Number watermark if empty */}
+                  {!cell.item && (
+                    <span className="text-[10px] font-mono text-gray-300 select-none">
+                      #{cell.slot}
+                    </span>
                   )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
 
-      {/* Hidden container exclusively for browser window.print() */}
-      <div className="hidden print-pages-sheet-wrapper">
-        {pages.map((page, pIdx) => (
-          <div
-            key={page.pageNumber || pIdx}
-            className="print-sheet-page"
-            style={{
-              position: 'relative',
-              width: `${widthMm}mm`,
-              height: `${heightMm}mm`,
-              backgroundColor: '#ffffff',
-            }}
-          >
-            {page.cells?.map((cell) => {
-              const slotIndex = cell.slot - 1;
-              const col = slotIndex % cols;
-              const row = Math.floor(slotIndex / cols);
+                  {/* Start position badge */}
+                  {isStartSlot && (
+                    <span className="absolute top-0.5 left-0.5 bg-indigo-600 text-white text-[9px] font-bold px-1 rounded select-none z-10 shadow-xs">
+                      START
+                    </span>
+                  )}
 
-              const cellX = leftMMm + col * (labelWMm + gapHMm);
-              const cellY = topMMm + row * (labelHMm + gapVMm);
-
-              return (
-                <div
-                  key={cell.slot}
-                  className="print-label-cell"
-                  style={{
-                    position: 'absolute',
-                    left: `${cellX}mm`,
-                    top: `${cellY}mm`,
-                    width: `${labelWMm}mm`,
-                    height: `${labelHMm}mm`,
-                    borderRadius: `${cornerRMm}mm`,
-                    padding: `${paddingMm}mm`,
-                    border: showLabelBorders ? '0.15mm dashed #cbd5e1' : 'none',
-                    backgroundColor: '#ffffff',
-                  }}
-                >
-                  {!cell.isEmpty && cell.item?.preview_url && (
+                  {/* Render design code item inside label */}
+                  {cell.item && (
                     <div
+                      className="w-full h-full flex"
                       style={{
-                        width: '100%',
-                        height: '100%',
-                        display: 'flex',
                         alignItems:
                           placement.alignment === 'top-left' || placement.alignment === 'top-center'
                             ? 'flex-start'
@@ -411,7 +383,40 @@ export default function PaperPreview({
               );
             })}
           </div>
-        ))}
+        </div>
+      </div>
+
+      {/* 3. Footer Bar (shrink-0): Sheet dimensions & page navigation */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 border-t border-gray-200 bg-white shrink-0 min-w-0 no-print">
+        {/* Sheet Physical Dimensions Info */}
+        <div className="text-[11px] text-gray-600 truncate">
+          <strong>{config.paper_size.toUpperCase()}</strong> ({config.orientation}) &bull; {widthMm} &times; {heightMm} mm
+        </div>
+
+        {/* Page Navigation */}
+        <div className="flex items-center gap-1.5 text-xs font-medium">
+          <button
+            type="button"
+            disabled={currentPage <= 1}
+            onClick={() => onChangeCurrentPage(currentPage - 1)}
+            className="p-1 text-gray-500 hover:text-gray-900 disabled:opacity-30 rounded cursor-pointer"
+            title="Previous page"
+          >
+            <ChevronLeft className="w-3.5 h-3.5 stroke-[1.5]" />
+          </button>
+          <span className="text-[11px] font-mono text-gray-700 px-1">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={currentPage >= totalPages}
+            onClick={() => onChangeCurrentPage(currentPage + 1)}
+            className="p-1 text-gray-500 hover:text-gray-900 disabled:opacity-30 rounded cursor-pointer"
+            title="Next page"
+          >
+            <ChevronRight className="w-3.5 h-3.5 stroke-[1.5]" />
+          </button>
+        </div>
       </div>
     </div>
   );

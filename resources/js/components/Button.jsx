@@ -4,8 +4,8 @@ import { Loader2 } from 'lucide-react';
 export default function Button({
   children,
   type = 'button',
-  variant = 'primary',
-  size = 'md',
+  variant = 'primary', // 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'danger-solid'
+  size = 'md', // 'sm' (32px) | 'md' (36px) | 'xs' (28px)
   isLoading = false,
   disabled = false,
   icon: Icon,
@@ -13,26 +13,28 @@ export default function Button({
   ...props
 }) {
   const baseStyles =
-    'inline-flex items-center justify-center font-medium transition-all duration-150 rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed select-none cursor-pointer whitespace-nowrap shrink-0';
+    'inline-flex items-center justify-center font-medium transition-colors duration-150 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed select-none cursor-pointer whitespace-nowrap shrink-0';
 
   const sizeStyles = {
     xs: 'h-7 px-2.5 text-xs gap-1',
     sm: 'h-8 px-3 text-xs gap-1.5',
-    md: 'h-9 sm:h-9.5 px-3 sm:px-4 text-sm gap-2',
-    lg: 'h-11 px-5 text-base gap-2.5',
+    md: 'h-9 px-3.5 text-sm gap-1.5',
+    lg: 'h-9 px-4 text-sm gap-2',
   };
 
   const variantStyles = {
     primary:
-      'bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 focus:ring-indigo-500 shadow-xs',
+      'bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800',
     secondary:
-      'bg-slate-100 text-slate-700 hover:bg-slate-200 active:bg-slate-300 focus:ring-slate-400',
+      'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 active:bg-gray-100',
     outline:
-      'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 active:bg-slate-100 focus:ring-indigo-500 shadow-2xs',
-    danger:
-      'bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800 focus:ring-rose-500 shadow-xs',
+      'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 active:bg-gray-100',
     ghost:
-      'text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:ring-slate-400',
+      'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
+    danger:
+      'bg-white border border-gray-300 text-red-600 hover:bg-red-50 hover:border-red-200',
+    'danger-solid':
+      'bg-red-600 text-white hover:bg-red-700 active:bg-red-800',
   };
 
   return (
@@ -45,11 +47,9 @@ export default function Button({
       {...props}
     >
       {isLoading ? (
-        <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+        <Loader2 className="w-4 h-4 animate-spin shrink-0" strokeWidth={1.5} />
       ) : Icon ? (
-        <Icon
-          className={`${size === 'xs' || size === 'sm' ? 'w-3.5 h-3.5' : 'w-4 h-4'} shrink-0`}
-        />
+        <Icon className="w-4 h-4 shrink-0" strokeWidth={1.5} />
       ) : null}
       {children && <span>{children}</span>}
     </button>

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import Button from '../components/Button';
+import PageHeader from '../components/PageHeader';
 import DesignSelector from '../features/print/DesignSelector';
 import SheetSettings from '../features/print/SheetSettings';
 import PlacementSettings from '../features/print/PlacementSettings';
@@ -266,61 +267,43 @@ export default function PrintLabelsPage() {
   const fitValidation = useMemo(() => validateSheetFit(config), [config]);
 
   return (
-    <div className="w-full space-y-5">
+    <div className="flex flex-col flex-1 min-h-0 w-full lg:h-[calc(100dvh-4.25rem)] lg:overflow-hidden">
       {/* Page Header (Hidden on print) */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-4 no-print">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
-              <Printer className="w-5 h-5" />
+      <div className="no-print shrink-0 pb-2.5 mb-3 border-b border-gray-200">
+        <PageHeader
+          title="Print Labels"
+          description="Generate label sheets on A4 or US Letter paper with precise Avery & custom grids."
+          className="pb-0 border-0"
+          action={
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="md"
+                onClick={handleExportPdf}
+                disabled={selectedItems.length === 0 || isExportingPdf}
+                isLoading={isExportingPdf}
+                icon={FileDown}
+              >
+                Download PDF
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={handlePrint}
+                disabled={selectedItems.length === 0}
+                icon={Printer}
+              >
+                Print Labels
+              </Button>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-              Print Labels
-            </h1>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Generate label sheets on A4 or US Letter paper with precise Avery & custom grids.
-          </p>
-        </div>
-
-        {/* Action Buttons & Print scale note */}
-        <div className="flex flex-col sm:items-end gap-1.5">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="md"
-              onClick={handleExportPdf}
-              disabled={selectedItems.length === 0 || isExportingPdf}
-              isLoading={isExportingPdf}
-              icon={FileDown}
-              className="text-xs sm:text-sm shadow-xs"
-            >
-              Download PDF
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={handlePrint}
-              disabled={selectedItems.length === 0}
-              icon={Printer}
-              className="text-xs sm:text-sm shadow-xs"
-            >
-              Print Labels
-            </Button>
-          </div>
-          <p className="text-[11px] text-slate-400">
-            In the print dialog, set <strong className="text-slate-600">Scale to 100%</strong> (turn off &lsquo;Fit to page&rsquo;) and <strong className="text-slate-600">Margins to None</strong>.
-          </p>
-        </div>
+          }
+        />
       </div>
 
-      {/* Main Two-Pane Layout */}
-      {/* On desktop: left pane scrolls independently, right pane is fixed / sticky */}
-      {/* On tablet/mobile: stacked with preview sticky at the top */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-start gap-6 w-full">
-        {/* Right Pane (Paper Preview) on Mobile is sticky top; on Desktop is fixed sticky on the right */}
-        {/* We place preview inside order-1 lg:order-2 so on mobile it stacks on top */}
-        <div className="w-full lg:flex-1 min-w-0 order-1 lg:order-2 sticky top-14 sm:top-16 lg:top-6 z-20 lg:z-10 bg-slate-100/90 lg:bg-slate-100/70 backdrop-blur-md rounded-2xl border border-slate-200 p-3 sm:p-5 shadow-xs overflow-hidden flex flex-col items-center">
+      {/* Main Two-Pane Layout: PREVIEW on LEFT (larger), SETTINGS on RIGHT (narrower, clamped 340-440px) */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-4 lg:gap-5 items-stretch w-full overflow-hidden">
+        {/* Left Pane (Paper Preview): on mobile sticky top (max 40vh); on desktop fixed on the left */}
+        <div className="w-full lg:flex-1 min-w-0 order-1 lg:order-1 sticky top-0 lg:static z-20 lg:z-10 h-[360px] sm:h-[400px] lg:h-full flex flex-col overflow-hidden">
           <PaperPreview
             config={config}
             paginationData={paginationData}
@@ -333,9 +316,8 @@ export default function PrintLabelsPage() {
           />
         </div>
 
-        {/* Left Pane (Settings & Controls) */}
-        {/* On desktop: scrolls independently */}
-        <div className="w-full lg:w-[460px] xl:w-[500px] shrink-0 order-2 lg:order-1 space-y-5 lg:overflow-y-auto lg:max-h-[calc(100vh-5rem)] pr-0 lg:pr-1 no-print">
+        {/* Right Pane (Settings & Controls): scrolls independently on desktop */}
+        <div className="w-full lg:w-[380px] xl:w-[420px] min-w-0 lg:min-w-[340px] lg:max-w-[440px] shrink-0 order-2 lg:order-2 space-y-4 lg:overflow-y-auto lg:h-full pr-0 lg:pr-1 no-print">
           {/* Section 1: Choose What to Print */}
           <DesignSelector
             items={selectedItems}

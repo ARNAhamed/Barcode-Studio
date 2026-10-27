@@ -5,19 +5,28 @@
 
   --color-primary: #4F46E5;
   --color-primary-hover: #4338CA;
-  --color-accent: #14B8A6;
-  --color-background: #F8FAFC;
+  --color-accent: #4F46E5;
+  --color-background: #FAFAFA;
   --color-surface: #FFFFFF;
-  --color-border: #E2E8F0;
-  --color-text-main: #0F172A;
-  --color-text-muted: #64748B;
-  --color-success: #22C55E;
-  --color-warning: #F59E0B;
-  --color-danger: #EF4444;
+  --color-canvas: #F4F4F5;
+  --color-border: #E5E7EB;
+  --color-border-strong: #D1D5DB;
+  --color-text-main: #111827;
+  --color-text-muted: #6B7280;
+  --color-text-disabled: #9CA3AF;
+  --color-success: #16A34A;
+  --color-warning: #D97706;
+  --color-danger: #DC2626;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: #F8FAFC;
-  color: #0F172A;
+  background-color: #FAFAFA;
+  color: #111827;
+  -webkit-font-smoothing: antialiased;
 }

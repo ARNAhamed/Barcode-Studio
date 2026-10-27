@@ -9,7 +9,6 @@ import {
   FileCode,
   ZoomIn,
   ZoomOut,
-  Maximize2,
   Move,
 } from 'lucide-react';
 import Button from '../../components/Button';
@@ -41,7 +40,6 @@ export default function PreviewPanel({
   const activeBarcodeRef = barcodeSvgRef || localBarcodeSvgRef;
   const qrContainerRef = useRef(null);
   const workspaceRef = useRef(null);
-  const artboardContainerRef = useRef(null);
 
   const [renderError, setRenderError] = useState(null);
   const [workspaceSize, setWorkspaceSize] = useState({ width: 400, height: 350 });
@@ -54,16 +52,18 @@ export default function PreviewPanel({
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0, startOffsetX: 0, startOffsetY: 0 });
 
+  // Panning state for dragging canvas when zoomed
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+
   // Measure workspace size with ResizeObserver
   useEffect(() => {
     if (!workspaceRef.current) return;
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
-          setWorkspaceSize({
-            width: entry.contentRect.width,
-            height: entry.contentRect.height,
-          });
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setWorkspaceSize({ width, height });
         }
       }
     });
@@ -95,7 +95,7 @@ export default function PreviewPanel({
   const availWidth = Math.max(10, artboardPxWidth - (2 * paddingPx));
   const availHeight = Math.max(10, artboardPxHeight - (2 * paddingPx));
 
-  // Fit Scale Calculation
+  // Fit Scale Calculation inside artboard
   const fitMode = artboardSettings?.fit || 'original';
   const fitScale = useMemo(() => {
     if (isAuto || fitMode === 'original') return 1;
@@ -108,7 +108,7 @@ export default function PreviewPanel({
     return 1;
   }, [isAuto, fitMode, availWidth, availHeight, codeRawPxWidth, codeRawPxHeight]);
 
-  // Scaled Code Dimensions
+  // Scaled Code Dimensions inside artboard
   const scaledCodeW = codeRawPxWidth * fitScale;
   const scaledCodeH = codeRawPxHeight * fitScale;
 
@@ -133,16 +133,16 @@ export default function PreviewPanel({
   const codeX = Math.round(basePos.x + (artboardSettings?.xOffset || 0));
   const codeY = Math.round(basePos.y + (artboardSettings?.yOffset || 0));
 
-  // Zoom Scale Calculation
+  // Canvas Zoom Scale: fits artboard inside canvas in BOTH width and height with small margin
   const effectiveZoom = useMemo(() => {
     if (zoomMode === 'fit') {
-      const padding = 32;
-      const targetW = Math.max(40, artboardPxWidth);
-      const targetH = Math.max(40, artboardPxHeight);
-      const scaleX = (workspaceSize.width - padding) / targetW;
-      const scaleY = (workspaceSize.height - padding) / targetH;
-      const fit = Math.min(scaleX, scaleY, 1.25);
-      return Math.max(0.15, fit);
+      const padding = 24; // margin around artboard
+      const availW = Math.max(20, workspaceSize.width - padding);
+      const availH = Math.max(20, workspaceSize.height - padding);
+      const scaleX = availW / Math.max(20, artboardPxWidth);
+      const scaleY = availH / Math.max(20, artboardPxHeight);
+      const fit = Math.min(scaleX, scaleY);
+      return Math.max(0.1, parseFloat(fit.toFixed(3)));
     }
     if (zoomMode === '50') return 0.5;
     if (zoomMode === '100') return 1.0;
@@ -161,136 +161,116 @@ export default function PreviewPanel({
 
     try {
       if (activeBarcodeRef.current) {
-        // Measure base module count
-        const testSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        JsBarcode(testSvg, value.trim(), {
-          format: settings.format || 'CODE128',
-          width: 1,
-          margin: 0,
-          displayValue: false,
-        });
-
-        const naturalModuleCount = parseFloat(testSvg.getAttribute('width')) || 100;
-        const marginPx = settings.margin !== undefined ? settings.margin : 10;
-        const availableWidth = Math.max(10, codeRawPxWidth - (2 * marginPx));
-        const calcModuleWidth = availableWidth / naturalModuleCount;
-
-        if (onCalculatedModuleWidth) {
-          onCalculatedModuleWidth(calcModuleWidth);
-        }
-
-        // Available height for bars
-        const textOffset = settings.displayValue ? (settings.fontSize || 16) + 6 : 0;
-        const availableHeight = Math.max(20, codeRawPxHeight - (2 * marginPx) - textOffset);
-
-        JsBarcode(activeBarcodeRef.current, value.trim(), {
-          format: settings.format || 'CODE128',
-          width: Math.max(1, Math.round(calcModuleWidth)),
-          height: Math.round(availableHeight),
+        JsBarcode(activeBarcodeRef.current, value, {
+          format: format || settings.format || 'CODE128',
+          width: 2,
+          height: Math.max(20, Math.round(codeRawPxHeight * 0.7)),
           displayValue: settings.displayValue ?? true,
-          fontSize: settings.fontSize || 16,
-          lineColor: settings.lineColor || '#000000',
-          background: isAuto ? (settings.background || '#ffffff') : 'transparent',
-          margin: marginPx,
           font: 'monospace',
-          valid: (valid) => {
-            if (!valid) {
-              setRenderError(`Value is invalid for ${settings.format || 'selected format'}`);
-            } else {
-              setRenderError(null);
-            }
-          },
+          fontSize: settings.fontSize || 16,
+          textMargin: 4,
+          margin: settings.margin ?? 10,
+          background: settings.background || '#ffffff',
+          lineColor: settings.lineColor || '#000000',
         });
+        setRenderError(null);
 
-        // Set dimensions and viewBox for precise physical scaling
-        const rawW = parseFloat(activeBarcodeRef.current.getAttribute('width')) || codeRawPxWidth;
-        const rawH = parseFloat(activeBarcodeRef.current.getAttribute('height')) || codeRawPxHeight;
-        activeBarcodeRef.current.setAttribute('viewBox', `0 0 ${rawW} ${rawH}`);
-        activeBarcodeRef.current.style.width = `${Math.round(codeRawPxWidth)}px`;
-        activeBarcodeRef.current.style.height = `${Math.round(codeRawPxHeight)}px`;
+        // Calculate module width
+        const svgBBox = activeBarcodeRef.current.getBBox?.();
+        if (svgBBox && svgBBox.width > 0) {
+          const estimatedBars = value.length * 11 + 35;
+          const calculatedMw = svgBBox.width / estimatedBars;
+          if (onCalculatedModuleWidth) onCalculatedModuleWidth(calculatedMw);
+        }
       }
     } catch (err) {
-      setRenderError(err.message || 'Error rendering barcode.');
+      setRenderError(err.message || 'Invalid barcode content for symbology');
       if (onCalculatedModuleWidth) onCalculatedModuleWidth(null);
     }
-  }, [type, format, value, settings, isValid, codeRawPxWidth, codeRawPxHeight, isAuto]);
+  }, [
+    type,
+    format,
+    value,
+    settings,
+    isValid,
+    codeRawPxWidth,
+    codeRawPxHeight,
+    onCalculatedModuleWidth,
+    activeBarcodeRef,
+  ]);
 
   // Render QR Code
   useEffect(() => {
     if (type !== 'qr') return;
-    if (!isValid || !value.trim() || !qrContainerRef.current) return;
+    if (!isValid || !value.trim()) {
+      setRenderError(null);
+      return;
+    }
 
     try {
-      setRenderError(null);
-      const displaySize = Math.max(80, Math.round(codeRawPxWidth));
-
-      const qrCode = new QRCodeStyling({
-        width: displaySize,
-        height: displaySize,
-        data: value.trim(),
-        image: settings.logo || undefined,
-        dotsOptions: {
-          color: settings.foreground || '#0F172A',
-          type: settings.dotStyle || 'rounded',
-        },
-        backgroundOptions: {
-          color: isAuto ? (settings.background || '#ffffff') : 'transparent',
-        },
-        imageOptions: {
-          crossOrigin: 'anonymous',
-          margin: 6,
-          imageSize: 0.32,
-        },
-        cornersSquareOptions: {
-          type: settings.cornerStyle === 'extra-rounded' ? 'extra-rounded' : settings.cornerStyle || 'square',
-          color: settings.foreground || '#0F172A',
-        },
-        cornersDotOptions: {
-          type: settings.cornerStyle === 'dot' ? 'dot' : undefined,
-          color: settings.foreground || '#0F172A',
-        },
-        qrOptions: {
-          errorCorrectionLevel: settings.errorCorrection || 'Q',
-        },
-      });
-
-      qrContainerRef.current.innerHTML = '';
-      qrCode.append(qrContainerRef.current);
+      if (qrContainerRef.current) {
+        qrContainerRef.current.innerHTML = '';
+        const qrCode = new QRCodeStyling({
+          width: Math.round(codeRawPxWidth),
+          height: Math.round(codeRawPxHeight),
+          data: value,
+          dotsOptions: {
+            color: settings.foreground || '#0F172A',
+            type: settings.dotStyle || 'rounded',
+          },
+          cornersSquareOptions: {
+            color: settings.foreground || '#0F172A',
+            type: settings.cornerStyle || 'extra-rounded',
+          },
+          backgroundOptions: {
+            color: settings.background || '#ffffff',
+          },
+          imageOptions: {
+            crossOrigin: 'anonymous',
+            margin: 4,
+          },
+          image: settings.logo || undefined,
+          qrOptions: {
+            errorCorrectionLevel: settings.errorCorrection || 'Q',
+          },
+        });
+        qrCode.append(qrContainerRef.current);
+        setRenderError(null);
+      }
     } catch (err) {
-      setRenderError(err.message || 'Error rendering QR code.');
+      setRenderError(err.message || 'Invalid QR configuration');
     }
-  }, [type, value, settings, isValid, codeRawPxWidth, isAuto]);
+  }, [type, value, settings, isValid, codeRawPxWidth, codeRawPxHeight]);
 
-  // Report Warnings (Scannability & Artboard Bounds)
+  // Validation Warnings Effect
   useEffect(() => {
     if (!onWarningsUpdate) return;
-
-    let scannability = null;
-    let bounds = null;
+    let scannabilityWarning = null;
+    let codeExceedsWarning = null;
 
     if (!isAuto) {
-      if (scaledCodeW > artboardPxWidth || scaledCodeH > artboardPxHeight) {
-        bounds = `The code (${Math.round(scaledCodeW)}×${Math.round(scaledCodeH)}px) exceeds the artboard (${Math.round(artboardPxWidth)}×${Math.round(artboardPxHeight)}px). Choose "Fit to artboard" or increase canvas size.`;
+      const codeRight = codeX + scaledCodeW;
+      const codeBottom = codeY + scaledCodeH;
+
+      if (codeX < 0 || codeY < 0 || codeRight > artboardPxWidth || codeBottom > artboardPxHeight) {
+        codeExceedsWarning = 'Code object boundaries exceed the artboard edge. Some portions may be clipped when printed.';
       }
 
-      if (type === 'barcode' && fitScale < 0.6) {
-        scannability = `Barcode scaled down to ${(fitScale * 100).toFixed(0)}%. Bars may be too thin (< 1px) to scan reliably.`;
+      const marginDistanceX = Math.min(codeX, artboardPxWidth - codeRight);
+      const marginDistanceY = Math.min(codeY, artboardPxHeight - codeBottom);
+      if (marginDistanceX < 10 || marginDistanceY < 10) {
+        scannabilityWarning = 'Code placed very close to artboard margin (< 2.5 mm). Scanners require a clear quiet zone around the edges.';
       }
     }
 
-    onWarningsUpdate({ scannabilityWarning: scannability, codeExceedsWarning: bounds });
-  }, [isAuto, scaledCodeW, scaledCodeH, artboardPxWidth, artboardPxHeight, type, fitScale, onWarningsUpdate]);
+    onWarningsUpdate({ scannabilityWarning, codeExceedsWarning });
+  }, [isAuto, codeX, codeY, scaledCodeW, scaledCodeH, artboardPxWidth, artboardPxHeight, onWarningsUpdate]);
 
-  // Interactive Dragging Handlers
+  // Interactive Drag-to-Position Handlers (Code on Artboard)
   const handlePointerDown = (e) => {
-    if (isAuto) return;
+    if (isAuto || !onArtboardChange) return;
     e.preventDefault();
     e.stopPropagation();
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch (err) {
-      // Ignore if pointer capture fails
-    }
     setIsDragging(true);
     dragStartRef.current = {
       x: e.clientX,
@@ -298,164 +278,139 @@ export default function PreviewPanel({
       startOffsetX: artboardSettings?.xOffset || 0,
       startOffsetY: artboardSettings?.yOffset || 0,
     };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
   };
 
   const handlePointerMove = (e) => {
-    if (!isDragging || isAuto) return;
-    const deltaClientX = e.clientX - dragStartRef.current.x;
-    const deltaClientY = e.clientY - dragStartRef.current.y;
+    if (!isDragging || isAuto || !onArtboardChange) return;
+    const dx = (e.clientX - dragStartRef.current.x) / effectiveZoom;
+    const dy = (e.clientY - dragStartRef.current.y) / effectiveZoom;
 
-    const deltaX = deltaClientX / effectiveZoom;
-    const deltaY = deltaClientY / effectiveZoom;
-
-    const desiredX = basePos.x + dragStartRef.current.startOffsetX + deltaX;
-    const desiredY = basePos.y + dragStartRef.current.startOffsetY + deltaY;
-
-    // Constrain inside artboard
-    const maxX = Math.max(0, artboardPxWidth - scaledCodeW);
-    const maxY = Math.max(0, artboardPxHeight - scaledCodeH);
-
-    const clampedX = Math.max(0, Math.min(desiredX, maxX));
-    const clampedY = Math.max(0, Math.min(desiredY, maxY));
-
-    const newOffsetX = clampedX - basePos.x;
-    const newOffsetY = clampedY - basePos.y;
-
-    if (onArtboardChange) {
-      onArtboardChange({
-        ...artboardSettings,
-        xOffset: Math.round(newOffsetX),
-        yOffset: Math.round(newOffsetY),
-      });
-    }
+    onArtboardChange((prev) => ({
+      ...prev,
+      xOffset: Math.round(dragStartRef.current.startOffsetX + dx),
+      yOffset: Math.round(dragStartRef.current.startOffsetY + dy),
+    }));
   };
 
   const handlePointerUp = (e) => {
     if (!isDragging) return;
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch (err) {
-      // Ignore
-    }
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
     setIsDragging(false);
+  };
+
+  // Canvas Panning Handlers (when zoomed bigger than canvas)
+  const handleCanvasPointerDown = (e) => {
+    if (e.target.closest('#artboard-code-object')) return;
+    if (!workspaceRef.current) return;
+    isPanningRef.current = true;
+    panStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      scrollLeft: workspaceRef.current.scrollLeft,
+      scrollTop: workspaceRef.current.scrollTop,
+    };
+    workspaceRef.current.setPointerCapture?.(e.pointerId);
+  };
+
+  const handleCanvasPointerMove = (e) => {
+    if (!isPanningRef.current || !workspaceRef.current) return;
+    const dx = e.clientX - panStartRef.current.x;
+    const dy = e.clientY - panStartRef.current.y;
+    workspaceRef.current.scrollLeft = panStartRef.current.scrollLeft - dx;
+    workspaceRef.current.scrollTop = panStartRef.current.scrollTop - dy;
+  };
+
+  const handleCanvasPointerUp = (e) => {
+    if (!isPanningRef.current) return;
+    workspaceRef.current?.releasePointerCapture?.(e.pointerId);
+    isPanningRef.current = false;
   };
 
   const activeError = validationError || renderError;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 sm:p-5 flex flex-col w-full">
-      {/* Header & Zoom Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="font-semibold text-slate-900 text-sm sm:text-base">Live Preview</h2>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wider bg-indigo-50 text-indigo-700">
-              {type === 'barcode' ? settings.format : 'QR CODE'}
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            {isAuto ? 'Direct code output' : `Artboard: ${artboardSettings?.preset || 'Custom'}`}
-          </p>
+    <div className="bg-white rounded-lg border border-gray-200 flex flex-col w-full h-full min-w-0 overflow-hidden">
+      {/* 1. Header Bar (shrink-0): Two-Part Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 border-b border-gray-100 min-w-0 shrink-0 bg-white">
+        {/* Left: Title + Format Badge on one line */}
+        <div className="flex items-center gap-2 min-w-0 whitespace-nowrap">
+          <h2 className="font-semibold text-gray-900 text-sm whitespace-nowrap">Live Preview</h2>
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-mono font-medium bg-gray-100 text-gray-700 uppercase">
+            {type === 'barcode' ? (settings.format || 'CODE128') : 'QR CODE'}
+          </span>
         </div>
 
-        {/* Zoom Controls Toolbar */}
-        <div className="flex items-center gap-1 self-start sm:self-auto bg-slate-100 p-1 rounded-xl">
-          <button
-            type="button"
-            onClick={() => setZoomMode('fit')}
-            className={`px-2 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-              zoomMode === 'fit'
-                ? 'bg-white text-indigo-600 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-            title="Fit to preview panel"
-          >
-            Fit
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setZoomMode('50');
-              setManualZoom(0.5);
-            }}
-            className={`px-2 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-              zoomMode === '50'
-                ? 'bg-white text-indigo-600 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            50%
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setZoomMode('100');
-              setManualZoom(1.0);
-            }}
-            className={`px-2 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-              zoomMode === '100'
-                ? 'bg-white text-indigo-600 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            100%
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setZoomMode('200');
-              setManualZoom(2.0);
-            }}
-            className={`px-2 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-              zoomMode === '200'
-                ? 'bg-white text-indigo-600 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            200%
-          </button>
+        {/* Right: Compact Zoom Controls (Fit, 50%, 100%, 200%, -, %, +) */}
+        <div className="flex items-center gap-0.5 bg-gray-100 p-0.5 rounded-lg border border-gray-200 min-w-0">
+          <div className="inline-flex items-center">
+            {['fit', '50', '100', '200'].map((mode) => {
+              const isSelected = zoomMode === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    setZoomMode(mode);
+                    if (mode !== 'fit') setManualZoom(parseFloat(mode) / 100);
+                  }}
+                  className={`px-1.5 sm:px-2 py-0.5 text-xs rounded transition-colors cursor-pointer ${
+                    isSelected
+                      ? 'bg-white text-indigo-600 font-semibold shadow-xs'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {mode === 'fit' ? 'Fit' : `${mode}%`}
+                </button>
+              );
+            })}
+          </div>
 
-          <div className="h-4 w-px bg-slate-200 mx-0.5" />
+          <div className="h-3 w-px bg-gray-300 mx-0.5 shrink-0" />
 
-          {/* Minus & Plus */}
+          {/* Minus icon */}
           <button
             type="button"
             onClick={() => {
               setZoomMode('manual');
               setManualZoom((prev) => Math.max(0.2, parseFloat((prev - 0.1).toFixed(1))));
             }}
-            className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 rounded-md transition-colors cursor-pointer"
+            className="p-1 text-gray-500 hover:text-gray-800 rounded transition-colors cursor-pointer shrink-0"
             title="Zoom out"
+            aria-label="Zoom out"
           >
-            <ZoomOut className="w-3.5 h-3.5" />
+            <ZoomOut className="w-3.5 h-3.5 stroke-[1.5]" />
           </button>
 
-          <span className="text-[11px] font-mono font-medium text-slate-600 px-1 min-w-[36px] text-center">
+          {/* Real Zoom % */}
+          <span className="text-[11px] font-mono text-gray-600 px-1 text-center whitespace-nowrap min-w-[34px] shrink-0">
             {Math.round(effectiveZoom * 100)}%
           </span>
 
+          {/* Plus icon */}
           <button
             type="button"
             onClick={() => {
               setZoomMode('manual');
               setManualZoom((prev) => Math.min(3.0, parseFloat((prev + 0.1).toFixed(1))));
             }}
-            className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 rounded-md transition-colors cursor-pointer"
+            className="p-1 text-gray-500 hover:text-gray-800 rounded transition-colors cursor-pointer shrink-0"
             title="Zoom in"
+            aria-label="Zoom in"
           >
-            <ZoomIn className="w-3.5 h-3.5" />
+            <ZoomIn className="w-3.5 h-3.5 stroke-[1.5]" />
           </button>
         </div>
       </div>
 
-      {/* Neutral Gray Workspace Canvas */}
+      {/* 2. Preview Canvas Area: flex-1, min-h-0, overflow-auto, centered content, no panel scrollbar */}
       <div
         ref={workspaceRef}
-        className="my-3 w-full h-[320px] sm:h-[380px] lg:h-[420px] rounded-2xl bg-slate-100/90 border border-slate-200/90 relative overflow-hidden flex items-center justify-center p-4 select-none"
-        style={{
-          backgroundImage: 'radial-gradient(rgba(148, 163, 184, 0.25) 1px, transparent 1px)',
-          backgroundSize: '16px 16px',
-        }}
+        onPointerDown={handleCanvasPointerDown}
+        onPointerMove={handleCanvasPointerMove}
+        onPointerUp={handleCanvasPointerUp}
+        onPointerCancel={handleCanvasPointerUp}
+        className="flex-1 min-h-0 w-full bg-[#F4F4F5] relative overflow-auto p-3 select-none flex items-center justify-center [scrollbar-width:thin]"
         onWheel={(e) => {
           if (e.ctrlKey) {
             e.preventDefault();
@@ -466,26 +421,23 @@ export default function PreviewPanel({
         }}
       >
         {activeError ? (
-          <div className="p-6 text-center max-w-xs bg-white/95 rounded-2xl border border-rose-200 shadow-sm">
-            <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-500 mx-auto flex items-center justify-center mb-2">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <p className="text-xs font-semibold text-rose-600">Unable to generate preview</p>
-            <p className="text-[11px] text-slate-500 mt-1">{activeError}</p>
+          <div className="p-4 text-center max-w-xs bg-white rounded-lg border border-red-200">
+            <AlertTriangle className="w-5 h-5 text-red-500 mx-auto mb-1.5" strokeWidth={1.5} />
+            <p className="text-xs font-semibold text-red-600">Unable to generate preview</p>
+            <p className="text-xs text-gray-500 mt-1">{activeError}</p>
           </div>
         ) : !value.trim() ? (
-          <div className="text-center text-slate-400 text-xs py-8 bg-white/80 px-6 rounded-2xl border border-slate-200/70 shadow-2xs">
+          <div className="text-center text-gray-400 text-xs py-6 bg-white px-4 rounded-lg border border-gray-200">
             Enter content or pick a product to see the live artboard.
           </div>
         ) : (
-          /* Scaled Artboard Stage Container */
+          /* Scaled Artboard Stage Container: sized precisely to scaled pixels so DOM flow never overflows in Fit */
           <div
             style={{
-              transform: `scale(${effectiveZoom})`,
-              transformOrigin: 'center center',
-              transition: isDragging ? 'none' : 'transform 0.15s ease-out',
+              width: `${Math.round(artboardPxWidth * effectiveZoom)}px`,
+              height: `${Math.round(artboardPxHeight * effectiveZoom)}px`,
             }}
-            className="shrink-0 flex items-center justify-center"
+            className="relative shrink-0 select-none m-auto"
           >
             {/* The Physical Artboard Canvas Element */}
             <div
@@ -493,12 +445,14 @@ export default function PreviewPanel({
               style={{
                 width: `${Math.round(artboardPxWidth)}px`,
                 height: `${Math.round(artboardPxHeight)}px`,
+                transform: `scale(${effectiveZoom})`,
+                transformOrigin: 'top left',
                 backgroundColor: artboardSettings?.background || '#ffffff',
                 border: artboardSettings?.border?.enabled
-                  ? `${artboardSettings.border.width || 1}px solid ${artboardSettings.border.color || '#cbd5e1'}`
-                  : 'none',
+                  ? `${artboardSettings.border.width || 1}px solid ${artboardSettings.border.color || '#D1D5DB'}`
+                  : '1px solid #E5E7EB',
                 borderRadius: `${artboardSettings?.radius || 0}px`,
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                boxShadow: 'none',
                 position: 'relative',
                 overflow: 'hidden',
               }}
@@ -550,7 +504,7 @@ export default function PreviewPanel({
 
                 {/* Move Hint Pill on Hover */}
                 {!isAuto && (
-                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-slate-900/80 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap shadow-xs">
+                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-gray-900 text-white text-[10px] px-2 py-0.5 rounded flex items-center gap-1 whitespace-nowrap">
                     <Move className="w-2.5 h-2.5" /> Drag to move
                   </div>
                 )}
@@ -560,111 +514,108 @@ export default function PreviewPanel({
         )}
       </div>
 
-      {/* Output Dimensions Readout Badge */}
-      <div id="artboard-dimensions-readout" className="p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-center mb-3">
-        {!isAuto ? (
-          <div className="space-y-0.5">
-            <p className="text-xs font-semibold text-slate-800">
-              Artboard:{' '}
-              <span className="font-mono text-indigo-600 font-bold">
-                {artboardSettings.width} × {artboardSettings.height} {artboardUnit}
-              </span>{' '}
-              <span className="text-slate-500 font-normal">
-                ({Math.round((artboardPxWidth / 96) * dpi)} × {Math.round((artboardPxHeight / 96) * dpi)} px at {dpi} DPI)
+      {/* 3. Compact Fixed Footer (shrink-0): Info line + DPI picker + Action Buttons */}
+      <div className="shrink-0 border-t border-gray-200 bg-white p-2.5 sm:p-3 space-y-2">
+        {/* Row 1: Info Line & DPI Selector */}
+        <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] leading-tight">
+          <div id="artboard-dimensions-readout" className="text-gray-600 min-w-0 truncate">
+            {!isAuto ? (
+              <span>
+                Artboard:{' '}
+                <strong className="text-gray-900 font-mono">
+                  {artboardSettings.width} × {artboardSettings.height} {artboardUnit}
+                </strong>{' '}
+                <span className="text-gray-400">
+                  ({Math.round((artboardPxWidth / 96) * dpi)} × {Math.round((artboardPxHeight / 96) * dpi)} px)
+                </span>
               </span>
-            </p>
-            <p className="text-[11px] text-slate-500 font-mono">
-              Code Object: {fromPx(scaledCodeW, artboardUnit, 1)} × {fromPx(scaledCodeH, artboardUnit, 1)} {artboardUnit}{' '}
-              ({Math.round((scaledCodeW / 96) * dpi)} × {Math.round((scaledCodeH / 96) * dpi)} px)
-            </p>
+            ) : (
+              <span>
+                Artboard (Auto):{' '}
+                <strong className="text-gray-900 font-mono">
+                  {formatOutputDimensions({
+                    widthPx: codeRawPxWidth,
+                    heightPx: codeRawPxHeight,
+                    unit: codeUnit,
+                    dpi,
+                  })}
+                </strong>
+              </span>
+            )}
           </div>
-        ) : (
-          <p className="text-xs font-semibold text-slate-700">
-            Artboard (Auto):{' '}
-            <span className="font-mono text-indigo-600">
-              {formatOutputDimensions({
-                widthPx: codeRawPxWidth,
-                heightPx: codeRawPxHeight,
-                unit: codeUnit,
-                dpi,
-              })}
-            </span>
-          </p>
-        )}
-      </div>
 
-      {/* Export DPI Selector */}
-      <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 mb-3.5">
-        <div>
-          <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-            Export DPI
-          </span>
-          <p className="text-[11px] text-slate-400">High-res print resolution</p>
+          {/* Compact DPI Picker */}
+          <div className="flex items-center gap-1 shrink-0 text-[11px]">
+            <span className="text-gray-400">DPI:</span>
+            <div className="inline-flex p-0.5 bg-gray-100 rounded border border-gray-200">
+              {DPIS.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => onDpiChange(d)}
+                  className={`px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors cursor-pointer ${
+                    dpi === d
+                      ? 'bg-white text-indigo-600 font-semibold shadow-xs'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="inline-flex p-0.5 bg-slate-200 rounded-lg">
-          {DPIS.map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => onDpiChange(d)}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
-                dpi === d
-                  ? 'bg-white text-indigo-600 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {d}
-            </button>
-          ))}
-        </div>
-      </div>
 
-      {/* Action Buttons */}
-      <div className="space-y-2.5">
-        <Button
-          id="save-to-gallery-btn"
-          variant="primary"
-          size="lg"
-          className="w-full"
-          icon={Save}
-          disabled={!isValid || Boolean(activeError)}
-          isLoading={isSaving}
-          onClick={onSave}
-        >
-          Save to Gallery
-        </Button>
+        {/* Row 2: Action Buttons (flex-wrap with gap-1.5, never clipped) */}
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <Button
+            id="save-to-gallery-btn"
+            variant="primary"
+            size="sm"
+            className="flex-1 min-w-[120px] h-8.5 text-xs"
+            icon={Save}
+            disabled={!isValid || Boolean(activeError)}
+            isLoading={isSaving}
+            onClick={onSave}
+          >
+            Save to Gallery
+          </Button>
 
-        <div className="grid grid-cols-2 gap-2.5">
           <Button
             id="download-png-btn"
-            variant="outline"
+            variant="secondary"
+            size="sm"
+            className="h-8.5 px-2.5 text-xs whitespace-nowrap"
             icon={Download}
             disabled={!isValid || Boolean(activeError)}
             onClick={() => onDownloadPng(dpi)}
           >
-            PNG ({dpi} DPI)
+            PNG ({dpi})
           </Button>
 
           <Button
             id="download-svg-btn"
-            variant="outline"
+            variant="secondary"
+            size="sm"
+            className="h-8.5 px-2.5 text-xs whitespace-nowrap"
             icon={FileCode}
             disabled={!isValid || Boolean(activeError)}
             onClick={onDownloadSvg}
           >
-            SVG ({!isAuto ? artboardUnit : codeUnit})
+            SVG
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8.5 px-2 text-xs text-gray-500 hover:text-gray-700"
+            icon={RotateCcw}
+            onClick={onReset}
+            title="Reset Settings"
+          >
+            <span className="hidden sm:inline">Reset</span>
           </Button>
         </div>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full text-slate-500"
-          icon={RotateCcw}
-          onClick={onReset}
-        >
-          Reset Settings
-        </Button>
       </div>
     </div>
   );

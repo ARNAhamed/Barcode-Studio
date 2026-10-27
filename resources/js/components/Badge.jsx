@@ -2,44 +2,42 @@ import React from 'react';
 
 export default function Badge({
   children,
-  variant = 'neutral',
-  size = 'md',
+  variant = 'neutral', // 'neutral' | 'primary' | 'accent' | 'success' | 'warning' | 'danger'
+  size = 'sm',
   className = '',
   dot = false,
 }) {
   const sizeStyles = {
+    xs: 'text-[11px] px-1.5 py-0.5',
     sm: 'text-xs px-2 py-0.5',
-    md: 'text-xs font-medium px-2.5 py-1',
+    md: 'text-xs px-2.5 py-1',
   };
 
-  const variantStyles = {
-    neutral: 'bg-slate-100 text-slate-700 border-slate-200',
-    primary: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    accent: 'bg-teal-50 text-teal-700 border-teal-200',
-    success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    warning: 'bg-amber-50 text-amber-700 border-amber-200',
-    danger: 'bg-rose-50 text-rose-700 border-rose-200',
-  };
+  // Status variants are shown as small dot + plain gray text
+  const isSemantic = ['success', 'warning', 'danger'].includes(variant);
 
   const dotColors = {
-    neutral: 'bg-slate-400',
-    primary: 'bg-indigo-500',
-    accent: 'bg-teal-500',
-    success: 'bg-emerald-500',
-    warning: 'bg-amber-500',
-    danger: 'bg-rose-500',
+    neutral: 'bg-gray-400',
+    primary: 'bg-indigo-600',
+    accent: 'bg-indigo-600',
+    success: 'bg-[#16A34A]',
+    warning: 'bg-[#D97706]',
+    danger: 'bg-[#DC2626]',
   };
+
+  // Semantic statuses always show the dot by default
+  const showDot = dot || isSemantic;
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border whitespace-nowrap shrink-0 leading-none ${
-        sizeStyles[size] || sizeStyles.md
-      } ${variantStyles[variant] || variantStyles.neutral} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded bg-gray-100 text-gray-700 whitespace-nowrap shrink-0 font-normal leading-normal ${
+        sizeStyles[size] || sizeStyles.sm
+      } ${className}`}
     >
-      {dot && (
+      {showDot && (
         <span
           className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-            dotColors[variant] || 'bg-slate-400'
+            dotColors[variant] || 'bg-gray-400'
           }`}
         />
       )}

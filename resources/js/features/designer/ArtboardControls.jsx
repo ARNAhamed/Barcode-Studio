@@ -185,10 +185,10 @@ export default function ArtboardControls({
       {/* Preset Selector */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+          <label className="text-xs font-medium text-gray-700">
             Artboard Canvas Preset
           </label>
-          <span className="text-[11px] text-slate-400">
+          <span className="text-xs text-gray-400">
             {isAuto ? 'Canvas matches code bounds' : 'Fixed label/card size'}
           </span>
         </div>
@@ -197,7 +197,7 @@ export default function ArtboardControls({
           id="artboard-preset-select"
           value={settings.preset || 'auto'}
           onChange={(e) => handlePresetChange(e.target.value)}
-          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+          className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors cursor-pointer"
         >
           {ARTBOARD_PRESETS.map((p) => (
             <option key={p.id} value={p.id}>
@@ -208,28 +208,28 @@ export default function ArtboardControls({
       </div>
 
       {!isAuto && (
-        <>
+        <div className="space-y-5 pt-3 border-t border-gray-100">
           {/* Unit Selector & Dimensions */}
-          <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-slate-200">
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
-                <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
+                <span className="text-xs font-semibold text-gray-900">
                   Canvas Dimensions
                 </span>
-                <p className="text-[11px] text-slate-500">Physical artboard label size</p>
+                <p className="text-xs text-gray-500">Physical artboard label size</p>
               </div>
 
               {/* Unit Selector Segmented Control */}
-              <div className="inline-flex p-0.5 bg-slate-200 rounded-lg self-start sm:self-auto">
+              <div className="inline-flex p-0.5 bg-gray-100 border border-gray-200 rounded-lg self-start sm:self-auto">
                 {UNITS.map((u) => (
                   <button
                     key={u.value}
                     type="button"
                     onClick={() => handleUnitChange(u.value)}
-                    className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${
                       currentUnit === u.value
-                        ? 'bg-white text-indigo-600 shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-white text-indigo-600 font-semibold'
+                        : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
                     {u.label}
@@ -242,7 +242,7 @@ export default function ArtboardControls({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
               {/* Width Input */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
                   Width ({currentUnit})
                 </label>
                 <input
@@ -251,33 +251,33 @@ export default function ArtboardControls({
                   min={1}
                   value={settings.width}
                   onChange={(e) => handleWidthChange(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors"
                 />
               </div>
 
               {/* Height Input & Aspect Lock */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-medium text-slate-600">
+                  <label className="text-xs font-medium text-gray-700">
                     Height ({currentUnit})
                   </label>
                   <button
                     type="button"
                     onClick={toggleAspectLock}
-                    className={`inline-flex items-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer ${
+                    className={`inline-flex items-center gap-1 text-xs font-medium transition-colors cursor-pointer ${
                       settings.lockAspectRatio
-                        ? 'text-indigo-600'
-                        : 'text-slate-400 hover:text-slate-600'
+                        ? 'text-indigo-600 font-semibold'
+                        : 'text-gray-400 hover:text-gray-600'
                     }`}
                     title={settings.lockAspectRatio ? 'Aspect ratio locked' : 'Aspect ratio unlocked'}
                   >
                     {settings.lockAspectRatio ? (
                       <>
-                        <Lock className="w-3 h-3" /> Locked
+                        <Lock className="w-3 h-3 stroke-[1.5]" /> Locked
                       </>
                     ) : (
                       <>
-                        <Unlock className="w-3 h-3" /> Unlocked
+                        <Unlock className="w-3 h-3 stroke-[1.5]" /> Unlocked
                       </>
                     )}
                   </button>
@@ -288,22 +288,22 @@ export default function ArtboardControls({
                   min={1}
                   value={settings.height}
                   onChange={(e) => handleHeightChange(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors"
                 />
               </div>
             </div>
 
             {/* Orientation Toggle */}
             <div className="flex items-center justify-between pt-1">
-              <span className="text-xs font-medium text-slate-600">Orientation</span>
-              <div className="inline-flex p-0.5 bg-slate-200/80 rounded-lg">
+              <span className="text-xs font-medium text-gray-700">Orientation</span>
+              <div className="inline-flex p-0.5 bg-gray-100 border border-gray-200 rounded-lg">
                 <button
                   type="button"
                   onClick={() => toggleOrientation('landscape')}
-                  className={`px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${
                     settings.orientation === 'landscape'
-                      ? 'bg-white text-indigo-600 font-semibold shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-indigo-600 font-semibold'
+                      : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
                   Landscape (W &gt; H)
@@ -311,10 +311,10 @@ export default function ArtboardControls({
                 <button
                   type="button"
                   onClick={() => toggleOrientation('portrait')}
-                  className={`px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${
                     settings.orientation === 'portrait'
-                      ? 'bg-white text-indigo-600 font-semibold shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-indigo-600 font-semibold'
+                      : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
                   Portrait (H &gt; W)
@@ -323,19 +323,19 @@ export default function ArtboardControls({
             </div>
 
             {dimensionError && (
-              <p className="text-xs text-rose-500 font-medium">{dimensionError}</p>
+              <p className="text-xs text-red-600 font-medium">{dimensionError}</p>
             )}
           </div>
 
           {/* Artboard Styling: Background, Border, Corner Radius */}
-          <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-4">
-            <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider block pb-2 border-b border-slate-200">
+          <div className="space-y-4 pt-3 border-t border-gray-100">
+            <span className="text-xs font-semibold text-gray-900 block">
               Artboard Appearance
             </span>
 
             {/* Background Color */}
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
                 Background Color
               </label>
               <div className="flex items-center gap-3">
@@ -346,8 +346,8 @@ export default function ArtboardControls({
                       type="button"
                       onClick={() => onChange({ ...settings, background: c.value })}
                       style={{ backgroundColor: c.value }}
-                      className={`w-6 h-6 rounded-full border border-slate-300 shadow-2xs transition-transform cursor-pointer ${
-                        settings.background === c.value ? 'ring-2 ring-indigo-500 scale-110' : 'hover:scale-105'
+                      className={`w-6 h-6 rounded-md border border-gray-300 transition-colors cursor-pointer ${
+                        settings.background === c.value ? 'ring-2 ring-indigo-600 ring-offset-1' : 'hover:border-gray-400'
                       }`}
                       title={c.label}
                     />
@@ -357,17 +357,17 @@ export default function ArtboardControls({
                   type="color"
                   value={settings.background || '#ffffff'}
                   onChange={(e) => onChange({ ...settings, background: e.target.value })}
-                  className="w-7 h-7 p-0 rounded-md border border-slate-300 cursor-pointer"
+                  className="w-7 h-7 p-0 rounded-md border border-gray-300 cursor-pointer"
                   title="Custom Color"
                 />
               </div>
             </div>
 
             {/* Border & Corner Radius */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
               {/* Optional Border */}
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                <label className="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={Boolean(settings.border?.enabled)}
@@ -380,7 +380,7 @@ export default function ArtboardControls({
                         },
                       })
                     }
-                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                    className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
                   />
                   <span>Show Card Border</span>
                 </label>
@@ -396,7 +396,7 @@ export default function ArtboardControls({
                           border: { ...settings.border, color: e.target.value },
                         })
                       }
-                      className="w-6 h-6 p-0 rounded border border-slate-300 cursor-pointer"
+                      className="w-6 h-6 p-0 rounded border border-gray-300 cursor-pointer"
                     />
                     <input
                       type="number"
@@ -412,10 +412,10 @@ export default function ArtboardControls({
                           },
                         })
                       }
-                      className="w-16 px-2 py-1 text-xs border border-slate-300 rounded bg-white"
+                      className="w-16 h-8 px-2 text-xs border border-gray-300 rounded-lg bg-white"
                       title="Border width in px"
                     />
-                    <span className="text-xs text-slate-400">px</span>
+                    <span className="text-xs text-gray-500">px</span>
                   </div>
                 )}
               </div>
@@ -423,8 +423,8 @@ export default function ArtboardControls({
               {/* Corner Radius */}
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-medium text-slate-600">Corner Radius</label>
-                  <span className="text-xs font-mono text-slate-500">{settings.radius || 0}px</span>
+                  <label className="text-xs font-medium text-gray-700">Corner Radius</label>
+                  <span className="text-xs font-mono text-gray-500">{settings.radius || 0}px</span>
                 </div>
                 <input
                   type="range"
@@ -441,17 +441,17 @@ export default function ArtboardControls({
           </div>
 
           {/* Placing & Fitting the Code on the Artboard */}
-          <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-4">
-            <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider block pb-2 border-b border-slate-200">
+          <div className="space-y-4 pt-3 border-t border-gray-100">
+            <span className="text-xs font-semibold text-gray-900 block">
               Code Placement &amp; Scaling
             </span>
 
             {/* Fit Mode */}
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
                 Fit Mode
               </label>
-              <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-200/80 rounded-xl">
+              <div className="grid grid-cols-3 gap-1.5 p-0.5 bg-gray-100 border border-gray-200 rounded-lg">
                 {[
                   { id: 'original', label: 'Original size' },
                   { id: 'fit', label: 'Fit to artboard' },
@@ -461,10 +461,10 @@ export default function ArtboardControls({
                     key={f.id}
                     type="button"
                     onClick={() => onChange({ ...settings, fit: f.id })}
-                    className={`py-1.5 px-2 text-xs font-medium rounded-lg transition-all cursor-pointer truncate ${
+                    className={`py-1.5 px-2 text-xs font-medium rounded-md transition-colors cursor-pointer truncate ${
                       (settings.fit || 'original') === f.id
-                        ? 'bg-white text-indigo-600 font-semibold shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-white text-indigo-600 font-semibold'
+                        : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
                     {f.label}
@@ -477,10 +477,10 @@ export default function ArtboardControls({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
               {/* 3x3 Alignment Grid */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">
                   Alignment Grid
                 </label>
-                <div className="inline-grid grid-cols-3 gap-1 p-1 bg-slate-200/80 rounded-xl">
+                <div className="inline-grid grid-cols-3 gap-1 p-1 bg-gray-100 border border-gray-200 rounded-lg">
                   {ALIGNMENTS.map((a) => (
                     <button
                       key={a.id}
@@ -493,16 +493,16 @@ export default function ArtboardControls({
                           yOffset: 0,
                         })
                       }
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                      className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer ${
                         (settings.alignment || 'center') === a.id
-                          ? 'bg-indigo-600 text-white shadow-xs'
-                          : 'bg-white text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-white text-gray-400 hover:text-gray-700 hover:bg-gray-50'
                       }`}
                       title={a.label}
                     >
                       <div
-                        className={`w-2 h-2 rounded-xs ${
-                          (settings.alignment || 'center') === a.id ? 'bg-white' : 'bg-slate-400'
+                        className={`w-1.5 h-1.5 rounded-xs ${
+                          (settings.alignment || 'center') === a.id ? 'bg-white' : 'bg-gray-400'
                         }`}
                       />
                     </button>
@@ -512,7 +512,7 @@ export default function ArtboardControls({
 
               {/* Padding / Margin */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
                   Artboard Padding ({currentUnit})
                 </label>
                 <input
@@ -526,32 +526,32 @@ export default function ArtboardControls({
                       padding: Math.max(0, parseFloat(e.target.value) || 0),
                     })
                   }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors"
                 />
-                <p className="text-[11px] text-slate-400 mt-1">Margin around outer canvas edge</p>
+                <p className="text-xs text-gray-500 mt-1">Margin around outer canvas edge</p>
               </div>
             </div>
 
             {/* Fine Position: X & Y Offset + Reset Position */}
-            <div className="pt-2 border-t border-slate-200">
+            <div className="pt-2 border-t border-gray-100">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
-                  <Move className="w-3.5 h-3.5 text-slate-400" /> Fine Position Offset
+                <span className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
+                  <Move className="w-3.5 h-3.5 text-gray-400 stroke-[1.5]" /> Fine Position Offset
                 </span>
                 {(settings.xOffset !== 0 || settings.yOffset !== 0) && (
                   <button
                     type="button"
                     onClick={() => onChange({ ...settings, xOffset: 0, yOffset: 0 })}
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 cursor-pointer"
                   >
-                    <RotateCcw className="w-3 h-3" /> Reset position
+                    <RotateCcw className="w-3 h-3 stroke-[1.5]" /> Reset position
                   </button>
                 )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] text-slate-500 mb-0.5">X Offset (px)</label>
+                  <label className="block text-xs text-gray-500 mb-0.5">X Offset (px)</label>
                   <input
                     type="number"
                     value={settings.xOffset || 0}
@@ -561,11 +561,11 @@ export default function ArtboardControls({
                         xOffset: parseInt(e.target.value, 10) || 0,
                       })
                     }
-                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900"
+                    className="w-full h-8 px-2.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-slate-500 mb-0.5">Y Offset (px)</label>
+                  <label className="block text-xs text-gray-500 mb-0.5">Y Offset (px)</label>
                   <input
                     type="number"
                     value={settings.yOffset || 0}
@@ -575,19 +575,19 @@ export default function ArtboardControls({
                         yOffset: parseInt(e.target.value, 10) || 0,
                       })
                     }
-                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900"
+                    className="w-full h-8 px-2.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-900"
                   />
                 </div>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1.5">
+              <p className="text-xs text-gray-400 mt-1.5">
                 Tip: You can also drag the code directly inside the preview canvas.
               </p>
             </div>
           </div>
 
           {/* Export Code Only Checkbox */}
-          <div className="pt-2">
-            <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+          <div className="pt-2 border-t border-gray-100">
+            <label className="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer">
               <input
                 type="checkbox"
                 checked={Boolean(settings.exportCodeOnly)}
@@ -597,36 +597,36 @@ export default function ArtboardControls({
                     exportCodeOnly: e.target.checked,
                   })
                 }
-                className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
               />
               <span>Export code only (without artboard canvas)</span>
             </label>
-            <p className="text-[11px] text-slate-400 pl-6 mt-0.5">
+            <p className="text-xs text-gray-400 pl-6 mt-0.5">
               Downloads and preview thumbnail will omit the background artboard.
             </p>
           </div>
 
           {/* Warnings */}
           {codeExceedsWarning && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-amber-800 text-xs">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-lg flex items-start gap-2 text-amber-900 text-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5" />
               <div>
                 <p className="font-semibold">Code exceeds artboard bounds</p>
-                <p className="text-[11px] text-amber-700 mt-0.5">{codeExceedsWarning}</p>
+                <p className="text-xs text-amber-700 mt-0.5">{codeExceedsWarning}</p>
               </div>
             </div>
           )}
 
           {scannabilityWarning && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-rose-800 text-xs">
-              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <div className="p-3 bg-red-50/60 border border-red-200 rounded-lg flex items-start gap-2 text-red-900 text-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 mt-1.5" />
               <div>
                 <p className="font-semibold">Scannability Warning</p>
-                <p className="text-[11px] text-rose-700 mt-0.5">{scannabilityWarning}</p>
+                <p className="text-xs text-red-700 mt-0.5">{scannabilityWarning}</p>
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );

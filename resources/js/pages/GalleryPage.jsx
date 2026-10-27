@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { LayoutGrid, Trash2, Plus } from 'lucide-react';
 
+import PageHeader from '../components/PageHeader';
 import Filters from '../features/gallery/Filters';
 import CodeGrid from '../features/gallery/CodeGrid';
 import Modal from '../components/Modal';
@@ -140,28 +141,17 @@ export default function GalleryPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <LayoutGrid className="w-5 h-5" />
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Code Gallery</h1>
-          </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Browse, download, and manage your collection of saved barcodes and QR codes.
-          </p>
-        </div>
-
-        {/* Header Actions */}
-        <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto flex-wrap">
+      <PageHeader
+        title="Code Gallery"
+        description="Browse, download, and manage your collection of saved barcodes and QR codes."
+        action={
           <Link to="/designer">
             <Button variant="primary" size="md" icon={Plus}>
               Create New
             </Button>
           </Link>
-        </div>
-      </div>
+        }
+      />
 
       {/* Top Filter Bar */}
       <Filters
@@ -208,21 +198,21 @@ export default function GalleryPage() {
         }
       >
         {codeToDelete && (
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-4">
+          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 flex items-center gap-4">
             {codeToDelete.preview_url ? (
               <img
                 src={codeToDelete.preview_url}
                 alt={codeToDelete.name}
-                className="w-16 h-16 object-contain bg-white rounded-lg border border-slate-200 p-1 shrink-0"
+                className="w-16 h-16 object-contain bg-white rounded border border-gray-200 p-1 shrink-0"
               />
             ) : (
-              <div className="w-16 h-16 rounded-lg bg-slate-200 flex items-center justify-center text-slate-400 shrink-0">
-                <LayoutGrid className="w-6 h-6" />
+              <div className="w-16 h-16 rounded bg-gray-200 flex items-center justify-center text-gray-400 shrink-0">
+                <LayoutGrid className="w-6 h-6 stroke-[1.5]" />
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="font-semibold text-slate-900 truncate">{codeToDelete.name}</p>
-              <p className="text-xs text-slate-500 font-mono mt-0.5 truncate">
+              <p className="font-medium text-gray-900 truncate">{codeToDelete.name}</p>
+              <p className="text-xs text-gray-500 font-mono mt-0.5 truncate">
                 {codeToDelete.format} • {codeToDelete.value}
               </p>
               {codeToDelete.product && (

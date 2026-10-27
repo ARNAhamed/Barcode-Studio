@@ -11,29 +11,29 @@ export default function Skeleton({
         return (
           <div
             key={index}
-            className={`bg-white rounded-2xl border border-slate-200 p-5 shadow-xs animate-pulse ${className}`}
+            className={`bg-white rounded-lg border border-gray-200 p-5 animate-pulse ${className}`}
           >
-            <div className="w-full h-36 bg-slate-200 rounded-xl mb-4" />
-            <div className="h-5 bg-slate-200 rounded-md w-3/4 mb-2" />
-            <div className="h-4 bg-slate-200 rounded-md w-1/2 mb-4" />
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-              <div className="h-6 w-16 bg-slate-200 rounded-full" />
-              <div className="h-8 w-20 bg-slate-200 rounded-xl" />
+            <div className="w-full h-36 bg-gray-100 rounded-md mb-4" />
+            <div className="h-4 bg-gray-100 rounded w-3/4 mb-2" />
+            <div className="h-3 bg-gray-100 rounded w-1/2 mb-4" />
+            <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+              <div className="h-5 w-16 bg-gray-100 rounded" />
+              <div className="h-7 w-16 bg-gray-100 rounded" />
             </div>
           </div>
         );
 
       case 'table-row':
         return (
-          <tr key={index} className="animate-pulse border-b border-slate-100">
-            <td className="py-4 px-4"><div className="h-4 w-32 bg-slate-200 rounded" /></td>
-            <td className="py-4 px-4"><div className="h-4 w-24 bg-slate-200 rounded" /></td>
-            <td className="py-4 px-4"><div className="h-4 w-28 bg-slate-200 rounded" /></td>
-            <td className="py-4 px-4"><div className="h-4 w-20 bg-slate-200 rounded" /></td>
-            <td className="py-4 px-4"><div className="h-4 w-16 bg-slate-200 rounded" /></td>
-            <td className="py-4 px-4"><div className="h-4 w-12 bg-slate-200 rounded" /></td>
-            <td className="py-4 px-4"><div className="h-6 w-20 bg-slate-200 rounded-full" /></td>
-            <td className="py-4 px-4"><div className="h-8 w-16 bg-slate-200 rounded-xl" /></td>
+          <tr key={index} className="animate-pulse border-b border-gray-100">
+            <td className="py-3 px-3"><div className="h-3.5 w-32 bg-gray-100 rounded" /></td>
+            <td className="py-3 px-3"><div className="h-3.5 w-24 bg-gray-100 rounded" /></td>
+            <td className="py-3 px-3"><div className="h-3.5 w-28 bg-gray-100 rounded" /></td>
+            <td className="py-3 px-3"><div className="h-3.5 w-20 bg-gray-100 rounded" /></td>
+            <td className="py-3 px-3"><div className="h-3.5 w-16 bg-gray-100 rounded" /></td>
+            <td className="py-3 px-3"><div className="h-3.5 w-12 bg-gray-100 rounded" /></td>
+            <td className="py-3 px-3"><div className="h-5 w-16 bg-gray-100 rounded" /></td>
+            <td className="py-3 px-3"><div className="h-7 w-16 bg-gray-100 rounded" /></td>
           </tr>
         );
 
@@ -41,7 +41,7 @@ export default function Skeleton({
         return (
           <div
             key={index}
-            className={`h-4 bg-slate-200 rounded animate-pulse ${className}`}
+            className={`h-3.5 bg-gray-100 rounded animate-pulse ${className}`}
           />
         );
 
@@ -50,7 +50,7 @@ export default function Skeleton({
         return (
           <div
             key={index}
-            className={`bg-slate-200 rounded-xl animate-pulse ${className}`}
+            className={`bg-gray-100 rounded-lg animate-pulse ${className}`}
           />
         );
     }

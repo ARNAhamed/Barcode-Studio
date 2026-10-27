@@ -25,6 +25,7 @@ import Modal from '../components/Modal';
 import Skeleton from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import Pagination from '../components/Pagination';
+import PageHeader from '../components/PageHeader';
 
 import {
   getTrashedProducts,
@@ -238,102 +239,72 @@ export default function RecycleBinPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <Link
-              to={activeTab === 'products' ? '/stock' : '/'}
-              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-              title="Go back"
+      <PageHeader
+        title="Recycle Bin"
+        description="Items remain here for 30 days before being purged permanently."
+        action={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="md"
+              icon={RotateCcw}
+              onClick={() => {
+                if (activeTab === 'products') {
+                  restoreAllProductsMutation.mutate();
+                } else {
+                  restoreAllCodesMutation.mutate();
+                }
+              }}
+              disabled={currentTabCount === 0 || restoreAllProductsMutation.isPending || restoreAllCodesMutation.isPending}
+              isLoading={restoreAllProductsMutation.isPending || restoreAllCodesMutation.isPending}
             >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-                <Trash2 className="w-5 h-5" />
-              </div>
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Recycle Bin</h1>
-            </div>
+              Restore all
+            </Button>
+
+            <Button
+              variant="danger"
+              size="md"
+              icon={Trash2}
+              onClick={() => setIsEmptyBinModalOpen(true)}
+              disabled={currentTabCount === 0 || emptyProductsTrashMutation.isPending || emptyCodesTrashMutation.isPending}
+            >
+              Empty bin
+            </Button>
           </div>
-          <p className="text-sm text-slate-500 mt-1 pl-11">
-            Items remain here for 30 days before being automatically purged permanently.
-          </p>
-        </div>
-
-        {/* Top actions scoped to active tab */}
-        <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto pl-11 sm:pl-0 flex-wrap">
-          <Button
-            variant="outline"
-            size="md"
-            icon={RotateCcw}
-            onClick={() => {
-              if (activeTab === 'products') {
-                restoreAllProductsMutation.mutate();
-              } else {
-                restoreAllCodesMutation.mutate();
-              }
-            }}
-            disabled={currentTabCount === 0 || restoreAllProductsMutation.isPending || restoreAllCodesMutation.isPending}
-            isLoading={restoreAllProductsMutation.isPending || restoreAllCodesMutation.isPending}
-          >
-            Restore all
-          </Button>
-
-          <Button
-            variant="danger"
-            size="md"
-            icon={Trash2}
-            onClick={() => setIsEmptyBinModalOpen(true)}
-            disabled={currentTabCount === 0 || emptyProductsTrashMutation.isPending || emptyCodesTrashMutation.isPending}
-          >
-            Empty bin
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Tabs Switcher */}
-      <div className="flex items-center gap-2 border-b border-slate-200">
+      <div className="flex items-center gap-2 border-b border-gray-200">
         <button
           type="button"
           onClick={() => setActiveTab('products')}
-          className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-sm transition-all cursor-pointer ${
+          className={`flex items-center gap-2 py-2.5 px-3 border-b-2 font-medium text-sm transition-colors cursor-pointer ${
             activeTab === 'products'
               ? 'border-indigo-600 text-indigo-600 font-semibold'
-              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+              : 'border-transparent text-gray-500 hover:text-gray-900'
           }`}
         >
-          <Package className="w-4 h-4" />
+          <Package className="w-4 h-4 stroke-[1.5]" />
           <span>Products</span>
-          <span
-            className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-              activeTab === 'products'
-                ? 'bg-indigo-50 text-indigo-600'
-                : 'bg-slate-100 text-slate-600'
-            }`}
-          >
-            {binSummary?.products ?? 0}
+          <span className="text-xs text-gray-500 font-normal">
+            ({binSummary?.products ?? 0})
           </span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('designs')}
-          className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-sm transition-all cursor-pointer ${
+          className={`flex items-center gap-2 py-2.5 px-3 border-b-2 font-medium text-sm transition-colors cursor-pointer ${
             activeTab === 'designs'
               ? 'border-indigo-600 text-indigo-600 font-semibold'
-              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+              : 'border-transparent text-gray-500 hover:text-gray-900'
           }`}
         >
-          <Barcode className="w-4 h-4" />
+          <Barcode className="w-4 h-4 stroke-[1.5]" />
           <span>Designs</span>
-          <span
-            className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-              activeTab === 'designs'
-                ? 'bg-indigo-50 text-indigo-600'
-                : 'bg-slate-100 text-slate-600'
-            }`}
-          >
-            {binSummary?.codes ?? 0}
+          <span className="text-xs text-gray-500 font-normal">
+            ({binSummary?.codes ?? 0})
           </span>
         </button>
       </div>
@@ -344,7 +315,7 @@ export default function RecycleBinPage() {
           {/* Search bar */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="relative w-full sm:w-80">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 stroke-[1.5]" />
               <input
                 type="text"
                 value={productSearch}
@@ -353,39 +324,39 @@ export default function RecycleBinPage() {
                   setProductPage(1);
                 }}
                 placeholder="Search trashed products..."
-                className="w-full pl-9 pr-9 py-2 bg-white border border-slate-300 rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-xs"
+                className="w-full h-9 pl-9 pr-8 bg-white border border-gray-300 rounded-lg text-sm placeholder:text-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors"
               />
               {productSearch && (
                 <button
                   type="button"
                   onClick={() => setProductSearch('')}
-                  className="p-1 text-slate-400 hover:text-slate-600 absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md cursor-pointer"
+                  className="p-1 text-gray-400 hover:text-gray-600 absolute right-2 top-1/2 -translate-y-1/2 rounded cursor-pointer"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-3.5 h-3.5 stroke-[1.5]" />
                 </button>
               )}
             </div>
           </div>
 
           {/* Products Table Card */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden w-full">
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden w-full">
             {/* Desktop / Tablet Table (768px and up) */}
             <div className="hidden md:block w-full">
               <table className="w-full table-fixed text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/75 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                    <th className="py-3 px-3 sm:px-4 w-[38%] lg:w-[30%] xl:w-[24%] truncate">Product</th>
-                    <th className="hidden lg:table-cell py-3 px-3 w-[16%] xl:w-[13%] truncate">SKU</th>
-                    <th className="hidden xl:table-cell py-3 px-3 w-[12%] truncate">Category</th>
-                    <th className="py-3 px-3 w-[14%] lg:w-[12%] xl:w-[9%] truncate">Price</th>
-                    <th className="py-3 px-3 w-[10%] lg:w-[8%] xl:w-[7%] truncate">Qty</th>
-                    <th className="hidden xl:table-cell py-3 px-3 w-[14%] truncate">Deleted Date</th>
-                    <th className="py-3 px-3 w-[22%] lg:w-[18%] xl:w-[11%] truncate">Retention</th>
-                    <th className="py-3 px-3 sm:px-4 text-right w-[16%] lg:w-[14%] xl:w-[10%] truncate">Actions</th>
+                  <tr className="h-10 border-b border-gray-200 bg-white text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="py-2 px-3 sm:px-4 w-[38%] lg:w-[30%] xl:w-[24%] truncate text-left align-middle">Product</th>
+                    <th className="hidden lg:table-cell py-2 px-3 w-[16%] xl:w-[13%] truncate text-center align-middle">SKU</th>
+                    <th className="hidden xl:table-cell py-2 px-3 w-[12%] truncate text-center align-middle">Category</th>
+                    <th className="py-2 px-3 w-[14%] lg:w-[12%] xl:w-[9%] truncate text-center align-middle">Price</th>
+                    <th className="py-2 px-3 w-[10%] lg:w-[8%] xl:w-[7%] truncate text-center align-middle">Qty</th>
+                    <th className="hidden xl:table-cell py-2 px-3 w-[14%] truncate text-center align-middle">Deleted Date</th>
+                    <th className="py-2 px-3 w-[22%] lg:w-[18%] xl:w-[11%] truncate text-center align-middle">Retention</th>
+                    <th className="py-2 px-3 sm:px-4 text-center w-[16%] lg:w-[14%] xl:w-[10%] truncate align-middle">Actions</th>
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-slate-100 text-sm">
+                <tbody className="divide-y divide-gray-100 text-sm">
                   {isProductsLoading ? (
                     <Skeleton type="table-row" count={5} />
                   ) : trashedProducts.length === 0 ? (
@@ -419,86 +390,86 @@ export default function RecycleBinPage() {
                       const daysLeft = product.days_left !== undefined ? product.days_left : 30;
 
                       return (
-                        <tr key={product.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3 px-3 sm:px-4 min-w-0">
+                        <tr key={product.id} className="hover:bg-gray-50/75 transition-colors">
+                          <td className="py-2 px-3 sm:px-4 min-w-0 text-left align-middle">
                             <div
-                              className="font-semibold text-slate-900 truncate"
+                              className="font-medium text-gray-900 truncate leading-tight text-sm"
                               title={product.name}
                             >
                               {product.name}
                             </div>
                             <div
-                              className="text-xs text-slate-400 font-mono truncate mt-0.5 lg:hidden"
+                              className="text-xs text-gray-500 font-mono truncate mt-0.5 lg:hidden leading-none"
                               title={product.sku}
                             >
                               SKU: {product.sku}
                             </div>
                             {product.description && (
                               <div
-                                className="text-xs text-slate-400 truncate mt-0.5 hidden xl:block"
+                                className="text-xs text-gray-500 truncate mt-0.5 hidden xl:block leading-none"
                                 title={product.description}
                               >
                                 {product.description}
                               </div>
                             )}
                           </td>
-                          <td className="hidden lg:table-cell py-3 px-3 font-mono text-xs font-semibold text-slate-700 min-w-0">
+                          <td className="hidden lg:table-cell py-2 px-3 font-mono text-[13px] text-gray-600 text-center min-w-0 align-middle">
                             <div className="truncate" title={product.sku}>
                               {product.sku}
                             </div>
                           </td>
-                          <td className="hidden xl:table-cell py-3 px-3 min-w-0">
+                          <td className="hidden xl:table-cell py-2 px-3 text-center min-w-0 align-middle">
                             {product.category ? (
-                              <span className="inline-block max-w-full truncate px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600" title={product.category}>
+                              <span className="inline-block max-w-full truncate px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700" title={product.category}>
                                 {product.category}
                               </span>
                             ) : (
-                              <span className="text-slate-400 text-xs">—</span>
+                              <span className="text-gray-400 text-xs">—</span>
                             )}
                           </td>
-                          <td className="py-3 px-3 font-medium text-slate-900 min-w-0 truncate">
+                          <td className="py-2 px-3 font-medium text-gray-900 min-w-0 truncate text-center align-middle text-sm">
                             ${parseFloat(product.price).toFixed(2)}
                           </td>
-                          <td className="py-3 px-3 text-slate-600 min-w-0 truncate">
+                          <td className="py-2 px-3 text-gray-600 min-w-0 truncate text-center align-middle text-sm">
                             {product.quantity}
                           </td>
-                          <td className="hidden xl:table-cell py-3 px-3 text-slate-500 text-xs min-w-0 truncate">
+                          <td className="hidden xl:table-cell py-2 px-3 text-gray-500 text-xs min-w-0 truncate text-center align-middle">
                             {deletedDate}
                           </td>
-                          <td className="py-3 px-3 min-w-0">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0 ${
-                                daysLeft <= 5
-                                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                  : daysLeft <= 15
-                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              }`}
-                            >
-                              <Clock className="w-3 h-3 shrink-0" />
+                          <td className="py-2 px-3 min-w-0 text-center align-middle">
+                            <span className="inline-flex items-center justify-center gap-1.5 text-xs text-gray-700 font-medium whitespace-nowrap shrink-0">
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  daysLeft <= 5
+                                    ? 'bg-red-500'
+                                    : daysLeft <= 15
+                                    ? 'bg-amber-500'
+                                    : 'bg-green-500'
+                                }`}
+                              />
                               {daysLeft}d left
                             </span>
                           </td>
-                          <td className="py-3 px-3 sm:px-4 text-right min-w-0">
-                            <div className="inline-flex items-center justify-end gap-1 shrink-0">
+                          <td className="py-2 px-3 sm:px-4 text-center min-w-0 align-middle">
+                            <div className="inline-flex items-center justify-center gap-1 shrink-0">
                               <button
                                 type="button"
                                 onClick={() => restoreProductMutation.mutate(product.id)}
                                 disabled={restoreProductMutation.isPending}
-                                className="w-7 h-7 inline-flex items-center justify-center text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                                className="w-7 h-7 inline-flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer shrink-0"
                                 title="Restore Product"
                                 aria-label="Restore Product"
                               >
-                                <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                                <RotateCcw className="w-4 h-4 stroke-[1.5]" />
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setItemToDelete({ type: 'product', item: product })}
-                                className="w-7 h-7 inline-flex items-center justify-center text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                                className="w-7 h-7 inline-flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer shrink-0"
                                 title="Delete Permanently"
                                 aria-label="Delete Permanently"
                               >
-                                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                                <Trash2 className="w-4 h-4 stroke-[1.5]" />
                               </button>
                             </div>
                           </td>
@@ -511,7 +482,7 @@ export default function RecycleBinPage() {
             </div>
 
             {/* Mobile Stacked Cards (below 768px) */}
-            <div className="md:hidden divide-y divide-slate-100 w-full">
+            <div className="md:hidden divide-y divide-gray-100 w-full">
               {isProductsLoading ? (
                 <div className="p-4 space-y-3">
                   <Skeleton type="card" count={3} />
@@ -536,34 +507,32 @@ export default function RecycleBinPage() {
                 trashedProducts.map((product) => {
                   const daysLeft = product.days_left !== undefined ? product.days_left : 30;
                   return (
-                    <div key={product.id} className="p-4 space-y-2.5 bg-white hover:bg-slate-50/50 transition-colors">
+                    <div key={product.id} className="p-4 space-y-2 bg-white hover:bg-gray-50/50 transition-colors">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <h3 className="font-semibold text-slate-900 text-sm truncate" title={product.name}>
+                          <h3 className="font-semibold text-gray-900 text-sm truncate" title={product.name}>
                             {product.name}
                           </h3>
-                          <p className="font-mono text-xs text-slate-500 mt-0.5 truncate">
+                          <p className="font-mono text-xs text-gray-500 mt-0.5 truncate">
                             SKU: {product.sku}
                           </p>
                         </div>
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
-                            daysLeft <= 5
-                              ? 'bg-rose-50 text-rose-700'
-                              : 'bg-emerald-50 text-emerald-700'
-                          }`}
-                        >
-                          <Clock className="w-3 h-3" />
+                        <span className="inline-flex items-center gap-1.5 text-xs text-gray-700 font-medium shrink-0">
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              daysLeft <= 5 ? 'bg-red-500' : 'bg-green-500'
+                            }`}
+                          />
                           {daysLeft}d left
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between pt-1 border-t border-slate-100/80 text-xs">
-                        <div className="flex items-center gap-3 text-slate-600">
+                      <div className="flex items-center justify-between pt-1 border-t border-gray-100 text-xs">
+                        <div className="flex items-center gap-3 text-gray-600">
                           <span>${parseFloat(product.price).toFixed(2)}</span>
                           <span>Qty: {product.quantity}</span>
                           {product.category && (
-                            <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 truncate max-w-[80px]">
+                            <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 truncate max-w-[80px]">
                               {product.category}
                             </span>
                           )}
@@ -573,20 +542,20 @@ export default function RecycleBinPage() {
                           <button
                             type="button"
                             onClick={() => restoreProductMutation.mutate(product.id)}
-                            className="w-8 h-8 inline-flex items-center justify-center text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                            className="w-8 h-8 inline-flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
                             title="Restore"
                             aria-label="Restore"
                           >
-                            <RotateCcw className="w-4 h-4" />
+                            <RotateCcw className="w-4 h-4 stroke-[1.5]" />
                           </button>
                           <button
                             type="button"
                             onClick={() => setItemToDelete({ type: 'product', item: product })}
-                            className="w-8 h-8 inline-flex items-center justify-center text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            className="w-8 h-8 inline-flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                             title="Delete Permanently"
                             aria-label="Delete Permanently"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4 stroke-[1.5]" />
                           </button>
                         </div>
                       </div>
@@ -619,7 +588,7 @@ export default function RecycleBinPage() {
           {/* Search bar & Type filter chips */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="relative w-full sm:w-80">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 stroke-[1.5]" />
               <input
                 type="text"
                 value={designSearch}
@@ -628,21 +597,21 @@ export default function RecycleBinPage() {
                   setDesignPage(1);
                 }}
                 placeholder="Search trashed designs..."
-                className="w-full pl-9 pr-9 py-2 bg-white border border-slate-300 rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-xs"
+                className="w-full h-9 pl-9 pr-8 bg-white border border-gray-300 rounded-lg text-sm placeholder:text-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors"
               />
               {designSearch && (
                 <button
                   type="button"
                   onClick={() => setDesignSearch('')}
-                  className="p-1 text-slate-400 hover:text-slate-600 absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md cursor-pointer"
+                  className="p-1 text-gray-400 hover:text-gray-600 absolute right-2 top-1/2 -translate-y-1/2 rounded cursor-pointer"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-3.5 h-3.5 stroke-[1.5]" />
                 </button>
               )}
             </div>
 
             {/* Type filter chips */}
-            <div className="inline-flex p-1 bg-slate-200/60 rounded-xl self-start sm:self-auto shrink-0">
+            <div className="inline-flex p-0.5 bg-gray-100 border border-gray-200 rounded-lg self-start sm:self-auto shrink-0">
               {[
                 { value: 'all', label: 'All Designs', icon: Layers },
                 { value: 'barcode', label: 'Barcodes', icon: Barcode },
@@ -658,13 +627,13 @@ export default function RecycleBinPage() {
                       setDesignType(opt.value);
                       setDesignPage(1);
                     }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${
                       isActive
-                        ? 'bg-white text-indigo-600 shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-white text-indigo-600 font-semibold'
+                        : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    <Icon className="w-3.5 h-3.5" />
+                    <Icon className="w-3.5 h-3.5 stroke-[1.5]" />
                     <span>{opt.label}</span>
                   </button>
                 );
@@ -673,23 +642,23 @@ export default function RecycleBinPage() {
           </div>
 
           {/* Designs Table Card */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden w-full">
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden w-full">
             {/* Desktop / Tablet Table (768px and up) */}
             <div className="hidden md:block w-full">
               <table className="w-full table-fixed text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/75 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                    <th className="py-3 px-3 sm:px-4 w-[10%] lg:w-[8%] xl:w-[6%]">Preview</th>
-                    <th className="py-3 px-3 w-[46%] lg:w-[36%] xl:w-[32%] truncate">Name & Value</th>
-                    <th className="py-3 px-3 w-[18%] lg:w-[16%] xl:w-[13%] truncate">Type</th>
-                    <th className="hidden lg:table-cell py-3 px-3 w-[14%] xl:w-[12%] truncate">Format</th>
-                    <th className="hidden xl:table-cell py-3 px-3 w-[13%] truncate">Deleted Date</th>
-                    <th className="py-3 px-3 w-[26%] lg:w-[16%] xl:w-[14%] truncate">Retention</th>
-                    <th className="py-3 px-3 sm:px-4 text-right w-[14%] lg:w-[12%] xl:w-[10%] truncate">Actions</th>
+                  <tr className="h-10 border-b border-gray-200 bg-white text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="py-2 px-3 sm:px-4 w-[10%] lg:w-[8%] xl:w-[6%] text-center align-middle">Preview</th>
+                    <th className="py-2 px-3 w-[46%] lg:w-[36%] xl:w-[32%] truncate text-left align-middle">Name & Value</th>
+                    <th className="py-2 px-3 w-[18%] lg:w-[16%] xl:w-[13%] truncate text-center align-middle">Type</th>
+                    <th className="hidden lg:table-cell py-2 px-3 w-[14%] xl:w-[12%] truncate text-center align-middle">Format</th>
+                    <th className="hidden xl:table-cell py-2 px-3 w-[13%] truncate text-center align-middle">Deleted Date</th>
+                    <th className="py-2 px-3 w-[26%] lg:w-[16%] xl:w-[14%] truncate text-center align-middle">Retention</th>
+                    <th className="py-2 px-3 sm:px-4 text-center w-[14%] lg:w-[12%] xl:w-[10%] truncate align-middle">Actions</th>
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-slate-100 text-sm">
+                <tbody className="divide-y divide-gray-100 text-sm">
                   {isCodesLoading ? (
                     <Skeleton type="table-row" count={5} />
                   ) : trashedCodes.length === 0 ? (
@@ -723,10 +692,10 @@ export default function RecycleBinPage() {
                       const daysLeft = code.days_left !== undefined ? code.days_left : 30;
 
                       return (
-                        <tr key={code.id} className="hover:bg-slate-50/80 transition-colors">
+                        <tr key={code.id} className="hover:bg-gray-50/75 transition-colors">
                           {/* Preview Thumbnail */}
-                          <td className="py-2.5 px-3 sm:px-4">
-                            <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0">
+                          <td className="py-2 px-3 sm:px-4 text-center align-middle">
+                            <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-200 p-0.5 flex items-center justify-center shrink-0 mx-auto">
                               {code.preview_url ? (
                                 <img
                                   src={code.preview_url}
@@ -734,32 +703,32 @@ export default function RecycleBinPage() {
                                   className="w-full h-full object-contain"
                                 />
                               ) : (
-                                <Barcode className="w-5 h-5 text-slate-300" />
+                                <Barcode className="w-4 h-4 text-gray-300 stroke-[1.5]" />
                               )}
                             </div>
                           </td>
 
                           {/* Name & Encoded Value */}
-                          <td className="py-3 px-3 min-w-0">
+                          <td className="py-2 px-3 min-w-0 text-left align-middle">
                             <div
-                              className="font-semibold text-slate-900 truncate"
+                              className="font-medium text-gray-900 truncate leading-tight text-sm"
                               title={code.name}
                             >
                               {code.name}
                             </div>
                             <div
-                              className="text-xs text-slate-400 font-mono truncate mt-0.5"
+                              className="text-xs text-gray-500 font-mono truncate mt-0.5 leading-none"
                               title={code.value}
                             >
                               {code.value}
                             </div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[11px] font-mono text-slate-400 lg:hidden">
+                            <div className="flex items-center gap-2 mt-0.5 leading-none">
+                              <span className="text-[11px] font-mono text-gray-400 lg:hidden">
                                 {code.format}
                               </span>
                               {code.product && (
                                 <span
-                                  className="text-[11px] text-indigo-600 truncate"
+                                  className="text-[11px] text-gray-500 truncate"
                                   title={code.product.name}
                                 >
                                   • {code.product.name}
@@ -769,59 +738,59 @@ export default function RecycleBinPage() {
                           </td>
 
                           {/* Type Badge */}
-                          <td className="py-3 px-3 min-w-0">
-                            <Badge variant={code.type === 'qr' ? 'accent' : 'primary'} size="sm">
+                          <td className="py-2 px-3 min-w-0 text-center align-middle">
+                            <Badge variant={code.type === 'qr' ? 'neutral' : 'neutral'} size="sm">
                               {code.type === 'qr' ? 'QR Code' : 'Barcode'}
                             </Badge>
                           </td>
 
                           {/* Format */}
-                          <td className="hidden lg:table-cell py-3 px-3 font-mono text-xs text-slate-700 min-w-0 truncate">
+                          <td className="hidden lg:table-cell py-2 px-3 font-mono text-[13px] text-gray-600 min-w-0 truncate text-center align-middle">
                             {code.format}
                           </td>
 
                           {/* Deleted Date */}
-                          <td className="hidden xl:table-cell py-3 px-3 text-slate-500 text-xs min-w-0 truncate">
+                          <td className="hidden xl:table-cell py-2 px-3 text-gray-500 text-xs min-w-0 truncate text-center align-middle">
                             {deletedDate}
                           </td>
 
                           {/* Retention (Days Left) */}
-                          <td className="py-3 px-3 min-w-0">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0 ${
-                                daysLeft <= 5
-                                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                  : daysLeft <= 15
-                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              }`}
-                            >
-                              <Clock className="w-3 h-3 shrink-0" />
+                          <td className="py-2 px-3 min-w-0 text-center align-middle">
+                            <span className="inline-flex items-center justify-center gap-1.5 text-xs text-gray-700 font-medium whitespace-nowrap shrink-0">
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  daysLeft <= 5
+                                    ? 'bg-red-500'
+                                    : daysLeft <= 15
+                                    ? 'bg-amber-500'
+                                    : 'bg-green-500'
+                                }`}
+                              />
                               {daysLeft}d left
                             </span>
                           </td>
 
-                          {/* Row Actions */}
-                          <td className="py-3 px-3 sm:px-4 text-right min-w-0">
-                            <div className="inline-flex items-center justify-end gap-1 shrink-0">
+                          {/* Actions */}
+                          <td className="py-2 px-3 sm:px-4 text-center min-w-0 align-middle">
+                            <div className="inline-flex items-center justify-center gap-1 shrink-0">
                               <button
                                 type="button"
                                 onClick={() => restoreCodeMutation.mutate(code.id)}
                                 disabled={restoreCodeMutation.isPending}
-                                className="w-7 h-7 inline-flex items-center justify-center text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                                className="w-7 h-7 inline-flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer shrink-0"
                                 title="Restore Design"
                                 aria-label="Restore Design"
                               >
-                                <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                                <RotateCcw className="w-4 h-4 stroke-[1.5]" />
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setItemToDelete({ type: 'code', item: code })}
-                                className="w-7 h-7 inline-flex items-center justify-center text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                                className="w-7 h-7 inline-flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer shrink-0"
                                 title="Delete Permanently"
                                 aria-label="Delete Permanently"
                               >
-                                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                                <Trash2 className="w-4 h-4 stroke-[1.5]" />
                               </button>
                             </div>
                           </td>
@@ -834,7 +803,7 @@ export default function RecycleBinPage() {
             </div>
 
             {/* Mobile Stacked Cards (below 768px) */}
-            <div className="md:hidden divide-y divide-slate-100 w-full">
+            <div className="md:hidden divide-y divide-gray-100 w-full">
               {isCodesLoading ? (
                 <div className="p-4 space-y-3">
                   <Skeleton type="card" count={3} />
@@ -859,9 +828,9 @@ export default function RecycleBinPage() {
                 trashedCodes.map((code) => {
                   const daysLeft = code.days_left !== undefined ? code.days_left : 30;
                   return (
-                    <div key={code.id} className="p-4 flex gap-3 bg-white hover:bg-slate-50/50 transition-colors">
+                    <div key={code.id} className="p-4 flex gap-3 bg-white hover:bg-gray-50/50 transition-colors">
                       {/* Thumbnail */}
-                      <div className="w-12 h-12 rounded-lg bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0">
+                      <div className="w-12 h-12 rounded-lg bg-gray-50 border border-gray-200 p-0.5 flex items-center justify-center shrink-0">
                         {code.preview_url ? (
                           <img
                             src={code.preview_url}
@@ -869,7 +838,7 @@ export default function RecycleBinPage() {
                             className="w-full h-full object-contain"
                           />
                         ) : (
-                          <Barcode className="w-6 h-6 text-slate-300" />
+                          <Barcode className="w-6 h-6 text-gray-300 stroke-[1.5]" />
                         )}
                       </div>
 
@@ -877,31 +846,29 @@ export default function RecycleBinPage() {
                       <div className="flex-1 min-w-0 space-y-2">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <h3 className="font-semibold text-slate-900 text-sm truncate" title={code.name}>
+                            <h3 className="font-semibold text-gray-900 text-sm truncate" title={code.name}>
                               {code.name}
                             </h3>
-                            <p className="font-mono text-xs text-slate-400 truncate mt-0.5">
+                            <p className="font-mono text-xs text-gray-500 truncate mt-0.5">
                               {code.value}
                             </p>
                           </div>
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
-                              daysLeft <= 5
-                                ? 'bg-rose-50 text-rose-700'
-                                : 'bg-emerald-50 text-emerald-700'
-                            }`}
-                          >
-                            <Clock className="w-3 h-3" />
+                          <span className="inline-flex items-center gap-1.5 text-xs text-gray-700 font-medium shrink-0">
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                daysLeft <= 5 ? 'bg-red-500' : 'bg-green-500'
+                              }`}
+                            />
                             {daysLeft}d left
                           </span>
                         </div>
 
-                        <div className="flex items-center justify-between pt-1 border-t border-slate-100/80">
+                        <div className="flex items-center justify-between pt-1 border-t border-gray-100">
                           <div className="flex items-center gap-2 text-xs">
-                            <Badge variant={code.type === 'qr' ? 'accent' : 'primary'} size="sm">
+                            <Badge variant="neutral" size="sm">
                               {code.type === 'qr' ? 'QR' : 'Barcode'}
                             </Badge>
-                            <span className="font-mono text-slate-500 text-[11px]">
+                            <span className="font-mono text-gray-500 text-[11px]">
                               {code.format}
                             </span>
                           </div>
@@ -910,20 +877,20 @@ export default function RecycleBinPage() {
                             <button
                               type="button"
                               onClick={() => restoreCodeMutation.mutate(code.id)}
-                              className="w-8 h-8 inline-flex items-center justify-center text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                              className="w-8 h-8 inline-flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
                               title="Restore"
                               aria-label="Restore"
                             >
-                              <RotateCcw className="w-4 h-4" />
+                              <RotateCcw className="w-4 h-4 stroke-[1.5]" />
                             </button>
                             <button
                               type="button"
                               onClick={() => setItemToDelete({ type: 'code', item: code })}
-                              className="w-8 h-8 inline-flex items-center justify-center text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              className="w-8 h-8 inline-flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                               title="Delete Permanently"
                               aria-label="Delete Permanently"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4 stroke-[1.5]" />
                             </button>
                           </div>
                         </div>
@@ -967,7 +934,7 @@ export default function RecycleBinPage() {
               Cancel
             </Button>
             <Button
-              variant="danger"
+              variant="danger-solid"
               onClick={handleConfirmPermanentDelete}
               isLoading={isActionPending}
             >
@@ -977,15 +944,15 @@ export default function RecycleBinPage() {
         }
       >
         {itemToDelete && (
-          <div className="p-4 bg-rose-50/80 rounded-xl border border-rose-200/80 flex items-start gap-3 text-sm text-rose-900">
-            <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+          <div className="p-3.5 bg-red-50/60 rounded-lg border border-red-200 flex items-start gap-2.5 text-xs text-red-900">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 mt-1.5" />
             <div>
               <p className="font-semibold">
                 {itemToDelete.type === 'product'
                   ? `Product: ${itemToDelete.item.name} (${itemToDelete.item.sku})`
                   : `Design: ${itemToDelete.item.name} (${itemToDelete.item.format})`}
               </p>
-              <p className="text-xs text-rose-700 mt-1">
+              <p className="text-xs text-red-700 mt-1">
                 This item will be completely removed from the database and cannot be recovered.
               </p>
             </div>
@@ -1011,7 +978,7 @@ export default function RecycleBinPage() {
               Cancel
             </Button>
             <Button
-              variant="danger"
+              variant="danger-solid"
               onClick={handleConfirmEmptyBin}
               isLoading={isActionPending}
             >
@@ -1020,8 +987,8 @@ export default function RecycleBinPage() {
           </>
         }
       >
-        <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-3 text-sm text-amber-900">
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+        <div className="p-3.5 bg-amber-50/60 rounded-lg border border-amber-200 flex items-start gap-2.5 text-xs text-amber-900">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5" />
           <div>
             <p className="font-semibold">Warning: Irreversible Action</p>
             <p className="text-xs text-amber-700 mt-1">

@@ -17,6 +17,7 @@ import {
   Printer,
 } from 'lucide-react';
 import Badge from '../../components/Badge';
+import Button from '../../components/Button';
 import Skeleton from '../../components/Skeleton';
 import EmptyState from '../../components/EmptyState';
 import Pagination from '../../components/Pagination';
@@ -24,79 +25,69 @@ import { bulkGenerateBarcodes } from '../../api/products';
 
 export default function ProductTable({
   products = [],
-  meta = null,
-  isLoading = false,
-  searchTerm = '',
-  onSearchChange,
-  sortField = '-created_at',
-  onSortChange,
-  page = 1,
+  meta,
+  isLoading,
+  sortBy,
+  sortOrder,
+  onSort,
   onPageChange,
+  searchTerm,
+  onSearchChange,
   onEdit,
   onDelete,
   selectedIds = [],
   onToggleSelect,
   onToggleSelectAll,
-  isSelectAllMatching = false,
-  onSelectAllMatching,
   onClearSelection,
+  onSelectAllMatching,
+  isSelectAllMatching = false,
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-
   const [bulkFormat, setBulkFormat] = useState('CODE128');
   const [isBulkGenerating, setIsBulkGenerating] = useState(false);
 
-  const selectedCount = isSelectAllMatching
-    ? meta?.total || products.length
-    : selectedIds.length;
+  const selectedCount = isSelectAllMatching ? meta?.total || 0 : selectedIds.length;
 
   const handleBulkGenerate = async () => {
-    setIsBulkGenerating(true);
     try {
-      const targetIds = isSelectAllMatching
-        ? undefined
-        : selectedIds.length > 0
-        ? selectedIds
-        : undefined;
-
-      const res = await bulkGenerateBarcodes({
-        product_ids: targetIds,
-        all_matching: isSelectAllMatching,
+      setIsBulkGenerating(true);
+      const payload = {
         format: bulkFormat,
-      });
+        apply_all: isSelectAllMatching,
+        product_ids: isSelectAllMatching ? [] : selectedIds,
+      };
 
+      const res = await bulkGenerateBarcodes(payload);
+      toast.success(res.message || 'Barcodes generated successfully.');
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['products-summary'] });
-      if (onClearSelection) {
-        onClearSelection();
-      }
-      toast.success(res.message || `${res.count} barcodes generated`);
+      if (onClearSelection) onClearSelection();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to generate missing barcodes.');
+      const msg = err.response?.data?.message || 'Failed to generate barcodes.';
+      toast.error(msg);
     } finally {
       setIsBulkGenerating(false);
     }
   };
 
-  const handleHeaderSort = (column) => {
-    if (sortField === column) {
-      onSortChange(`-${column}`);
-    } else if (sortField === `-${column}`) {
-      onSortChange(column);
+  const handleHeaderSort = (field) => {
+    if (sortBy === field) {
+      onSort(field, sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
-      onSortChange(column);
+      onSort(field, 'asc');
     }
   };
 
-  const getSortIcon = (column) => {
-    if (sortField === column) {
-      return <ArrowUp className="w-3.5 h-3.5 text-indigo-600 shrink-0" />;
+  const getSortIcon = (field) => {
+    if (sortBy !== field) {
+      return <ArrowUpDown className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 transition-colors" strokeWidth={1.5} />;
     }
-    if (sortField === `-${column}`) {
-      return <ArrowDown className="w-3.5 h-3.5 text-indigo-600 shrink-0" />;
-    }
-    return <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 shrink-0" />;
+    return sortOrder === 'asc' ? (
+      <ArrowUp className="w-3.5 h-3.5 text-indigo-600" strokeWidth={1.5} />
+    ) : (
+      <ArrowDown className="w-3.5 h-3.5 text-indigo-600" strokeWidth={1.5} />
+    );
   };
 
   const getStatusBadge = (product) => {
@@ -105,45 +96,46 @@ export default function ProductTable({
 
     if (qty <= 0) {
       return (
-        <Badge variant="danger" size="sm" dot>
+        <Badge variant="danger" size="sm">
           Out of stock
         </Badge>
       );
     }
     if (qty <= threshold) {
       return (
-        <Badge variant="warning" size="sm" dot>
+        <Badge variant="warning" size="sm">
           Low stock
         </Badge>
       );
     }
     return (
-      <Badge variant="success" size="sm" dot>
+      <Badge variant="success" size="sm">
         In stock
       </Badge>
     );
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden w-full">
       {/* Table Toolbar & Bulk Actions */}
-      <div className="p-3.5 sm:p-4 border-b border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      <div className="p-3.5 sm:p-4 border-b border-gray-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" strokeWidth={1.5} />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search by name, SKU, barcode..."
-            className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all shadow-2xs"
+            className="w-full h-9 pl-9 pr-8 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
           />
           {searchTerm && (
             <button
               type="button"
               onClick={() => onSearchChange('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-md cursor-pointer"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-md cursor-pointer"
+              aria-label="Clear search"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-3.5 h-3.5" strokeWidth={1.5} />
             </button>
           )}
         </div>
@@ -152,27 +144,26 @@ export default function ProductTable({
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
           {selectedCount > 0 && (
             <>
-              <div className="flex items-center gap-1.5 bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-semibold">
+              <div className="flex items-center gap-1.5 bg-gray-100 text-gray-700 px-2.5 py-1 rounded-md text-xs font-medium">
                 <span>{selectedCount} selected</span>
-                <span className="text-slate-300">&bull;</span>
+                <span className="text-gray-300">&bull;</span>
                 <button
                   type="button"
                   onClick={onClearSelection}
                   className="text-indigo-600 hover:text-indigo-800 underline font-medium cursor-pointer"
                 >
-                  Clear selection
+                  Clear
                 </button>
               </div>
 
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => navigate(`/print?product_ids=${selectedIds.join(',')}`)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:text-indigo-600 rounded-lg transition-colors cursor-pointer shrink-0 shadow-2xs"
-                title="Print label sheets for selected products"
+                icon={Printer}
               >
-                <Printer className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Print labels ({selectedCount})</span>
-              </button>
+                Print labels ({selectedCount})
+              </Button>
             </>
           )}
 
@@ -180,7 +171,7 @@ export default function ProductTable({
             <select
               value={bulkFormat}
               onChange={(e) => setBulkFormat(e.target.value)}
-              className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg px-2 py-1.5 border-0 focus:ring-1 focus:ring-indigo-500 cursor-pointer transition-colors"
+              className="h-8 text-xs bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg px-2 border border-gray-300 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer transition-colors"
               title="Barcode format for bulk generation"
             >
               <option value="CODE128">CODE128</option>
@@ -189,20 +180,15 @@ export default function ProductTable({
               <option value="UPC">UPC-A</option>
             </select>
 
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={handleBulkGenerate}
-              disabled={isBulkGenerating}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 active:bg-indigo-200 rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-50"
-              title="Generate missing barcodes for selected or missing products"
+              isLoading={isBulkGenerating}
+              icon={Wand2}
             >
-              {isBulkGenerating ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Wand2 className="w-3.5 h-3.5" />
-              )}
-              <span>Generate missing barcodes</span>
-            </button>
+              Generate barcodes
+            </Button>
           </div>
         </div>
       </div>
@@ -211,14 +197,14 @@ export default function ProductTable({
       {products.length > 0 &&
         products.every((p) => selectedIds.includes(p.id)) &&
         (meta?.total || 0) > products.length && (
-          <div className="bg-indigo-50 border-b border-indigo-100 px-4 py-2 text-xs text-slate-700 text-center font-medium">
+          <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 text-xs text-gray-700 text-center">
             {isSelectAllMatching ? (
               <span>
                 All <strong>{meta.total}</strong> products across all pages are selected.{' '}
                 <button
                   type="button"
                   onClick={onClearSelection}
-                  className="font-semibold text-indigo-600 hover:text-indigo-800 underline ml-1 cursor-pointer"
+                  className="font-medium text-indigo-600 hover:text-indigo-800 underline ml-1 cursor-pointer"
                 >
                   Clear selection
                 </button>
@@ -229,9 +215,9 @@ export default function ProductTable({
                 <button
                   type="button"
                   onClick={onSelectAllMatching}
-                  className="font-semibold text-indigo-600 hover:text-indigo-800 underline ml-1 cursor-pointer"
+                  className="font-medium text-indigo-600 hover:text-indigo-800 underline ml-1 cursor-pointer"
                 >
-                  Select all {meta.total} products
+                  Select all {meta.total} products in inventory
                 </button>
               </span>
             )}
@@ -242,8 +228,8 @@ export default function ProductTable({
       <div className="hidden md:block w-full">
         <table className="w-full table-fixed text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-              <th className="py-3 pl-3 sm:pl-4 pr-1 w-[36px] min-w-[36px] text-center">
+            <tr className="h-10 border-b border-gray-200 text-xs font-medium text-gray-500 bg-white">
+              <th className="py-2 pl-3 sm:pl-4 pr-1 w-[36px] min-w-[36px] text-center align-middle">
                 <input
                   type="checkbox"
                   checked={
@@ -251,54 +237,54 @@ export default function ProductTable({
                     (products.length > 0 && products.every((p) => selectedIds.includes(p.id)))
                   }
                   onChange={onToggleSelectAll}
-                  className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                  className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500/20 cursor-pointer"
                   title="Select all on this page"
                 />
               </th>
-              <th className="py-3 px-3 sm:px-4 w-auto min-w-0 truncate">Product</th>
+              <th className="py-2 px-3 sm:px-4 w-auto min-w-0 truncate text-left align-middle">Product</th>
               <th
                 onClick={() => handleHeaderSort('sku')}
-                className="hidden lg:table-cell py-3 px-3 w-[17%] xl:w-[13%] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
+                className="hidden lg:table-cell py-2 px-3 w-[17%] xl:w-[13%] text-center cursor-pointer select-none group hover:bg-gray-50 transition-colors align-middle"
               >
-                <div className="flex items-center gap-1.5 truncate">
+                <div className="inline-flex items-center justify-center gap-1 truncate">
                   <span>SKU</span>
                   {getSortIcon('sku')}
                 </div>
               </th>
-              <th className="hidden xl:table-cell py-3 px-3 xl:w-[15%] truncate">Barcode / EAN</th>
+              <th className="hidden xl:table-cell py-2 px-3 xl:w-[15%] text-center truncate align-middle">Barcode / EAN</th>
               <th
                 onClick={() => handleHeaderSort('category')}
-                className="hidden xl:table-cell py-3 px-3 xl:w-[12%] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
+                className="hidden xl:table-cell py-2 px-3 xl:w-[12%] text-center cursor-pointer select-none group hover:bg-gray-50 transition-colors align-middle"
               >
-                <div className="flex items-center gap-1.5 truncate">
+                <div className="inline-flex items-center justify-center gap-1 truncate">
                   <span>Category</span>
                   {getSortIcon('category')}
                 </div>
               </th>
               <th
                 onClick={() => handleHeaderSort('price')}
-                className="py-3 px-3 w-[80px] min-w-[80px] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
+                className="py-2 px-3 w-[80px] min-w-[80px] text-center cursor-pointer select-none group hover:bg-gray-50 transition-colors align-middle"
               >
-                <div className="flex items-center gap-1.5 truncate">
+                <div className="inline-flex items-center justify-center gap-1 truncate">
                   <span>Price</span>
                   {getSortIcon('price')}
                 </div>
               </th>
               <th
                 onClick={() => handleHeaderSort('quantity')}
-                className="py-3 px-3 w-[60px] min-w-[60px] cursor-pointer select-none group hover:bg-slate-100/60 transition-colors"
+                className="py-2 px-3 w-[60px] min-w-[60px] text-center cursor-pointer select-none group hover:bg-gray-50 transition-colors align-middle"
               >
-                <div className="flex items-center gap-1.5 truncate">
+                <div className="inline-flex items-center justify-center gap-1 truncate">
                   <span>Qty</span>
                   {getSortIcon('quantity')}
                 </div>
               </th>
-              <th className="py-3 px-3 w-[110px] min-w-[110px] truncate">Status</th>
-              <th className="py-3 pr-4 pl-2 text-right w-[132px] min-w-[132px] shrink-0 truncate">Actions</th>
+              <th className="py-2 px-3 w-[110px] min-w-[110px] text-center truncate align-middle">Status</th>
+              <th className="py-2 px-3 text-center w-[132px] min-w-[132px] shrink-0 truncate align-middle">Actions</th>
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-slate-100 text-sm">
+          <tbody className="divide-y divide-gray-100 text-sm">
             {isLoading ? (
               <Skeleton type="table-row" count={5} />
             ) : products.length === 0 ? (
@@ -320,126 +306,120 @@ export default function ProductTable({
               products.map((product) => (
                 <tr
                   key={product.id}
-                  className={`hover:bg-slate-50/80 transition-colors group ${
-                    selectedIds.includes(product.id) ? 'bg-indigo-50/30' : ''
+                  className={`hover:bg-gray-50/75 transition-colors group ${
+                    selectedIds.includes(product.id) ? 'bg-gray-50' : ''
                   }`}
                 >
                   {/* Row Checkbox */}
-                  <td className="py-3 pl-3 sm:pl-4 pr-1 text-center min-w-0">
+                  <td className="py-2 pl-3 sm:pl-4 pr-1 text-center min-w-0 align-middle">
                     <input
                       type="checkbox"
                       checked={isSelectAllMatching || selectedIds.includes(product.id)}
                       onChange={() => onToggleSelect(product.id)}
-                      className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                      className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500/20 cursor-pointer"
                     />
                   </td>
 
                   {/* Name, SKU under name on <1024px, and Description */}
-                  <td className="py-3 px-3 sm:px-4 min-w-0">
+                  <td className="py-2 px-3 sm:px-4 min-w-0 align-middle text-left">
                     <div
-                      className="font-semibold text-slate-900 truncate"
+                      className="font-medium text-gray-900 truncate text-sm leading-tight"
                       title={product.name}
                     >
                       {product.name}
                     </div>
                     {/* Show SKU under product name below 1024px */}
                     <div
-                      className="text-xs text-slate-400 font-mono truncate mt-0.5 lg:hidden"
+                      className="text-xs text-gray-400 font-mono truncate mt-0.5 lg:hidden leading-none"
                       title={product.sku}
                     >
                       SKU: {product.sku}
                     </div>
-                    {product.description && (
-                      <div
-                        className="text-xs text-slate-400 truncate mt-0.5 hidden xl:block"
-                        title={product.description}
-                      >
-                        {product.description}
-                      </div>
-                    )}
                   </td>
 
-                  {/* SKU Column (visible on lg+) */}
-                  <td className="hidden lg:table-cell py-3 px-3 font-mono text-xs font-semibold text-slate-700 min-w-0">
+                  {/* SKU (visible on lg+) */}
+                  <td className="hidden lg:table-cell py-2 px-3 font-mono text-[13px] text-gray-500 text-center min-w-0 align-middle">
                     <div className="truncate" title={product.sku}>
                       {product.sku}
                     </div>
                   </td>
 
-                  {/* Barcode Number (visible on xl+) */}
-                  <td className="hidden xl:table-cell py-3 px-3 font-mono text-xs text-slate-500 min-w-0">
+                  {/* Barcode / EAN (visible on xl+) */}
+                  <td className="hidden xl:table-cell py-2 px-3 font-mono text-[13px] text-gray-500 text-center min-w-0 align-middle">
                     <div className="truncate" title={product.barcode_number || ''}>
-                      {product.barcode_number || <span className="text-slate-300">—</span>}
+                      {product.barcode_number || <span className="text-gray-300">—</span>}
                     </div>
                   </td>
 
                   {/* Category (visible on xl+) */}
-                  <td className="hidden xl:table-cell py-3 px-3 min-w-0">
+                  <td className="hidden xl:table-cell py-2 px-3 text-center min-w-0 align-middle">
                     {product.category ? (
                       <span
-                        className="inline-block max-w-full truncate px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600"
+                        className="inline-block max-w-full truncate px-2 py-0.5 rounded text-xs text-gray-600 bg-gray-100"
                         title={product.category}
                       >
                         {product.category}
                       </span>
                     ) : (
-                      <span className="text-slate-300">—</span>
+                      <span className="text-gray-300">—</span>
                     )}
                   </td>
 
                   {/* Price */}
-                  <td className="py-3 px-3 font-medium text-slate-900 min-w-0">
+                  <td className="py-2 px-3 font-normal text-gray-900 text-center min-w-0 align-middle text-sm">
                     <div className="truncate">
                       ${parseFloat(product.price).toFixed(2)}
                     </div>
                   </td>
 
                   {/* Quantity */}
-                  <td className="py-3 px-3 font-semibold text-slate-800 min-w-0">
+                  <td className="py-2 px-3 font-medium text-gray-800 text-center min-w-0 align-middle text-sm">
                     <div className="truncate">
                       {product.quantity}
                     </div>
                   </td>
 
                   {/* Status Badge */}
-                  <td className="py-3 px-3 w-[115px] min-w-[115px]">
-                    {getStatusBadge(product)}
+                  <td className="py-2 px-3 w-[115px] min-w-[115px] text-center align-middle">
+                    <div className="flex justify-center">
+                      {getStatusBadge(product)}
+                    </div>
                   </td>
 
                   {/* Actions */}
-                  <td className="py-3 pr-4 pl-2 text-right w-[132px] min-w-[132px] shrink-0">
-                    <div className="inline-flex items-center justify-end gap-1.5 shrink-0">
-                      {/* Compact icon button for Generate */}
+                  <td className="py-2 px-3 text-center w-[132px] min-w-[132px] shrink-0 align-middle">
+                    <div className="inline-flex items-center justify-center gap-1 shrink-0">
+                      {/* Compact button for Generate */}
                       <button
                         type="button"
                         onClick={() => navigate(`/designer?product_id=${product.id}`)}
-                        className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors cursor-pointer shrink-0"
-                        title="Generate Code for this product"
+                        className="w-7 h-7 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-indigo-600 hover:bg-gray-100 transition-colors cursor-pointer shrink-0"
+                        title="Generate Code"
                         aria-label="Generate Code"
                       >
-                        <Barcode className="w-3.5 h-3.5 shrink-0" />
+                        <Barcode className="w-4 h-4 shrink-0" strokeWidth={1.5} />
                       </button>
 
                       {/* Edit button */}
                       <button
                         type="button"
                         onClick={() => onEdit(product)}
-                        className="w-7 h-7 inline-flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0"
+                        className="w-7 h-7 inline-flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors cursor-pointer shrink-0"
                         title="Edit product"
                         aria-label="Edit product"
                       >
-                        <Pencil className="w-3.5 h-3.5 shrink-0" />
+                        <Pencil className="w-4 h-4 shrink-0" strokeWidth={1.5} />
                       </button>
 
                       {/* Delete button */}
                       <button
                         type="button"
                         onClick={() => onDelete(product)}
-                        className="w-7 h-7 inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                        className="w-7 h-7 inline-flex items-center justify-center text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer shrink-0"
                         title="Move to Recycle Bin"
                         aria-label="Move to Recycle Bin"
                       >
-                        <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                        <Trash2 className="w-4 h-4 shrink-0" strokeWidth={1.5} />
                       </button>
                     </div>
                   </td>
@@ -451,7 +431,7 @@ export default function ProductTable({
       </div>
 
       {/* Mobile Stacked Cards (below 768px) - zero horizontal overflow */}
-      <div className="md:hidden divide-y divide-slate-100 w-full">
+      <div className="md:hidden divide-y divide-gray-100 w-full">
         {isLoading ? (
           <div className="p-4 space-y-3">
             <Skeleton type="card" count={3} />
@@ -473,8 +453,8 @@ export default function ProductTable({
           products.map((product) => (
             <div
               key={product.id}
-              className={`p-4 space-y-2.5 bg-white hover:bg-slate-50/50 transition-colors ${
-                selectedIds.includes(product.id) ? 'bg-indigo-50/25' : ''
+              className={`p-4 space-y-2 bg-white hover:bg-gray-50/50 transition-colors ${
+                selectedIds.includes(product.id) ? 'bg-gray-50' : ''
               }`}
             >
               {/* Row 1: Checkbox, Name & Status */}
@@ -483,13 +463,13 @@ export default function ProductTable({
                   type="checkbox"
                   checked={isSelectAllMatching || selectedIds.includes(product.id)}
                   onChange={() => onToggleSelect(product.id)}
-                  className="w-4 h-4 mt-0.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer shrink-0"
+                  className="w-4 h-4 mt-0.5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500/20 cursor-pointer shrink-0"
                 />
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-slate-900 text-sm truncate" title={product.name}>
+                  <h3 className="font-medium text-gray-900 text-sm truncate" title={product.name}>
                     {product.name}
                   </h3>
-                  <p className="font-mono text-xs text-slate-500 mt-0.5 truncate" title={product.sku}>
+                  <p className="font-mono text-xs text-gray-500 mt-0.5 truncate" title={product.sku}>
                     SKU: {product.sku}
                   </p>
                 </div>
@@ -499,18 +479,18 @@ export default function ProductTable({
               </div>
 
               {/* Row 2: Price, Qty & Actions */}
-              <div className="flex items-center justify-between pt-1 border-t border-slate-100/80">
+              <div className="flex items-center justify-between pt-1 border-t border-gray-100">
                 <div className="flex items-center gap-3 text-xs">
                   <div>
-                    <span className="text-slate-400">Price: </span>
-                    <span className="font-semibold text-slate-900">${parseFloat(product.price).toFixed(2)}</span>
+                    <span className="text-gray-400">Price: </span>
+                    <span className="font-medium text-gray-900">${parseFloat(product.price).toFixed(2)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-400">Qty: </span>
-                    <span className="font-semibold text-slate-900">{product.quantity}</span>
+                    <span className="text-gray-400">Qty: </span>
+                    <span className="font-medium text-gray-900">{product.quantity}</span>
                   </div>
                   {product.category && (
-                    <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 truncate max-w-[80px]">
+                    <span className="px-1.5 py-0.5 rounded text-[11px] text-gray-600 bg-gray-100 truncate max-w-[80px]">
                       {product.category}
                     </span>
                   )}
@@ -521,29 +501,29 @@ export default function ProductTable({
                   <button
                     type="button"
                     onClick={() => navigate(`/designer?product_id=${product.id}`)}
-                    className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors cursor-pointer"
+                    className="w-7 h-7 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-indigo-600 hover:bg-gray-100 transition-colors cursor-pointer"
                     title="Generate Code"
                     aria-label="Generate Code"
                   >
-                    <Barcode className="w-4 h-4" />
+                    <Barcode className="w-4 h-4" strokeWidth={1.5} />
                   </button>
                   <button
                     type="button"
                     onClick={() => onEdit(product)}
-                    className="w-8 h-8 inline-flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                    className="w-7 h-7 inline-flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors cursor-pointer"
                     title="Edit product"
                     aria-label="Edit product"
                   >
-                    <Pencil className="w-4 h-4" />
+                    <Pencil className="w-4 h-4" strokeWidth={1.5} />
                   </button>
                   <button
                     type="button"
                     onClick={() => onDelete(product)}
-                    className="w-8 h-8 inline-flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                    className="w-7 h-7 inline-flex items-center justify-center text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                     title="Move to Recycle Bin"
                     aria-label="Move to Recycle Bin"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4" strokeWidth={1.5} />
                   </button>
                 </div>
               </div>
@@ -552,10 +532,10 @@ export default function ProductTable({
         )}
       </div>
 
-      {/* Pagination Footer */}
+      {/* Shared Pagination Component */}
       {meta && (
         <Pagination
-          page={page}
+          page={meta.current_page}
           lastPage={meta.last_page}
           from={meta.from}
           to={meta.to}

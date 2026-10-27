@@ -156,7 +156,7 @@ export default function StockBinPage() {
       </div>
 
       {/* Main Table Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         {/* Toolbar */}
         <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="relative w-full sm:w-80">
@@ -194,14 +194,14 @@ export default function StockBinPage() {
           <table className="w-full text-left border-collapse min-w-[700px]">
             <thead>
               <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                <th className="py-3 px-4 sm:px-6">Product</th>
-                <th className="py-3 px-4">SKU</th>
-                <th className="py-3 px-4">Category</th>
-                <th className="py-3 px-4">Price</th>
-                <th className="py-3 px-4">Qty</th>
-                <th className="py-3 px-4">Deleted Date</th>
-                <th className="py-3 px-4">Retention</th>
-                <th className="py-3 px-4 sm:px-6 text-right">Actions</th>
+                <th className="py-3 px-4 sm:px-6 text-left">Product</th>
+                <th className="py-3 px-4 text-center">SKU</th>
+                <th className="py-3 px-4 text-center">Category</th>
+                <th className="py-3 px-4 text-center">Price</th>
+                <th className="py-3 px-4 text-center">Qty</th>
+                <th className="py-3 px-4 text-center">Deleted Date</th>
+                <th className="py-3 px-4 text-center">Retention</th>
+                <th className="py-3 px-4 sm:px-6 text-center">Actions</th>
               </tr>
             </thead>
 
@@ -237,7 +237,7 @@ export default function StockBinPage() {
                   return (
                     <tr key={product.id} className="hover:bg-slate-50/80 transition-colors">
                       {/* Name */}
-                      <td className="py-3.5 px-4 sm:px-6">
+                      <td className="py-3.5 px-4 sm:px-6 text-left">
                         <div className="font-semibold text-slate-900 line-clamp-1">
                           {product.name}
                         </div>
@@ -249,12 +249,12 @@ export default function StockBinPage() {
                       </td>
 
                       {/* SKU */}
-                      <td className="py-3.5 px-4 font-mono text-xs font-medium text-slate-700">
+                      <td className="py-3.5 px-4 font-mono text-xs font-medium text-slate-700 text-center">
                         {product.sku}
                       </td>
 
                       {/* Category */}
-                      <td className="py-3.5 px-4">
+                      <td className="py-3.5 px-4 text-center">
                         {product.category ? (
                           <span className="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600">
                             {product.category}
@@ -265,22 +265,22 @@ export default function StockBinPage() {
                       </td>
 
                       {/* Price */}
-                      <td className="py-3.5 px-4 font-medium text-slate-900">
+                      <td className="py-3.5 px-4 font-medium text-slate-900 text-center">
                         ${parseFloat(product.price).toFixed(2)}
                       </td>
 
                       {/* Quantity */}
-                      <td className="py-3.5 px-4 text-slate-700 font-medium">
+                      <td className="py-3.5 px-4 text-slate-700 font-medium text-center">
                         {product.quantity}
                       </td>
 
                       {/* Deleted Date */}
-                      <td className="py-3.5 px-4 text-xs text-slate-500 whitespace-nowrap">
+                      <td className="py-3.5 px-4 text-xs text-slate-500 whitespace-nowrap text-center">
                         {deletedDate}
                       </td>
 
                       {/* Retention / Days Left */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
+                      <td className="py-3.5 px-4 whitespace-nowrap text-center">
                         <span
                           className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             daysLeft <= 5
@@ -294,8 +294,8 @@ export default function StockBinPage() {
                       </td>
 
                       {/* Row Actions */}
-                      <td className="py-3.5 px-4 sm:px-6 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="py-3.5 px-4 sm:px-6 text-center">
+                        <div className="inline-flex items-center justify-center gap-2">
                           <button
                             type="button"
                             onClick={() => restoreMutation.mutate(product.id)}

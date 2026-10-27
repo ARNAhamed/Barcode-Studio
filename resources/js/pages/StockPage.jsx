@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Package, Trash2, RotateCcw } from 'lucide-react';
+import { Plus, Package, Trash2, RotateCcw, Upload, Download } from 'lucide-react';
 import Button from '../components/Button';
 import Drawer from '../components/Drawer';
 import Modal from '../components/Modal';
 import SummaryCards from '../features/stock/SummaryCards';
 import ProductTable from '../features/stock/ProductTable';
 import ProductForm from '../features/stock/ProductForm';
+import ImportModal from '../features/stock/ImportModal';
 import {
   getProducts,
   getProductSummary,
@@ -16,6 +17,7 @@ import {
   updateProduct,
   deleteProduct,
   restoreProduct,
+  exportProducts,
 } from '../api/products';
 
 export default function StockPage() {
@@ -35,6 +37,25 @@ export default function StockPage() {
   // Delete modal state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
+
+  // Import / Export state
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      await exportProducts({
+        search: debouncedSearch || undefined,
+        sort: sortField,
+      });
+      toast.success('Products exported successfully.');
+    } catch (err) {
+      toast.error('Failed to export products.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Debounce search input
   useEffect(() => {
@@ -223,9 +244,31 @@ export default function StockPage() {
           </p>
         </div>
 
-        {/* Header Action: Add Product */}
-        <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
-          <Button onClick={handleOpenAdd} icon={Plus} variant="primary" size="md">
+        {/* Header Actions: Import, Export, Add Product */}
+        <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto flex-wrap">
+          <Button
+            onClick={() => setIsImportModalOpen(true)}
+            icon={Upload}
+            variant="outline"
+            size="md"
+          >
+            Import
+          </Button>
+          <Button
+            onClick={handleExport}
+            icon={Download}
+            variant="outline"
+            size="md"
+            isLoading={isExporting}
+          >
+            Export
+          </Button>
+          <Button
+            onClick={handleOpenAdd}
+            icon={Plus}
+            variant="primary"
+            size="md"
+          >
             Add Product
           </Button>
         </div>
@@ -307,6 +350,13 @@ export default function StockPage() {
           </div>
         )}
       </Modal>
+
+      {/* CSV Import Modal */}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={invalidateQueries}
+      />
     </div>
   );
 }

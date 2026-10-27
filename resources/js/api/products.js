@@ -65,3 +65,63 @@ export const bulkGenerateBarcodes = async (data = {}) => {
   const response = await api.post('/products/bulk-generate-barcodes', data);
   return response.data;
 };
+
+// CSV Export & Import API
+export const exportProducts = async (params = {}) => {
+  const response = await api.get('/products/export', {
+    params,
+    responseType: 'blob',
+  });
+  const today = new Date().toISOString().split('T')[0];
+  const filename = `products_export_${today}.csv`;
+  const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+};
+
+export const downloadImportTemplate = async () => {
+  const response = await api.get('/products/import/template', {
+    responseType: 'blob',
+  });
+  const filename = 'products_import_template.csv';
+  const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+};
+
+export const previewProductImport = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post('/products/import/preview', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+
+export const commitProductImport = async ({ file, mode = 'update_existing', autoGenerateBarcodes = false }) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('mode', mode);
+  formData.append('auto_generate_barcodes', autoGenerateBarcodes ? '1' : '0');
+  const response = await api.post('/products/import/commit', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+

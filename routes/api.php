@@ -23,6 +23,12 @@ Route::post('/products/bulk-generate-barcodes', [ProductController::class, 'bulk
 Route::post('/products/{id}/restore', [ProductController::class, 'restore']);
 Route::delete('/products/{id}/force', [ProductController::class, 'forceDelete']);
 
+// Products CSV Import & Export
+Route::get('/products/export', [ProductController::class, 'export']);
+Route::get('/products/import/template', [ProductController::class, 'importTemplate']);
+Route::post('/products/import/preview', [ProductController::class, 'importPreview']);
+Route::post('/products/import/commit', [ProductController::class, 'importCommit']);
+
 // Products CRUD
 Route::apiResource('products', ProductController::class);
 

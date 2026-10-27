@@ -1,0 +1,6 @@
+name,sku,barcode_number,category,price,quantity,low_stock_threshold,description
+Test Notebook A5,TST-NBK-001,,Office Supplies,4.50,60,10,Ruled A5 notebook
+Test USB Cable,TST-USB-002,,Electronics,7.25,5,10,1m USB-C cable
+,TST-BAD-003,,Electronics,9.99,10,10,Missing name
+Negative Price Item,TST-NEG-004,,Apparel,-5,10,10,Should be flagged
+Duplicate SKU Item,TST-NBK-001,,Office Supplies,4.50,20,10,Same SKU as row 1

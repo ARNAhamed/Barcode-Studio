@@ -1,0 +1,7 @@
+name,sku,barcode_number,category,price,quantity,low_stock_threshold,description
+Premium Wireless Mouse,ELEC-MOUSE-V1,2001000000018,Electronics,34.99,45,10,High precision wireless mouse
+USB-C Fast Cable,ELEC-CABLE-01,,Electronics,12.50,150,20,Durable braided nylon cable
+Duplicate Mouse Item,ELEC-MOUSE-V1,2001000000025,Electronics,34.99,10,5,Duplicate SKU row
+,ELEC-NONAME-01,2001000000032,Electronics,19.99,30,5,Missing product name row
+Budget Headphones,ELEC-HP-01,2001000000049,Audio,-15.00,20,5,Negative price row
+Sample Trashed Item,PRD-TRASHED-SKU,2001000000056,General,25.00,10,5,Item whose SKU is in Recycle Bin

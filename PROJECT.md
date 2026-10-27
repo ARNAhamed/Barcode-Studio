@@ -105,6 +105,14 @@ Controls are grouped into collapsible sections (**Artboard**, **Code Size**, **C
   - Includes a "Generate" button with a Wand icon next to the Barcode Number field, plus a format selector (`CODE128`, `EAN13`, `EAN8`, `UPC`), auto-filling a valid unique number with correct check digit.
   - Option to auto-generate barcode number on product creation if left blank.
 - **Bulk Action**: "Generate missing barcodes" allows selecting products with empty barcodes and generating unique numbers in batch.
+- **CSV Export & Import**:
+  - Header actions: Compact "Import" (`Upload` icon) and "Export" (`Download` icon) buttons next to "Add Product".
+  - **Export (`GET /api/products/export`)**: Downloads CSV with UTF-8 BOM for Microsoft Excel compatibility. Respects current search, category, and status filters. File name includes current date (`products_export_YYYY-MM-DD.csv`). Columns: `name`, `sku`, `barcode_number`, `category`, `price`, `quantity`, `low_stock_threshold`, `description`.
+  - **Sample Template (`GET /api/products/import/template`)**: Downloads `products_import_template.csv` with standard headers and 2 example rows.
+  - **Import 3-Step Modal**:
+    - **Step 1 (Upload)**: Drag-and-drop CSV upload (supports comma and semicolon separators, up to 5 MB), file validation, and "Download template" link.
+    - **Step 2 (Preview)**: Validates rows and renders a responsive preview table with color-coded rows (green `new`, blue `update`, red `error`), per-row error chips, summary badge count (total, valid, invalid). Options: Mode toggle ("Skip existing" or "Update existing") and "Auto-generate missing barcodes" checkbox using `BarcodeNumberGenerator`. Zero horizontal scrollbar. Disabled commit button if 0 valid rows.
+    - **Step 3 (Result)**: Summary of imported, updated, skipped, and failed rows inside a database transaction, with a button to close and auto-refresh the stock list, summary cards, and caches.
 - Low stock rule: quantity <= `low_stock_threshold` (default 10) shows an amber badge; 0 shows a red badge.
 - Summary cards on top: Total products, Low stock, Out of stock.
 - Header includes "Recycle Bin" button with count badge (opens `/bin?tab=products`).
@@ -185,6 +193,10 @@ Controls are grouped into collapsible sections (**Artboard**, **Code Size**, **C
 | POST | `/products/trash/restore-all` | restore all trashed products |
 | DELETE | `/products/trash/empty` | permanently delete all trashed products |
 | POST | `/products/bulk-generate-barcodes` | bulk auto-generate barcodes for products with empty numbers |
+| GET | `/products/export` | export products as CSV with UTF-8 BOM (query: `search`, `category`, `status`) |
+| GET | `/products/import/template` | download sample CSV template with standard headers & example rows |
+| POST | `/products/import/preview` | parse and validate CSV file (checks duplicates, trashed items, formats) |
+| POST | `/products/import/commit` | commit import `{ mode: skip_existing|update_existing, auto_generate_barcodes }` |
 | POST | `/barcodes/generate` | generate unique valid barcode number `{ format }` |
 | POST | `/barcodes/validate` | validate format and check digit `{ format, number }` |
 

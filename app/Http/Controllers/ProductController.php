@@ -6,10 +6,12 @@ use App\Http\Requests\ProductRequest;
 use App\Http\Resources\ProductResource;
 use App\Models\Product;
 use App\Services\BarcodeNumberGenerator;
+use App\Services\ProductCsvService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProductController extends Controller
 {
@@ -263,4 +265,58 @@ class ProductController extends Controller
             'message' => "Recycle Bin emptied ({$count} products permanently deleted).",
         ]);
     }
+
+    /**
+     * Export products as a CSV download.
+     */
+    public function export(Request $request, ProductCsvService $csvService): StreamedResponse
+    {
+        return $csvService->export($request);
+    }
+
+    /**
+     * Download sample CSV template.
+     */
+    public function importTemplate(ProductCsvService $csvService): StreamedResponse
+    {
+        return $csvService->template();
+    }
+
+    /**
+     * Preview and validate CSV import rows without saving.
+     */
+    public function importPreview(Request $request, ProductCsvService $csvService): JsonResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'max:5120'],
+        ]);
+
+        $result = $csvService->preview($request->file('file')->getRealPath());
+
+        return response()->json($result);
+    }
+
+    /**
+     * Commit CSV import in a database transaction.
+     */
+    public function importCommit(Request $request, ProductCsvService $csvService): JsonResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'max:5120'],
+            'mode' => ['nullable', 'string', 'in:skip_existing,update_existing'],
+            'auto_generate_barcodes' => ['nullable'],
+        ]);
+
+        $mode = $request->input('mode', 'update_existing');
+        $autoGenerateBarcodes = $request->boolean('auto_generate_barcodes');
+
+        $result = $csvService->commit(
+            $request->file('file')->getRealPath(),
+            $mode,
+            $autoGenerateBarcodes
+        );
+
+        return response()->json($result);
+    }
 }
+

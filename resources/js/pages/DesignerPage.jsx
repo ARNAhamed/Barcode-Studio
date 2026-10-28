@@ -212,6 +212,7 @@ export default function DesignerPage() {
   const [name, setName] = useState('My Product Barcode');
   const [value, setValue] = useState('AUD-WNC-001');
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [linkToProductPage, setLinkToProductPage] = useState(true);
   const [dpi, setDpi] = useState(300);
 
   // Settings
@@ -319,6 +320,10 @@ export default function DesignerPage() {
     const newDpi = tpl.settings?.dpi || 300;
     setDpi(newDpi);
 
+    if (tpl.settings?.linkToProductPage !== undefined) {
+      setLinkToProductPage(Boolean(tpl.settings.linkToProductPage));
+    }
+
     // Label Pattern
     const currentPattern = tpl.settings?.labelPattern || tpl.settings?.label || '';
     const resolvedLabel = selectedProduct && currentPattern
@@ -344,6 +349,7 @@ export default function DesignerPage() {
         label: resolvedLabel,
         labelPattern: currentPattern,
         dpi: newDpi,
+        linkToProductPage: tpl.settings?.linkToProductPage !== undefined ? Boolean(tpl.settings.linkToProductPage) : true,
       };
       delete newCodeSettings.artboard;
       delete newCodeSettings.value;
@@ -396,6 +402,7 @@ export default function DesignerPage() {
     try {
       const settingsToSave = {
         ...activeSettings,
+        ...(type === 'qr' ? { linkToProductPage } : {}),
         artboard: {
           ...artboardSettings,
         },
@@ -555,7 +562,10 @@ export default function DesignerPage() {
   // Handle product selection
   const handleSelectProduct = (product) => {
     setSelectedProduct(product);
-    const autoValue = product.barcode_number || product.sku || '';
+    let autoValue = product.barcode_number || product.sku || '';
+    if (type === 'qr' && linkToProductPage) {
+      autoValue = product.public_url || `${window.location.origin}/p/${product.public_token || ''}`;
+    }
     setValue(autoValue);
     setName(`${product.name} ${type === 'barcode' ? 'Barcode' : 'QR Code'}`);
 
@@ -578,6 +588,17 @@ export default function DesignerPage() {
         label: labelText,
         labelPattern: currentPattern,
       }));
+    }
+  };
+
+  const handleToggleLinkToProductPage = (checked) => {
+    setLinkToProductPage(checked);
+    if (!selectedProduct) return;
+    if (checked) {
+      const url = selectedProduct.public_url || `${window.location.origin}/p/${selectedProduct.public_token || ''}`;
+      setValue(url);
+    } else {
+      setValue(selectedProduct.barcode_number || selectedProduct.sku || '');
     }
   };
 
@@ -971,6 +992,23 @@ export default function DesignerPage() {
                   onSelectProduct={handleSelectProduct}
                   onClearProduct={handleClearProduct}
                 />
+
+                {type === 'qr' && selectedProduct && (
+                  <div className="mt-2.5 p-2 bg-indigo-50/70 border border-indigo-100 rounded-lg flex items-center justify-between gap-3 text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={linkToProductPage}
+                        onChange={(e) => handleToggleLinkToProductPage(e.target.checked)}
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300 cursor-pointer"
+                      />
+                      <span className="font-medium text-gray-900">Link to product page</span>
+                    </label>
+                    <span className="text-[11px] text-indigo-700 font-mono truncate max-w-[200px]" title={value}>
+                      {value}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Encoded Content / Value */}
@@ -1162,7 +1200,7 @@ export default function DesignerPage() {
         type={type}
         currentDesign={{
           barcodeSettings,
-          qrSettings,
+          qrSettings: { ...qrSettings, linkToProductPage },
           artboardSettings,
           dpi,
         }}

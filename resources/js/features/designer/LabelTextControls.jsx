@@ -105,47 +105,105 @@ export default function LabelTextControls({
     <div className="space-y-4">
       {/* 1. Custom Label Input & Placeholders */}
       <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1.5">
-          Custom Label Text <span className="text-gray-400 font-normal">(supports {`{placeholders}`})</span>
-        </label>
-        <input
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-xs font-medium text-gray-700">
+            Custom Label Text <span className="text-gray-400 font-normal">(up to 3 lines)</span>
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              const current = settings.label ? `${settings.label}\n` : '';
+              const next = `${settings.label ? current : ''}{supplier} • {supplier_mobile}`;
+              const lines = next.split('\n').slice(0, 3).join('\n');
+              onChange({ ...settings, label: lines });
+            }}
+            className="text-[11px] text-indigo-600 hover:text-indigo-700 font-medium cursor-pointer"
+            title="Insert {supplier} • {supplier_mobile}"
+          >
+            + Supplier & Mobile preset
+          </button>
+        </div>
+
+        <textarea
           ref={inputRef}
-          type="text"
+          rows={3}
           value={label}
-          onChange={(e) => onChange({ ...settings, label: e.target.value })}
-          placeholder="e.g. {name} • {price}"
-          className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors font-mono"
+          onChange={(e) => {
+            let val = e.target.value;
+            const lines = val.split('\n');
+            if (lines.length > 3) {
+              val = lines.slice(0, 3).join('\n');
+            }
+            onChange({ ...settings, label: val });
+          }}
+          placeholder="Line 1: {name}&#10;Line 2: {supplier} • {supplier_mobile}&#10;Line 3: {price}"
+          className="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors font-mono resize-none leading-relaxed"
         />
 
+        {/* Quick preset banner */}
+        <div className="mt-1.5 flex items-center justify-between">
+          <span className="text-[11px] text-gray-400">
+            {label.split('\n').length}/3 lines used
+          </span>
+          <button
+            type="button"
+            onClick={() => onChange({ ...settings, label: '{supplier} • {supplier_mobile}' })}
+            className="text-[11px] text-gray-600 hover:text-indigo-600 underline cursor-pointer"
+          >
+            Reset to "Supplier + Mobile"
+          </button>
+        </div>
+
         {/* Click-to-insert placeholder chips */}
-        <div className="mt-2 space-y-1.5">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] text-gray-500 font-medium">Insert:</span>
-            {AVAILABLE_PLACEHOLDERS.map((p) => (
-              <button
-                key={p.tag}
-                type="button"
-                onClick={() => handleInsertPlaceholder(p.tag)}
-                title={`Insert ${p.label}`}
-                className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-mono text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-200 transition-colors cursor-pointer select-none"
-              >
-                {p.tag}
-              </button>
-            ))}
+        <div className="mt-2 space-y-2">
+          {/* Product Tokens */}
+          <div>
+            <span className="text-[11px] text-gray-500 font-medium block mb-1">Product:</span>
+            <div className="flex flex-wrap items-center gap-1">
+              {AVAILABLE_PLACEHOLDERS.slice(0, 6).map((p) => (
+                <button
+                  key={p.tag}
+                  type="button"
+                  onClick={() => handleInsertPlaceholder(p.tag)}
+                  title={`Insert ${p.label}`}
+                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-mono text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-200 transition-colors cursor-pointer select-none"
+                >
+                  {p.tag}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Supplier Tokens */}
+          <div>
+            <span className="text-[11px] text-gray-500 font-medium block mb-1">Supplier:</span>
+            <div className="flex flex-wrap items-center gap-1">
+              {AVAILABLE_PLACEHOLDERS.slice(6).map((p) => (
+                <button
+                  key={p.tag}
+                  type="button"
+                  onClick={() => handleInsertPlaceholder(p.tag)}
+                  title={`Insert ${p.label}`}
+                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-mono text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors cursor-pointer select-none"
+                >
+                  {p.tag}
+                </button>
+              ))}
+            </div>
           </div>
 
           {selectedProduct && hasPlaceholders(label) && (
-            <div className="px-2.5 py-1.5 bg-indigo-50/60 border border-indigo-100 rounded-md text-xs text-indigo-900 flex items-start gap-1.5">
-              <span className="font-semibold text-indigo-700 shrink-0">Live preview:</span>
-              <span className="text-indigo-950 truncate font-mono">
+            <div className="px-2.5 py-1.5 bg-indigo-50/60 border border-indigo-100 rounded-md text-xs text-indigo-900 flex flex-col gap-0.5">
+              <span className="font-semibold text-indigo-700 text-[11px]">Live Preview:</span>
+              <pre className="text-indigo-950 font-mono text-[11px] whitespace-pre-wrap break-words m-0 font-sans">
                 {fillPlaceholders(label, selectedProduct) || '(empty)'}
-              </span>
+              </pre>
             </div>
           )}
         </div>
 
         <p className="mt-1 text-[11px] text-gray-500">
-          Positioned with the code as one unified object on the artboard and exports.
+          Positioned with the code as one unified object. Empty placeholder lines are auto-removed.
         </p>
       </div>
 

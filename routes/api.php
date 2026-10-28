@@ -5,9 +5,18 @@ use App\Http\Controllers\BinController;
 use App\Http\Controllers\CodeController;
 use App\Http\Controllers\PrintPresetController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\PublicProductController;
+use App\Http\Controllers\SettingController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TemplateController;
 use Illuminate\Support\Facades\Route;
+
+// Public Product Page (Strictly Throttled)
+Route::get('/public/products/{token}', [PublicProductController::class, 'show'])->middleware('throttle:60,1');
+
+// Settings API
+Route::get('/settings', [SettingController::class, 'index']);
+Route::put('/settings', [SettingController::class, 'update']);
 
 // Unified Recycle Bin Summary
 Route::get('/bin/summary', [BinController::class, 'summary']);

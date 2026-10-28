@@ -80,7 +80,10 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
   - **Modified tag**: displays a small "Modified" badge when current design differs from the applied template, alongside a "Reset to template" button.
   - **Initial load behavior**: New designs open with the default template of the active mode (if one exists). Editing a saved code preserves its saved settings and never gets overwritten by a default template.
 - Toggle at top: **Barcode | QR Code**.
-- **Source of data**: either type custom text OR pick a product from stock (autocomplete). Picking a product auto-fills the value (SKU / barcode number / URL).
+- **Source of data**: either type custom text OR pick a product from stock (autocomplete).
+  - Picking a product auto-fills the value (SKU / barcode number / URL).
+  - **QR Code Link to Product Page**: In QR mode, when a product is picked, a "Link to product page" option (enabled by default) automatically fills the QR value with the public product URL (`APP_URL + /p/{public_token}`) and displays the full URL in the editable value input. Templates store this option (not the static URL value), and Bulk Generate supports "Product page URL" as a value source.
+  - Product lookup query returns product supplier details immediately to resolve supplier placeholders in real time.
 - **Artboard Canvas Controls**:
   - Concept: The artboard is the label, card, or page canvas the code is placed on.
   - Preset dropdown: `Auto` (fit to code, legacy behavior), `Small label 50 x 25 mm`, `Shelf label 60 x 40 mm`, `Product label 100 x 50 mm`, `Shipping label 100 x 150 mm`, `A6 (105 x 148 mm)`, `A5 (148 x 210 mm)`, `A4 (210 x 297 mm)`, `Square 50 x 50 mm`, `Business card 90 x 55 mm`, and `Custom`.
@@ -103,24 +106,26 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
   - Barcode: Width and height inputs, format (CODE128, EAN13, EAN8, UPC, CODE39, ITF14), line color, background color, show text toggle, font size.
   - QR Code: Single size input (square), error correction (L/M/Q/H), dot style, corner style, foreground and background colors, optional center logo upload.
 - **Label Text (Barcode & QR modes)**:
-  - Custom label text field or product metadata.
-  - **Dynamic Placeholders**: Supports `{name}`, `{sku}`, `{price}`, `{category}`, `{barcode}`, `{quantity}`.
-    - Shared placeholder helper (`resources/js/utils/placeholders.js` and backend helper) replaces tokens with product fields (price formatted consistently with app currency/decimals).
-    - Unknown placeholders remain intact as plain text.
-    - Click-to-insert chips displayed below the label text input for easy token insertion at cursor position.
-    - Template pattern (e.g. `{name} • {price}`) saved in template and dynamically resolved when a product is picked.
+  - Custom label text field: small textarea supporting up to 3 lines.
+  - **Multi-line rendering**: Each line is drawn neatly under the code (or under the human-readable barcode numbers) with font size, gap, weight, and alignment options.
+  - **Dynamic Placeholders**:
+    - Product tokens: `{name}`, `{sku}`, `{price}`, `{category}`, `{barcode}`, `{quantity}`.
+    - Supplier tokens: `{supplier}`, `{supplier_contact}`, `{supplier_mobile}`, `{supplier_phone}`, `{supplier_email}`, `{supplier_city}`.
+    - Missing token values become empty strings; lines that end up blank after token replacement are trimmed away, eliminating dangling separators like `•`, `-`, or `|`.
+    - Click-to-insert chips displayed under the textarea (including all supplier tags).
+    - Quick preset button: "Code number + supplier name and mobile" (inserts `{supplier} • {supplier_mobile}`).
+    - Supported across saved templates (pattern stored), Bulk Generate, Gallery preview images, PNG/SVG exports, and Print Labels.
   - **Font size**: Number input plus slider in the selected unit family (default `pt`, range 6–72 pt, default 12 pt, decimals allowed; or `px`). Quick step buttons: `A-` (-1) and `A+` (+1).
   - **Gap between code and text**: Number input plus slider in the selected unit (`px`, `mm`, `cm`, `inch`, stored internally in `px`), range 0–50 px equivalent (default 4 px). Quick step buttons: `-` (-1) and `+` (+1).
   - **Font weight**: Toggle button group between `Regular` (400) and `Bold` (700).
   - **Text alignment**: Alignment selector with `Left`, `Center`, and `Right` (default `Center`).
   - **Artboard & Export integration**:
-    - The code plus its label are treated and positioned together as one unified object.
-    - "Fit to artboard" and vertical/horizontal alignment rules take total object height (code + gap + label) into account.
-    - If label is wider than the barcode/QR code, text wraps neatly onto two lines or shrinks with an inline warning, never clipping.
-    - Human-readable text under barcode bars and custom label are separated cleanly and never overlap.
-    - Show calculated label height in the "Artboard: ..." size info, and show a clear warning if the label/code exceeds artboard boundaries.
-    - Live preview, saved Gallery cards, PNG, and SVG downloads at chosen DPI reflect exact font size, gap, weight, and alignment.
-    - Saved in `codes.settings` as `label_font_size`, `label_font_unit`, `label_gap`, `label_weight`, and `label_align`. Legacy codes without these fields default to 12 pt, 4 px gap, Regular, Center.
+    - Code plus multi-line label are positioned and sized together as one unified bounding box.
+    - Artboard bounds calculations, "Fit to artboard", and auto sizing include the full height of all lines.
+    - Long lines wrap or shrink instead of clipping, showing an inline warning if text exceeds the artboard.
+    - All text is safely escaped in SVG and HTML representations.
+    - Live preview, saved Gallery cards, PNG, and SVG downloads at chosen DPI reflect exact lines, font size, gap, weight, and alignment.
+    - Saved in `codes.settings` as `label`, `label_font_size`, `label_font_unit`, `label_gap`, `label_weight`, and `label_align`.
 - **Export & Save**:
   - Export DPI selector: 72, 150, 300, 600 (default 300).
   - PNG and SVG downloads export the whole artboard at chosen DPI/physical units.
@@ -290,6 +295,27 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 - **Non-destructive Deletion**: Soft deleting or permanently deleting a template must never alter or break existing codes created from it.
 - **Gallery Integration**: Codes created from a template store `template_id` as a foreign key (`nullOnDelete`) plus the template name in settings, displaying "Template: <name>" on their gallery card.
 
+### 2.7 Public Product Page (`/p/:token`)
+- **Concept**: Public mobile-first product page accessible via QR code scan or direct link.
+- **Layout & Aesthetic**:
+  - Served on route `/p/:token` with a minimal layout: no sidebar or app navigation, only a sleek top header with the app brand.
+  - Mobile-first, clean whitespace, large readable typography, zero clutter, no horizontal scroll.
+  - Supports light and dark modes according to system/app theme.
+  - Open Graph title and description meta tags for rich link previews in messaging apps and browsers.
+- **Content Cards**:
+  - **Item Card**: Product name as title, category as small muted label, followed by clear label/value rows for Barcode Number, SKU, Price (formatted consistently), and Availability with a semantic status dot (`In stock`, `Low stock`, `Out of stock`).
+  - **Supplier Card**: Supplier name, contact person, mobile (tap-to-call `tel:`), landline, email (tap-to-email `mailto:`), address (tap to open in Google Maps), and payment terms if present.
+    - If the product has no supplier assigned: shows a muted "No supplier information".
+    - If the supplier is soft-deleted: shows "Supplier unavailable".
+- **Settings & Controls**:
+  - `public_page_enabled` (default `true`): When disabled, the page displays a neutral "This page is not available." message and the public API returns 403 / disabled payload.
+  - `public_page_show_supplier` (default `true`): When disabled, supplier details are completely omitted from the API response (not merely hidden in CSS).
+  - Toggles accessible from a dedicated "Public product page" settings menu on the Products > Items page.
+- **Security & Privacy**:
+  - Rate-limited endpoint (`throttle:60,1`).
+  - Never exposes internal database IDs, cost prices, or internal notes.
+  - Trashed products return 404.
+
 ## 3. Database Schema
 
 **suppliers**
@@ -318,6 +344,7 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 |---|---|---|
 | id | bigint PK | |
 | supplier_id | FK nullable | `nullOnDelete`, indexed |
+| public_token | string(32) | unique, indexed, random 12+ chars alphanumeric for public URL `/p/{token}` |
 | name | string | required |
 | sku | string | unique, required |
 | barcode_number | string | nullable, unique |
@@ -328,6 +355,13 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 | description | text | nullable |
 | timestamps | | |
 | deleted_at | timestamp nullable | soft deletes |
+
+**settings**
+| column | type | notes |
+|---|---|---|
+| key | string PK | unique setting key (`public_page_enabled`, `public_page_show_supplier`) |
+| value | text nullable | setting value serialized or boolean string |
+| timestamps | | |
 
 **codes**
 | column | type | notes |
@@ -444,11 +478,9 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 | GET | `/print-presets` | list saved sheet print presets |
 | POST | `/print-presets` | save new sheet print preset |
 | DELETE | `/print-presets/{id}` | delete saved sheet print preset |
-| POST | `/barcodes/generate` | generate unique valid barcode number `{ format }` |
-| POST | `/barcodes/validate` | validate format and check digit `{ format, number }` |
-| GET | `/print-presets` | list saved sheet print presets |
-| POST | `/print-presets` | save new sheet print preset |
-| DELETE | `/print-presets/{id}` | delete saved sheet print preset |
+| GET | `/public/products/{token}` | public rate-limited view endpoint: returns sanitized product & supplier (if enabled) |
+| GET | `/settings` | get public product page settings (`public_page_enabled`, `public_page_show_supplier`) |
+| PUT | `/settings` | update app settings (`public_page_enabled`, `public_page_show_supplier`) |
 
 Backend rules: use Form Requests for validation, API Resources for responses, consistent JSON errors, run `php artisan storage:link`. React calls the API at the relative path `/api` (same origin, no CORS needed).
 

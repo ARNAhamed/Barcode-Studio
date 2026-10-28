@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class Product extends Model
 {
@@ -15,6 +16,7 @@ class Product extends Model
 
     protected $fillable = [
         'supplier_id',
+        'public_token',
         'name',
         'sku',
         'barcode_number',
@@ -36,7 +38,23 @@ class Product extends Model
     protected $appends = [
         'stock_status',
         'days_left',
+        'public_url',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Product $product) {
+            if (empty($product->public_token)) {
+                $product->public_token = Str::lower(Str::random(16));
+            }
+        });
+    }
+
+    public function getPublicUrlAttribute(): string
+    {
+        $appUrl = rtrim(config('app.url') ?: url('/'), '/');
+        return $appUrl . '/p/' . ($this->public_token ?? '');
+    }
 
     public function supplier(): BelongsTo
     {

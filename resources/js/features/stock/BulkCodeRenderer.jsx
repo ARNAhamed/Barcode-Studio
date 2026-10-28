@@ -35,11 +35,17 @@ export default function BulkCodeRenderer({
   const labelWeight = settings.labelWeight || 'normal';
   const labelAlign = settings.labelAlign || 'center';
 
+  // Estimate label height in px with multi-line support
   const estimatedCharWidth = labelFontSizePx * 0.55;
-  const estimatedTextWidth = hasLabel ? labelText.trim().length * estimatedCharWidth : 0;
-  const isLabelWider = hasLabel && estimatedTextWidth > codeRawPxWidth;
-  const labelLines = isLabelWider ? Math.min(3, Math.ceil(estimatedTextWidth / Math.max(80, codeRawPxWidth))) : 1;
-  const labelPxHeight = hasLabel ? Math.round(labelFontSizePx * 1.35 * labelLines) : 0;
+  const explicitLines = hasLabel ? labelText.split('\n') : [];
+  let totalLabelLines = 0;
+  explicitLines.forEach((line) => {
+    const lineW = line.trim().length * estimatedCharWidth;
+    const wrapped = lineW > codeRawPxWidth ? Math.ceil(lineW / Math.max(80, codeRawPxWidth)) : 1;
+    totalLabelLines += wrapped;
+  });
+  totalLabelLines = Math.max(explicitLines.length, totalLabelLines);
+  const labelPxHeight = hasLabel ? Math.round(labelFontSizePx * 1.35 * totalLabelLines) : 0;
 
   const totalRawPxWidth = codeRawPxWidth;
   const totalRawPxHeight = codeRawPxHeight + (hasLabel ? labelGapPx + labelPxHeight : 0);
@@ -176,8 +182,8 @@ export default function BulkCodeRenderer({
           <div className="flex flex-col items-center w-full">
             <svg ref={svgRef} className="max-w-full h-auto block" />
             {hasLabel && (
-              <p
-                className="w-full break-words whitespace-normal leading-tight select-none pointer-events-none"
+              <div
+                className="w-full pointer-events-none select-none flex flex-col"
                 style={{
                   marginTop: `${labelGapPx}px`,
                   fontSize: `${labelFontSizePx}px`,
@@ -187,16 +193,23 @@ export default function BulkCodeRenderer({
                   maxWidth: `${Math.round(codeRawPxWidth)}px`,
                 }}
               >
-                {labelText}
-              </p>
+                {labelText.split('\n').map((line, idx) => (
+                  <p
+                    key={idx}
+                    className="w-full break-words whitespace-normal leading-tight m-0 p-0"
+                  >
+                    {line}
+                  </p>
+                ))}
+              </div>
             )}
           </div>
         ) : (
           <div className="flex flex-col items-center w-full">
             <div ref={qrRef} className="flex justify-center max-w-full" />
             {hasLabel && (
-              <p
-                className="w-full break-words whitespace-normal leading-tight select-none pointer-events-none"
+              <div
+                className="w-full pointer-events-none select-none flex flex-col"
                 style={{
                   marginTop: `${labelGapPx}px`,
                   fontSize: `${labelFontSizePx}px`,
@@ -206,8 +219,15 @@ export default function BulkCodeRenderer({
                   maxWidth: `${Math.round(codeRawPxWidth)}px`,
                 }}
               >
-                {labelText}
-              </p>
+                {labelText.split('\n').map((line, idx) => (
+                  <p
+                    key={idx}
+                    className="w-full break-words whitespace-normal leading-tight m-0 p-0"
+                  >
+                    {line}
+                  </p>
+                ))}
+              </div>
             )}
           </div>
         )}

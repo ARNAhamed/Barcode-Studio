@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Package, Trash2, RotateCcw, Upload, Download, Sparkles } from 'lucide-react';
+import { Plus, Package, Trash2, RotateCcw, Upload, Download, Sparkles, Globe } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
@@ -12,6 +12,7 @@ import ProductTable from '../features/stock/ProductTable';
 import ProductForm from '../features/stock/ProductForm';
 import ImportModal from '../features/stock/ImportModal';
 import BulkGenerateModal from '../features/stock/BulkGenerateModal';
+import PublicPageSettingsModal from '../features/stock/PublicPageSettingsModal';
 import {
   getProducts,
   getProductSummary,
@@ -68,6 +69,7 @@ export default function ItemsPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [isSelectAllMatching, setIsSelectAllMatching] = useState(false);
+  const [isPublicSettingsModalOpen, setIsPublicSettingsModalOpen] = useState(false);
 
   // Debounce search input
   useEffect(() => {
@@ -406,6 +408,16 @@ export default function ItemsPage() {
               </Button>
             </span>
             <Button
+              onClick={() => setIsPublicSettingsModalOpen(true)}
+              icon={Globe}
+              variant="secondary"
+              size="md"
+              title="Public product page settings"
+              className="h-9 whitespace-nowrap"
+            >
+              <span className="hidden md:inline">Public Page</span>
+            </Button>
+            <Button
               onClick={handleOpenAdd}
               icon={Plus}
               variant="primary"
@@ -564,6 +576,12 @@ export default function ItemsPage() {
           invalidateQueries();
           queryClient.invalidateQueries({ queryKey: ['codes'] });
         }}
+      />
+
+      {/* Public Product Page Settings Modal */}
+      <PublicPageSettingsModal
+        isOpen={isPublicSettingsModalOpen}
+        onClose={() => setIsPublicSettingsModalOpen(false)}
       />
     </div>
   );

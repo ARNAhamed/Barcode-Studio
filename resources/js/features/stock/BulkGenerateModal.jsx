@@ -143,6 +143,8 @@ export default function BulkGenerateModal({
         rawValue = (product.barcode_number || '').trim();
       } else if (valueSource === 'sku') {
         rawValue = (product.sku || '').trim();
+      } else if (valueSource === 'public_url') {
+        rawValue = product.public_url || `${window.location.origin}/p/${product.public_token || ''}`;
       } else {
         rawValue = fillPlaceholders(customValuePattern, product).trim();
       }
@@ -793,6 +795,21 @@ export default function BulkGenerateModal({
                   <div>
                     <div className="text-xs font-medium text-gray-900">SKU</div>
                     <div className="text-[11px] text-gray-500">Use product SKU directly</div>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input
+                    type="radio"
+                    name="valueSource"
+                    value="public_url"
+                    checked={valueSource === 'public_url'}
+                    onChange={() => setValueSource('public_url')}
+                    className="text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div>
+                    <div className="text-xs font-medium text-gray-900">Product Page URL (QR)</div>
+                    <div className="text-[11px] text-gray-500">Public product details URL (/p/{`{token}`})</div>
                   </div>
                 </label>
 

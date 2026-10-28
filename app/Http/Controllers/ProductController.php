@@ -95,7 +95,7 @@ class ProductController extends Controller
             });
         }
 
-        $products = $query->latest()->limit(10)->get();
+        $products = $query->with('supplier')->latest()->limit(10)->get();
 
         return ProductResource::collection($products);
     }

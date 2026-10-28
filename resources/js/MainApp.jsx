@@ -8,12 +8,23 @@ import ItemsPage from './pages/ItemsPage';
 import SuppliersPage from './pages/SuppliersPage';
 import RecycleBinPage from './pages/RecycleBinPage';
 import PrintLabelsPage from './pages/PrintLabelsPage';
+import PublicProductPage from './pages/PublicProductPage';
 
 export default function MainApp() {
   const location = useLocation();
+  const isPublicPage = location.pathname.startsWith('/p/');
   const isTwoPane =
     location.pathname.startsWith('/designer') ||
     location.pathname.startsWith('/print');
+
+  if (isPublicPage) {
+    return (
+      <Routes>
+        <Route path="/p/:token" element={<PublicProductPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
 
   return (
     <div

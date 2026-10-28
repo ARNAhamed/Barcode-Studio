@@ -89,12 +89,17 @@ export default function PreviewPanel({
   const labelWeight = settings.labelWeight || 'normal';
   const labelAlign = settings.labelAlign || 'center';
 
-  // Estimate label height in px
+  // Estimate label height in px with multi-line support
   const estimatedCharWidth = labelFontSizePx * 0.55;
-  const estimatedTextWidth = hasLabel ? settings.label.trim().length * estimatedCharWidth : 0;
-  const isLabelWider = hasLabel && estimatedTextWidth > codeRawPxWidth;
-  const labelLines = isLabelWider ? Math.min(3, Math.ceil(estimatedTextWidth / Math.max(80, codeRawPxWidth))) : 1;
-  const labelPxHeight = hasLabel ? Math.round(labelFontSizePx * 1.35 * labelLines) : 0;
+  const explicitLines = hasLabel ? settings.label.split('\n') : [];
+  let totalLabelLines = 0;
+  explicitLines.forEach((line) => {
+    const lineW = line.trim().length * estimatedCharWidth;
+    const wrapped = lineW > codeRawPxWidth ? Math.ceil(lineW / Math.max(80, codeRawPxWidth)) : 1;
+    totalLabelLines += wrapped;
+  });
+  totalLabelLines = Math.max(explicitLines.length, totalLabelLines);
+  const labelPxHeight = hasLabel ? Math.round(labelFontSizePx * 1.35 * totalLabelLines) : 0;
 
   // Unified code + label object raw size
   const totalRawPxWidth = codeRawPxWidth;
@@ -506,8 +511,8 @@ export default function PreviewPanel({
                   <div className="flex flex-col items-center w-full">
                     <svg ref={activeBarcodeRef} className="max-w-full h-auto block" />
                     {hasLabel && (
-                      <p
-                        className="w-full break-words whitespace-normal leading-tight pointer-events-none select-none"
+                      <div
+                        className="w-full pointer-events-none select-none flex flex-col"
                         style={{
                           marginTop: `${labelGapPx}px`,
                           fontSize: `${labelFontSizePx}px`,
@@ -517,16 +522,23 @@ export default function PreviewPanel({
                           maxWidth: `${Math.round(codeRawPxWidth)}px`,
                         }}
                       >
-                        {settings.label}
-                      </p>
+                        {settings.label.split('\n').map((line, idx) => (
+                          <p
+                            key={idx}
+                            className="w-full break-words whitespace-normal leading-tight m-0 p-0"
+                          >
+                            {line}
+                          </p>
+                        ))}
+                      </div>
                     )}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center w-full">
                     <div ref={qrContainerRef} className="flex justify-center max-w-full" />
                     {hasLabel && (
-                      <p
-                        className="w-full break-words whitespace-normal leading-tight pointer-events-none select-none"
+                      <div
+                        className="w-full pointer-events-none select-none flex flex-col"
                         style={{
                           marginTop: `${labelGapPx}px`,
                           fontSize: `${labelFontSizePx}px`,
@@ -536,8 +548,15 @@ export default function PreviewPanel({
                           maxWidth: `${Math.round(codeRawPxWidth)}px`,
                         }}
                       >
-                        {settings.label}
-                      </p>
+                        {settings.label.split('\n').map((line, idx) => (
+                          <p
+                            key={idx}
+                            className="w-full break-words whitespace-normal leading-tight m-0 p-0"
+                          >
+                            {line}
+                          </p>
+                        ))}
+                      </div>
                     )}
                   </div>
                 )}

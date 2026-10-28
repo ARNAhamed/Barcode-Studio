@@ -30,6 +30,17 @@ Built as a **single project, unified Laravel + React SPA** running on the same o
   * Status badges: **In stock** (green), **Low stock** (amber, triggered when `quantity <= low_stock_threshold`), and **Out of stock** (red).
   * **Generate Code** button per product that opens the Designer with the product pre-selected.
 
+* **Public Product Page (`/p/{token}`)**:
+  * Clean, mobile-first product page accessible by scanning generated QR codes or via direct link.
+  * Displays item details (name, category, barcode number, SKU, price, stock availability) and supplier information (name, contact person, tap-to-call mobile, tap-to-email, address with Google Maps link, and payment terms).
+  * Admin controls on Products > Items menu to toggle public page availability and supplier detail visibility.
+
+* **Supplier Info on Barcode Labels & Multi-line Labels**:
+  * Label text supports up to 3 lines under the code with font size, gap, weight, and alignment controls.
+  * Extended dynamic placeholders: `{name}`, `{sku}`, `{price}`, `{category}`, `{barcode}`, `{quantity}`, `{supplier}`, `{supplier_contact}`, `{supplier_mobile}`, `{supplier_phone}`, `{supplier_email}`, `{supplier_city}`.
+  * Automatic pruning of empty lines and dangling separators (`•`, `-`, `|`).
+  * Instant preset: `{supplier} • {supplier_mobile}`.
+
 ---
 
 ## Tech Stack
@@ -57,6 +68,7 @@ DB_PORT=3306
 DB_DATABASE=barcode_designer
 DB_USERNAME=root
 DB_PASSWORD=
+APP_URL=http://localhost:8000
 ```
 
 ### 3. Install Dependencies
@@ -91,3 +103,25 @@ npm run dev
 ```
 
 Open **http://localhost:8000** in your web browser. The application opens directly to the **Code Gallery**.
+
+---
+
+## Mobile Phone QR Code Scanning & Network Access
+
+When scanning generated QR codes with a smartphone, the phone must be able to reach your web server:
+
+1. **Same Wi-Fi Network (Local Development):**
+   - Find your computer's local IP address (e.g. `192.168.1.150` via `ipconfig` on Windows).
+   - In your `.env` file, update `APP_URL`:
+     ```env
+     APP_URL=http://192.168.1.150:8000
+     ```
+   - Start Laravel listening on all interfaces:
+     ```bash
+     php artisan serve --host=0.0.0.0 --port=8000
+     ```
+   - Now any phone on the same Wi-Fi can scan the QR code and open the public product page at `http://192.168.1.150:8000/p/{token}`.
+   - Note: `localhost` only works when tested in a browser on the same computer.
+
+2. **Production / Real Use:**
+   - Deploy to a web server with a public domain and HTTPS (e.g. `https://your-domain.com`), and set `APP_URL=https://your-domain.com`.

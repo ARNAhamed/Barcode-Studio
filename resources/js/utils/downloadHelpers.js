@@ -96,22 +96,26 @@ export const downloadSvgElement = (
     const weight = labelOptions.weight === 'bold' ? 'bold' : 'normal';
     const align = labelOptions.align || 'center';
 
-    const textElem = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    const textY = originalHeight + gap + fontSizePx * 0.85;
     const textX = align === 'center' ? originalWidth / 2 : align === 'right' ? originalWidth : 0;
     const anchor = align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start';
 
-    textElem.setAttribute('x', textX);
-    textElem.setAttribute('y', textY);
-    textElem.setAttribute('text-anchor', anchor);
-    textElem.setAttribute('font-size', `${fontSizePx}px`);
-    textElem.setAttribute('font-weight', weight);
-    textElem.setAttribute('font-family', 'system-ui, -apple-system, sans-serif');
-    textElem.setAttribute('fill', '#0F172A');
-    textElem.textContent = labelOptions.text;
-
-    clone.appendChild(textElem);
-    originalHeight = textY + fontSizePx * 0.35;
+    const lines = String(labelOptions.text).split('\n');
+    lines.forEach((line, idx) => {
+      const textElem = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      const textY = originalHeight + gap + (fontSizePx * 0.85) + (idx * fontSizePx * 1.3);
+      textElem.setAttribute('x', textX);
+      textElem.setAttribute('y', textY);
+      textElem.setAttribute('text-anchor', anchor);
+      textElem.setAttribute('font-size', `${fontSizePx}px`);
+      textElem.setAttribute('font-weight', weight);
+      textElem.setAttribute('font-family', 'system-ui, -apple-system, sans-serif');
+      textElem.setAttribute('fill', '#0F172A');
+      textElem.textContent = line;
+      clone.appendChild(textElem);
+      if (idx === lines.length - 1) {
+        originalHeight = textY + fontSizePx * 0.35;
+      }
+    });
   }
 
   clone.setAttribute('viewBox', `0 0 ${originalWidth} ${originalHeight}`);
@@ -192,17 +196,21 @@ export const downloadArtboardSvg = ({
     const weight = labelOptions.weight === 'bold' ? 'bold' : 'normal';
     const align = labelOptions.align || 'center';
 
-    const textY = codeRawHeight + gap + fontSizePx * 0.85;
     const textX = align === 'center' ? codeRawWidth / 2 : align === 'right' ? codeRawWidth : 0;
     const anchor = align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start';
 
-    const escaped = String(labelOptions.text)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-
-    labelXml = `<text x="${textX}" y="${textY}" text-anchor="${anchor}" font-size="${fontSizePx}" font-weight="${weight}" font-family="system-ui, -apple-system, sans-serif" fill="#0F172A">${escaped}</text>`;
+    const lines = String(labelOptions.text).split('\n');
+    labelXml = lines
+      .map((line, idx) => {
+        const lineY = codeRawHeight + gap + (fontSizePx * 0.85) + (idx * fontSizePx * 1.3);
+        const escaped = String(line)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+        return `<text x="${textX}" y="${lineY}" text-anchor="${anchor}" font-size="${fontSizePx}" font-weight="${weight}" font-family="system-ui, -apple-system, sans-serif" fill="#0F172A">${escaped}</text>`;
+      })
+      .join('\n    ');
   }
 
   const svgContent = `<?xml version="1.0" encoding="utf-8" standalone="no"?>

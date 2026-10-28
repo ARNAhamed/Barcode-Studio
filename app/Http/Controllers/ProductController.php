@@ -31,6 +31,12 @@ class ProductController extends Controller
             });
         }
 
+        if ($ids = $request->input('ids')) {
+            if (is_array($ids)) {
+                $query->whereIn('id', $ids);
+            }
+        }
+
         $sort = $request->input('sort', '-created_at');
         $direction = str_starts_with($sort, '-') ? 'desc' : 'asc';
         $column = ltrim($sort, '-');
@@ -42,7 +48,7 @@ class ProductController extends Controller
             $query->latest();
         }
 
-        $perPage = (int) $request->input('per_page', 10);
+        $perPage = min(500, max(1, (int) $request->input('per_page', 10)));
         $products = $query->paginate($perPage);
 
         return ProductResource::collection($products);
@@ -148,6 +154,7 @@ class ProductController extends Controller
         return response()->json([
             'count' => $count,
             'message' => "{$count} barcodes generated.",
+            'products' => ProductResource::collection($products->fresh()),
         ]);
     }
 

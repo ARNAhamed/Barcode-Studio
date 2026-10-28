@@ -15,16 +15,19 @@ class Code extends Model
     protected $fillable = [
         'product_id',
         'template_id',
+        'batch_id',
         'name',
         'type',
         'format',
         'value',
         'settings',
         'preview_path',
+        'generated_at',
     ];
 
     protected $casts = [
         'settings' => 'array',
+        'generated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
 

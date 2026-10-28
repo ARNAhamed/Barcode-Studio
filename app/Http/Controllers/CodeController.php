@@ -5,10 +5,14 @@ namespace App\Http\Controllers;
 use App\Http\Requests\CodeRequest;
 use App\Http\Resources\CodeResource;
 use App\Models\Code;
+use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class CodeController extends Controller
 {
@@ -17,7 +21,7 @@ class CodeController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = Code::query()->with('product');
+        $query = Code::query()->with(['product', 'template']);
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -37,9 +41,165 @@ class CodeController extends Controller
             }
         }
 
+        if ($filter = $request->input('filter')) {
+            if ($filter === 'last_bulk') {
+                $latestBatchId = Code::whereNotNull('batch_id')->latest('generated_at')->value('batch_id');
+                if ($latestBatchId) {
+                    $query->where('batch_id', $latestBatchId);
+                } else {
+                    $query->whereRaw('1 = 0');
+                }
+            }
+        }
+
+        if ($batchId = $request->input('batch_id')) {
+            $query->where('batch_id', $batchId);
+        }
+
         $codes = $query->latest()->get();
 
         return CodeResource::collection($codes);
+    }
+
+    /**
+     * Store multiple codes in bulk (up to 25 items per request).
+     */
+    public function bulkStore(Request $request): JsonResponse
+    {
+        $request->validate([
+            'codes' => 'required|array|min:1|max:25',
+            'batch_id' => 'nullable|string|max:64',
+        ]);
+
+        $batchId = $request->input('batch_id') ?: (string) Str::uuid();
+        $generatedAt = now();
+        $items = $request->input('codes');
+        $files = $request->file('codes') ?? [];
+
+        $results = [];
+        $createdCount = 0;
+        $failedCount = 0;
+
+        foreach ($items as $index => $rawItem) {
+            // In multipart/form-data, settings might be a JSON string
+            if (isset($rawItem['settings']) && is_string($rawItem['settings'])) {
+                $decoded = json_decode($rawItem['settings'], true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $rawItem['settings'] = $decoded;
+                }
+            }
+
+            // Check if preview file is provided in request files array
+            $file = null;
+            if (isset($files[$index]['preview'])) {
+                $file = $files[$index]['preview'];
+            } elseif ($request->file("codes.{$index}.preview")) {
+                $file = $request->file("codes.{$index}.preview");
+            }
+
+            // Validator for this individual item
+            $validator = Validator::make($rawItem, [
+                'name' => 'required|string|max:255',
+                'type' => 'required|in:barcode,qr',
+                'format' => 'required|string|max:50',
+                'value' => 'required|string',
+                'product_id' => 'nullable|integer',
+                'template_id' => 'nullable|integer',
+                'settings' => 'nullable|array',
+                'replace_existing' => 'nullable',
+            ]);
+
+            if ($validator->fails()) {
+                $failedCount++;
+                $results[] = [
+                    'index' => $index,
+                    'success' => false,
+                    'name' => $rawItem['name'] ?? "Item #{$index}",
+                    'error' => implode(' ', $validator->errors()->all()),
+                ];
+                continue;
+            }
+
+            $validated = $validator->validated();
+
+            DB::beginTransaction();
+            try {
+                // Check if product exists and is not trashed (if product_id specified)
+                $productId = $validated['product_id'] ?? null;
+                if ($productId) {
+                    $product = Product::whereNull('deleted_at')->find($productId);
+                    if (!$product) {
+                        throw new \RuntimeException('Product was moved to Recycle Bin or deleted.');
+                    }
+                }
+
+                // If replace_existing is requested, soft-delete existing codes for this product
+                $shouldReplace = filter_var($validated['replace_existing'] ?? false, FILTER_VALIDATE_BOOLEAN);
+                if ($shouldReplace && $productId) {
+                    Code::where('product_id', $productId)->delete();
+                }
+
+                $previewPath = null;
+                // Handle uploaded file if present
+                if ($file && $file->isValid()) {
+                    $previewPath = $file->store('previews', 'public');
+                } elseif (!empty($rawItem['preview']) && is_string($rawItem['preview']) && str_starts_with($rawItem['preview'], 'data:image')) {
+                    // Handle base64 data URI
+                    $dataUri = $rawItem['preview'];
+                    if (preg_match('/^data:image\/(\w+);base64,/', $dataUri, $typeMatch)) {
+                        $imageData = substr($dataUri, strpos($dataUri, ',') + 1);
+                        $decoded = base64_decode($imageData);
+                        if ($decoded !== false) {
+                            $ext = strtolower($typeMatch[1]) === 'jpeg' ? 'jpg' : strtolower($typeMatch[1]);
+                            $filename = 'previews/' . Str::uuid() . '.' . ($ext ?: 'png');
+                            Storage::disk('public')->put($filename, $decoded);
+                            $previewPath = $filename;
+                        }
+                    }
+                }
+
+                $code = Code::create([
+                    'product_id' => $productId,
+                    'template_id' => $validated['template_id'] ?? null,
+                    'batch_id' => $batchId,
+                    'name' => $validated['name'],
+                    'type' => $validated['type'],
+                    'format' => $validated['format'],
+                    'value' => $validated['value'],
+                    'settings' => $validated['settings'] ?? null,
+                    'preview_path' => $previewPath,
+                    'generated_at' => $generatedAt,
+                ]);
+
+                DB::commit();
+
+                $createdCount++;
+                $results[] = [
+                    'index' => $index,
+                    'success' => true,
+                    'id' => $code->id,
+                    'name' => $code->name,
+                    'batch_id' => $batchId,
+                ];
+            } catch (\Throwable $e) {
+                DB::rollBack();
+                $failedCount++;
+                $results[] = [
+                    'index' => $index,
+                    'success' => false,
+                    'name' => $rawItem['name'] ?? "Item #{$index}",
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
+        return response()->json([
+            'batch_id' => $batchId,
+            'total' => count($items),
+            'created_count' => $createdCount,
+            'failed_count' => $failedCount,
+            'results' => $results,
+        ]);
     }
 
     /**

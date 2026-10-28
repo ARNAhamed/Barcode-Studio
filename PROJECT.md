@@ -48,8 +48,8 @@ barcode-designer/
 ### 2.1 Gallery (`/`) — start page
 - Default route when the app opens.
 - Shows saved codes as a responsive card grid (1 / 2 / 3 / 4 columns).
-- Card: preview image, name, type badge (Barcode / QR), format, created date, actions (Edit, Download PNG, Delete). Shows a small "Template: <name>" line only if the code was created from a template.
-- Top bar: search box, filter chips (All / Barcode / QR), "Recycle Bin" button (with count badge, opens `/bin?tab=designs`), "Create New" button.
+- Card: preview image, name, type badge (Barcode / QR), format, created date, actions (Edit, Download PNG, Delete). Shows a small "Template: <name>" line if created from a template, and a subtle batch label for codes generated in bulk.
+- Top bar: search box, filter chips (All / Barcode / QR / Last bulk run), "Recycle Bin" button (with count badge, opens `/bin?tab=designs`), "Create New" button.
 - Empty state: friendly illustration/icon + text "No codes yet" + button "Design your first code".
 - Delete asks for confirmation ("Move to Recycle Bin") and shows a toast with an Undo action after deleting.
 
@@ -153,6 +153,27 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
   - When the current page is fully selected, offer a "Select all {N} products across all pages" link.
   - Selection persists across page changes and searches until cleared or an action succeeds.
   - "Generate missing barcodes" applies to selected products (or all with empty barcodes if none selected).
+  - **Generate Codes (Bulk Generation)**:
+    - Button in the selection toolbar next to Export: "Generate codes". Disabled when nothing is selected.
+    - Limits single run to 500 products (with clear alert message if > 500 selected).
+    - Opens **Bulk Generate Modal** (3 steps, fits window `max-h-[calc(100dvh-2rem)]`, fixed header, scrollable body, fixed footer, responsive, full screen on mobile):
+      - **Step 1: Settings**:
+        - Template: dropdown of saved templates (default is pre-selected) with thumbnail. If no templates exist, shows link to Designer.
+        - Code value source: "Barcode number" (default), "SKU", or "Custom pattern" with placeholders (`{sku}`, `{barcode}`, etc.).
+        - Label text: use template's pattern or override with custom pattern (placeholders as clickable chips).
+        - Products without barcode number: "Generate a barcode number automatically" (uses BarcodeNumberGenerator and saves to product), "Use SKU instead", or "Skip these products".
+        - Products with invalid value for format (e.g. EAN13 check digit/length): flagged with clear reason. Option to fix automatically (append check digit or generate new number) or skip.
+        - Existing code conflict resolution: "Skip", "Create another", or "Replace the existing code" (moves old code to Recycle Bin).
+        - Code naming pattern (default `{name}`).
+      - **Step 2: Preview**:
+        - Compact table (no horizontal scroll) with Product, Value, Format, Status (`Ready`, `Will generate number`, `Warning`, `Error`, `Skipped`) and reason.
+        - Live thumbnails of first 3 codes rendered with chosen template.
+        - Summary of Total, Ready, Warnings, Errors, Skipped, plus toggle/filter to show only problems.
+        - "Generate" button disabled while 0 ready items.
+      - **Step 3: Generate**:
+        - Renders each code in browser with same rendering function Designer uses (identical visual output), creates preview PNG, and saves to Gallery.
+        - Processed in batches (e.g. 10 at a time, up to 25 per request) with progress bar, current item name, and Cancel button (created codes remain if run cancelled). Shows failures with a "Retry failed" button.
+        - Results screen: created, skipped, failed counts with actions: "View in Gallery" (filtered to the new batch), "Print labels" (opens `/print` with these codes preselected), and "Close".
 - **CSV Export & Import**:
   - **Export (`POST /api/products/export`)**: Exports only the selected products. Disabled when 0 products are selected (with tooltip: "Select products to export"). Button displays count, e.g. `Export (3)`. Payload accepts `{ ids: [...], all_matching: boolean, search, category, status }`. Validates IDs and excludes trashed products. Output CSV has UTF-8 BOM, standard columns (`name, sku, barcode_number, category, price, quantity, low_stock_threshold, description`), and date-based filename (e.g. `stock-selected-3-YYYY-MM-DD.csv`). Shows success toast upon completion.
   - **Sample Template (`GET /api/products/import/template`)**: Downloads `products_import_template.csv` with standard headers and 2 example rows.
@@ -275,12 +296,14 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 | id | bigint PK | |
 | product_id | FK nullable | `nullOnDelete` |
 | template_id | FK nullable | `nullOnDelete` |
+| batch_id | uuid nullable | indexed, bulk run grouping |
 | name | string | required |
 | type | enum(`barcode`,`qr`) | |
 | format | string | e.g. CODE128, QR |
 | value | text | encoded content |
 | settings | json | design options (colors, styles, unit, width, height, dpi, lock_aspect_ratio, artboard: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, export_code_only; label: text, font_size, font_unit, gap, weight, alignment; template_name) |
 | preview_path | string nullable | saved PNG in `storage/app/public/previews` |
+| generated_at | timestamp nullable | bulk generation timestamp |
 | timestamps | | |
 | deleted_at | timestamp nullable | soft deletes |
 
@@ -330,8 +353,9 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 | Method | Endpoint | Purpose |
 |---|---|---|
 | GET | `/bin/summary` | recycle bin counts: `{ products, codes, total }` |
-| GET | `/codes` | list active codes (query: `search`, `type`) |
+| GET | `/codes` | list active codes (query: `search`, `type`, `filter`) |
 | POST | `/codes` | create (multipart: fields + `preview` image) |
+| POST | `/codes/bulk` | bulk create codes (up to 25 items per request, multipart or json payload with previews) |
 | GET | `/codes/{id}` | show |
 | PUT | `/codes/{id}` | update |
 | DELETE | `/codes/{id}` | soft delete (move to recycle bin) |

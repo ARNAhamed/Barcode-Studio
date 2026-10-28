@@ -68,10 +68,19 @@ export default function CodeCard({ code, onDelete }) {
       {/* Card Details */}
       <div className="p-4 flex-1 flex flex-col justify-between">
         <div>
-          <div className="flex items-center gap-1.5 mb-1.5">
+          <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
             <Badge size="xs">
               {code.type === 'barcode' ? 'Barcode' : 'QR Code'}
             </Badge>
+
+            {code.batch_id && (
+              <span
+                className="inline-flex items-center text-[10px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-1.5 py-0.5 rounded"
+                title="Generated in bulk"
+              >
+                Bulk
+              </span>
+            )}
 
             {code.product && (
               <span className="inline-flex items-center gap-1 text-[11px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded truncate max-w-[140px]">

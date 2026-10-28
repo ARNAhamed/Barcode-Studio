@@ -15,6 +15,7 @@ import {
   Wand2,
   Loader2,
   Printer,
+  Sparkles,
 } from 'lucide-react';
 import Badge from '../../components/Badge';
 import Button from '../../components/Button';
@@ -41,6 +42,7 @@ export default function ProductTable({
   onClearSelection,
   onSelectAllMatching,
   isSelectAllMatching = false,
+  onOpenBulkGenerate,
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -164,6 +166,17 @@ export default function ProductTable({
               >
                 Print labels ({selectedCount})
               </Button>
+
+              {onOpenBulkGenerate && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={onOpenBulkGenerate}
+                  icon={Sparkles}
+                >
+                  Generate codes ({selectedCount})
+                </Button>
+              )}
             </>
           )}
 
@@ -313,7 +326,9 @@ export default function ProductTable({
                   {/* Row Checkbox */}
                   <td className="py-2 pl-3 sm:pl-4 pr-1 text-center min-w-0 align-middle">
                     <input
+                      id={`product-checkbox-${product.id}`}
                       type="checkbox"
+                      aria-label={`Select ${product.name}`}
                       checked={isSelectAllMatching || selectedIds.includes(product.id)}
                       onChange={() => onToggleSelect(product.id)}
                       className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500/20 cursor-pointer"

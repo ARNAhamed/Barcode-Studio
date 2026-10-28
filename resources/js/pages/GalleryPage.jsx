@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { LayoutGrid, Trash2, Plus } from 'lucide-react';
 
@@ -14,14 +14,26 @@ import { getBinSummary } from '../api/bin';
 
 export default function GalleryPage() {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const urlFilter = searchParams.get('filter');
+  const urlBatchId = searchParams.get('batch_id');
+  const initialFilter = urlFilter === 'last_bulk' || urlBatchId ? 'last_bulk' : 'all';
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'barcode' | 'qr'
+  const [typeFilter, setTypeFilter] = useState(initialFilter); // 'all' | 'barcode' | 'qr' | 'last_bulk'
 
   // Delete modal state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [codeToDelete, setCodeToDelete] = useState(null);
+
+  // Sync state if URL changes
+  useEffect(() => {
+    if (urlFilter === 'last_bulk' || urlBatchId) {
+      setTypeFilter('last_bulk');
+    }
+  }, [urlFilter, urlBatchId]);
 
   // Debounce search
   useEffect(() => {
@@ -45,13 +57,38 @@ export default function GalleryPage() {
 
   // Query: Filtered codes
   const { data: codesResponse, isLoading } = useQuery({
-    queryKey: ['codes', { search: debouncedSearch, type: typeFilter }],
-    queryFn: () =>
-      getCodes({
+    queryKey: ['codes', { search: debouncedSearch, type: typeFilter, batchId: urlBatchId }],
+    queryFn: () => {
+      const params = {
         search: debouncedSearch || undefined,
-        type: typeFilter !== 'all' ? typeFilter : undefined,
-      }),
+      };
+      if (typeFilter === 'last_bulk') {
+        params.filter = 'last_bulk';
+        if (urlBatchId) params.batch_id = urlBatchId;
+      } else if (typeFilter !== 'all') {
+        params.type = typeFilter;
+      }
+      return getCodes(params);
+    },
   });
+
+  const handleTypeFilterChange = (newFilter) => {
+    setTypeFilter(newFilter);
+    if (newFilter === 'last_bulk') {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('filter', 'last_bulk');
+        return next;
+      });
+    } else {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('filter');
+        next.delete('batch_id');
+        return next;
+      });
+    }
+  };
 
   const invalidateQueries = () => {
     queryClient.invalidateQueries({ queryKey: ['codes'] });
@@ -158,7 +195,7 @@ export default function GalleryPage() {
         search={search}
         onSearchChange={setSearch}
         typeFilter={typeFilter}
-        onTypeFilterChange={setTypeFilter}
+        onTypeFilterChange={handleTypeFilterChange}
         counts={counts}
       />
 

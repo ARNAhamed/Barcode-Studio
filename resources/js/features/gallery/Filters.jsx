@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, X, Barcode, QrCode, Layers } from 'lucide-react';
+import { Search, X, Barcode, QrCode, Layers, Sparkles } from 'lucide-react';
 
 export default function Filters({
   search,
@@ -12,6 +12,7 @@ export default function Filters({
     { value: 'all', label: 'All Codes', icon: Layers, count: counts.all },
     { value: 'barcode', label: 'Barcodes', icon: Barcode, count: counts.barcode },
     { value: 'qr', label: 'QR Codes', icon: QrCode, count: counts.qr },
+    { value: 'last_bulk', label: 'Last bulk run', icon: Sparkles },
   ];
 
   return (

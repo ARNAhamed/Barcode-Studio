@@ -18,6 +18,14 @@ export const createCode = async (data) => {
   return response.data;
 };
 
+export const bulkCreateCodes = async (payload) => {
+  const isFormData = payload instanceof FormData;
+  const response = await api.post('/codes/bulk', payload, {
+    headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : {},
+  });
+  return response.data;
+};
+
 export const updateCode = async (id, data) => {
   const isFormData = data instanceof FormData;
   // If FormData, post to /codes/{id} (or use PUT with json)

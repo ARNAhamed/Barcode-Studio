@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Package, Trash2, RotateCcw, Upload, Download } from 'lucide-react';
+import { Plus, Package, Trash2, RotateCcw, Upload, Download, Sparkles } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
@@ -10,6 +10,7 @@ import SummaryCards from '../features/stock/SummaryCards';
 import ProductTable from '../features/stock/ProductTable';
 import ProductForm from '../features/stock/ProductForm';
 import ImportModal from '../features/stock/ImportModal';
+import BulkGenerateModal from '../features/stock/BulkGenerateModal';
 import {
   getProducts,
   getProductSummary,
@@ -41,6 +42,7 @@ export default function StockPage() {
 
   // Import / Export & Selection state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isBulkGenerateModalOpen, setIsBulkGenerateModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [isSelectAllMatching, setIsSelectAllMatching] = useState(false);
@@ -74,6 +76,35 @@ export default function StockPage() {
         per_page: 10,
       }),
   });
+
+  // Bulk products query for BulkGenerateModal
+  const { data: bulkProductsData } = useQuery({
+    queryKey: ['bulk-selected-products', { selectedIds, isSelectAllMatching, debouncedSearch, sortField }],
+    queryFn: async () => {
+      if (isSelectAllMatching) {
+        const res = await getProducts({
+          search: debouncedSearch || undefined,
+          sort: sortField,
+          per_page: 500,
+        });
+        return res.data || [];
+      } else if (selectedIds.length > 0) {
+        const res = await getProducts({
+          ids: selectedIds,
+          per_page: 500,
+        });
+        return res.data || [];
+      }
+      return [];
+    },
+    enabled: isBulkGenerateModalOpen,
+  });
+
+  const bulkSelectedProducts = bulkProductsData || (
+    isSelectAllMatching
+      ? []
+      : (productsResponse?.data || []).filter((p) => selectedIds.includes(p.id))
+  );
 
   const invalidateQueries = () => {
     queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -326,6 +357,25 @@ export default function StockPage() {
                 {selectedCount > 0 && <span className="md:hidden text-xs">({selectedCount})</span>}
               </Button>
             </span>
+            <span
+              title={selectedCount === 0 ? 'Select products to generate codes' : 'Bulk generate codes with a template'}
+              className="inline-flex"
+            >
+              <Button
+                onClick={() => setIsBulkGenerateModalOpen(true)}
+                icon={Sparkles}
+                variant="secondary"
+                size="md"
+                disabled={selectedCount === 0}
+                className="h-9 whitespace-nowrap"
+              >
+                <span className="hidden md:inline">
+                  {selectedCount > 0 ? `Generate codes (${selectedCount})` : 'Generate codes'}
+                </span>
+                {selectedCount > 0 && <span className="md:hidden text-xs">Codes ({selectedCount})</span>}
+                {selectedCount === 0 && <span className="md:hidden text-xs">Codes</span>}
+              </Button>
+            </span>
             <Button
               onClick={handleOpenAdd}
               icon={Plus}
@@ -361,6 +411,7 @@ export default function StockPage() {
         isSelectAllMatching={isSelectAllMatching}
         onSelectAllMatching={handleSelectAllMatching}
         onClearSelection={handleClearSelection}
+        onOpenBulkGenerate={() => setIsBulkGenerateModalOpen(true)}
       />
 
       {/* Centered Modal for Add / Edit Product */}
@@ -452,6 +503,14 @@ export default function StockPage() {
       <ImportModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
+        onSuccess={invalidateQueries}
+      />
+
+      {/* Bulk Generate Modal */}
+      <BulkGenerateModal
+        isOpen={isBulkGenerateModalOpen}
+        onClose={() => setIsBulkGenerateModalOpen(false)}
+        selectedProducts={bulkSelectedProducts}
         onSuccess={invalidateQueries}
       />
     </div>

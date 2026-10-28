@@ -42,6 +42,7 @@ Route::post('/codes/{id}/restore', [CodeController::class, 'restore']);
 Route::delete('/codes/{id}/force', [CodeController::class, 'forceDelete']);
 
 // Codes CRUD
+Route::post('/codes/bulk', [CodeController::class, 'bulkStore']);
 Route::apiResource('codes', CodeController::class);
 // Allow POST to update for multipart form-data requests with file updates
 Route::post('/codes/{code}', [CodeController::class, 'update']);

@@ -131,8 +131,7 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 - **Row & Table Density**: Compact rows (40-44px height, `py-1.5` to `py-2` on cells), text 14px, secondary text 11-12px, table header 36-40px (`h-9` or `h-9.5`), 1px dividers, subtle hover. Checkbox, text, and action icon buttons centered vertically. Zero horizontal scrollbar at all screen sizes.
 - **Table Structure & Columns (`table-fixed`)**:
   - `table-fixed` layout with explicit column widths. Product column minimum 220px, largest share (28-30%).
-  - **Product cell**: Product name in `font-medium text-gray-900`, wraps up to 2 lines with ellipsis after that (`line-clamp-2`, full name in tooltip), and, under it, the Item Code in small muted monospace text (`text-[11px] text-gray-400 font-mono`). Separate Item Code column removed.
-  - **Sort by Item Code**: Header provides sort by Name, with an integrated "Sort by Item code" option/toggle in the header or toolbar.
+  - **Sort by Name**: Product header sorts by Product Name cleanly without distracting subheadings.
   - **Remaining Columns**:
     - Checkbox: `36px` (`w-[36px] min-w-[36px]`)
     - Product: `min-w-[220px]` (28-30% share)

@@ -277,29 +277,14 @@ export default function ProductTable({
                   title="Select all on this page"
                 />
               </th>
-              <th className="py-2 px-3 sm:px-4 min-w-[220px] w-[28%] lg:w-[30%] align-middle text-left">
-                <div className="flex items-center justify-between gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleHeaderSort('name')}
-                    className="inline-flex items-center gap-1 font-medium text-gray-500 hover:text-gray-900 select-none group cursor-pointer transition-colors"
-                    title="Sort by product name"
-                  >
-                    <span>Product</span>
-                    {getSortIcon('name')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleHeaderSort('sku')}
-                    className={`text-[11px] font-mono px-1.5 py-0.5 rounded border transition-colors cursor-pointer shrink-0 ${
-                      sortBy === 'sku'
-                        ? 'bg-indigo-50 border-indigo-200 text-indigo-600 font-semibold'
-                        : 'border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                    }`}
-                    title="Sort by Item code"
-                  >
-                    Item code {sortBy === 'sku' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
-                  </button>
+              <th
+                onClick={() => handleHeaderSort('name')}
+                className="py-2 px-3 sm:px-4 min-w-[220px] w-[28%] lg:w-[30%] align-middle text-left cursor-pointer select-none group hover:bg-gray-50 transition-colors"
+                title="Sort by product name"
+              >
+                <div className="inline-flex items-center gap-1 font-medium text-gray-500 group-hover:text-gray-900 transition-colors">
+                  <span>Product</span>
+                  {getSortIcon('name')}
                 </div>
               </th>
               <th className="hidden lg:table-cell py-2 px-2.5 w-[120px] text-center truncate align-middle">

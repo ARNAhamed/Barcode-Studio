@@ -62,82 +62,48 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 
 - **Preview Pane (Left)**: Built as a 3-part flex column:
   - **Header Bar (shrink-0)**: Left: "Live Preview" on one line (`whitespace-nowrap`) with format badge (e.g. `CODE128`). Right: compact zoom controls (Fit, 50%, 100%, 200%, `-`, `+`, and real zoom % label). Flex-wrap with `gap-2` so nothing is clipped on narrow panels.
-  - **Canvas (flex-1, min-h-0, overflow-hidden, centered content)**: No horizontal scrollbar. Artboard wrapper is sized precisely to its scaled dimensions so DOM flow matches visual scale. "Fit" zoom fits artboard inside canvas in BOTH width and height with small margin (recalculated via ResizeObserver). At zoom > Fit, user can pan by dragging or scrolling inside the canvas without scrolling the pane or window.
-  - **Fixed Footer (shrink-0)**: ALWAYS fully visible inside the window. Holds size info, compact DPI selector, and **Save to Gallery**, **PNG**, **SVG**, and **Reset** buttons neatly wrapped (`flex-wrap, gap-2`, two rows at most).
-- **Editor Panel (Right)**:
-  - Scrolls independently on desktop, ends inside the window with `overscroll-behavior: contain`.
-  - Compact with tighter spacing, 13–14px text, 36px inputs, and small "Collapse all / Expand all" control.
-  - Collapsible sections (**Artboard**, **Code Size**, **Colors**, **Label Text**) with most used section open by default.
-  - Related small inputs placed side by side in two columns (e.g. Width and Height, Foreground and Background).
-- **Templates Bar (Top of Editor Panel)**:
-  - Positioned at the top of the editor panel above mode toggles.
-  - "Template" dropdown showing template name and small thumbnail, filtered to current mode (Barcode or QR), with the default template marked with a star icon.
-  - Choosing a template applies all its design settings to the editor and live preview, preserving the current encoded value and any picked product. Prompts confirmation if there are unsaved modifications.
-  - Action buttons:
-    - **Save as template**: opens modal with name, description, "Set as default" toggle, and a checkbox for including label pattern.
-    - **Update template**: visible/enabled when an existing template is applied and has modifications.
-    - **Manage**: opens the Template Manager modal.
-  - **Modified tag**: displays a small "Modified" badge when current design differs from the applied template, alongside a "Reset to template" button.
-  - **Initial load behavior**: New designs open with the default template of the active mode (if one exists). Editing a saved code preserves its saved settings and never gets overwritten by a default template.
-- Toggle at top: **Barcode | QR Code**.
-- **Source of data**: either type custom text OR pick a product from stock (autocomplete).
-  - Picking a product auto-fills the value (SKU / barcode number / URL).
-  - **QR Code Link to Product Page**: In QR mode, when a product is picked, a "Link to product page" option (enabled by default) automatically fills the QR value with the public product URL (`APP_URL + /p/{public_token}`) and displays the full URL in the editable value input. Templates store this option (not the static URL value), and Bulk Generate supports "Product page URL" as a value source.
-  - Product lookup query returns product supplier details immediately to resolve supplier placeholders in real time.
-- **Artboard Canvas Controls**:
-  - Concept: The artboard is the label, card, or page canvas the code is placed on.
-  - Preset dropdown: `Auto` (fit to code, legacy behavior), `Small label 50 x 25 mm`, `Shelf label 60 x 40 mm`, `Product label 100 x 50 mm`, `Shipping label 100 x 150 mm`, `A6 (105 x 148 mm)`, `A5 (148 x 210 mm)`, `A4 (210 x 297 mm)`, `Square 50 x 50 mm`, `Business card 90 x 55 mm`, and `Custom`.
-  - Unit selector: `px`, `cm`, `mm`, `inch` (default `px` or active unit).
-  - Width and Height manual inputs supporting decimals. Typing a dimension switches preset to `Custom`.
-  - Orientation toggle (portrait / landscape) that swaps width and height.
-  - Lock aspect ratio toggle.
-  - Styling: Artboard background color, optional border (on/off, color, thickness), and corner radius.
-  - Validation: No empty, zero, or negative dimensions, with sensible min/max values and inline errors. Warn if the code does not fit inside the artboard.
-- **Placing the Code on the Artboard**:
-  - 9-position alignment grid: `top-left`, `top-center`, `top-right`, `middle-left`, `center`, `middle-right`, `bottom-left`, `bottom-center`, `bottom-right` (default `center`).
-  - Padding/margin input.
-  - Fit options: `Original size`, `Fit to artboard` (scale to largest size that fits inside padding while keeping aspect ratio), and `Fill width`.
-  - Fine position: X and Y offset inputs, plus interactive drag-and-drop inside the preview (mouse and touch) kept inside artboard bounds. "Reset position" button.
-  - Barcode scannability warning if scaling makes bars thinner than minimum scannable threshold (< 1px).
-- **Artboard Preview**:
-  - Scaled to fit the preview panel canvas without overflowing.
-  - Preview panel stays fixed on desktop while controls scroll independently; sticky on mobile.
-- **Code Sizing & Options**:
-  - Barcode: Width and height inputs, format (CODE128, EAN13, EAN8, UPC, CODE39, ITF14), line color, background color, show text toggle, font size.
-  - QR Code: Single size input (square), error correction (L/M/Q/H), dot style, corner style, foreground and background colors, optional center logo upload.
-- **Label Text (Barcode & QR modes)**:
-  - Custom label text field: small textarea supporting up to 3 lines.
-  - **Multi-line rendering**: Each line is drawn neatly under the code (or under the human-readable barcode numbers) with font size, gap, weight, and alignment options.
-  - **Dynamic Placeholders**:
-    - Product tokens: `{name}`, `{sku}`, `{price}`, `{category}`, `{barcode}`, `{quantity}`.
-    - Supplier tokens: `{supplier}`, `{supplier_contact}`, `{supplier_mobile}`, `{supplier_phone}`, `{supplier_email}`, `{supplier_city}`.
-    - Missing token values become empty strings; lines that end up blank after token replacement are trimmed away, eliminating dangling separators like `•`, `-`, or `|`.
-    - Click-to-insert chips displayed under the textarea (including all supplier tags).
-    - Quick preset button: "Code number + supplier name and mobile" (inserts `{supplier} • {supplier_mobile}`).
-    - Supported across saved templates (pattern stored), Bulk Generate, Gallery preview images, PNG/SVG exports, and Print Labels.
-  - **Font size**: Number input plus slider in the selected unit family (default `pt`, range 6–72 pt, default 12 pt, decimals allowed; or `px`). Quick step buttons: `A-` (-1) and `A+` (+1).
-  - **Gap between code and text**: Number input plus slider in the selected unit (`px`, `mm`, `cm`, `inch`, stored internally in `px`), range 0–50 px equivalent (default 4 px). Quick step buttons: `-` (-1) and `+` (+1).
-  - **Font weight**: Toggle button group between `Regular` (400) and `Bold` (700).
-  - **Text alignment**: Alignment selector with `Left`, `Center`, and `Right` (default `Center`).
-  - **Artboard & Export integration**:
-    - Code plus multi-line label are positioned and sized together as one unified bounding box.
-    - Artboard bounds calculations, "Fit to artboard", and auto sizing include the full height of all lines.
-    - Long lines wrap or shrink instead of clipping, showing an inline warning if text exceeds the artboard.
-    - All text is safely escaped in SVG and HTML representations.
-    - Live preview, saved Gallery cards, PNG, and SVG downloads at chosen DPI reflect exact lines, font size, gap, weight, and alignment.
-    - Saved in `codes.settings` as `label`, `label_font_size`, `label_font_unit`, `label_gap`, `label_weight`, and `label_align`.
-- **Export & Save**:
-  - Export DPI selector: 72, 150, 300, 600 (default 300).
-  - PNG and SVG downloads export the whole artboard at chosen DPI/physical units.
-  - Checkbox: "Export code only (without artboard)" for legacy behavior.
-  - Save artboard settings in `codes.settings`: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit mode, x/y offset, export_code_only, label text settings, template_id, template_name.
-  - Reopening `/designer/:id` restores full artboard, code, and label styling state. Legacy saved codes default to `Auto` preset.
-  - Preview saved to Gallery is the artboard; Gallery cards use `object-contain` so various aspect ratios render cleanly without distortion.
-- Validation: show a clear inline error if the value is invalid for the chosen format, or if size is non-positive or too small to scan.
-- **Automatic Number Generator**:
-  - When the selected format requires valid structured digits (EAN13, EAN8, UPC) and the value is empty or invalid, show a "Generate valid number" action.
-  - If 12 digits are entered for EAN13, offer a 1-click action to auto-calculate and append the correct GS1 check digit.
-- After save, show toast and redirect to Gallery.
+### 2.2 Barcode & QR Designer (`/designer` and `/designer/:id`)
+- **Philosophy**: Simple by default, advanced on request. A new user should be able to create and save a code in under 30 seconds without reading instructions.
+- **Two-Pane Layout**:
+  - **Left Pane (~65-70% width)**: Real-time interactive artboard preview, fixed in place, with floating zoom controls, size chip, and clean action footer.
+  - **Right Pane (~30-35% width, clamped 340–440px)**: Independent vertical scrolling (`overscroll-behavior: contain`), displaying concise essential controls by default.
+- **Editor Structure (Right Pane)**:
+  - **Top Row**: Mode switch (**Barcode | QR Code**), followed by a single row containing a **Template** dropdown and a **Product** picker.
+  - **"Design" Group (Always Visible, ~5 Essential Everyday Controls)**:
+    - **Value**: Text input. When a product is picked, auto-fills the product value or product page URL in QR mode (with a compact "Link to product page" switch beside it).
+    - **Format**: (Barcode mode only) Compact format selector (`CODE128`, `EAN13`, `EAN8`, `UPC`, `CODE39`, `ITF14`).
+    - **Label Text**: Single-line input or compact textarea with a small **Insert** button that opens a menu of placeholders (`{name}`, `{price}`, `{sku}`, supplier fields, and the `{supplier} • {supplier_mobile}` preset) instead of cluttered permanent chips.
+    - **Size**: Quick preset chips: `Auto` (fit to code), `Small` (50 x 25 mm), `Medium` (60 x 40 mm), `Large` (100 x 50 mm), and `Custom`. Only when `Custom` is selected are manual Width, Height, and Unit (`mm`, `cm`, `inch`, `px`) displayed.
+    - **Colors**: Two small color swatches (Code color and Background) with compact pickers and a **Swap** icon button.
+  - **"Advanced" Accordion (Collapsed by Default, Remembers Open/Closed State)**:
+    - Only ONE child group open at a time for focus and calm scanning:
+      1. **Artboard**: Extended presets (Shipping 100x150, A6, A5, A4, Square, Business Card), orientation toggle, background color, border (toggle, color, width), corner radius.
+      2. **Placement**: 3x3 alignment grid, padding, fit mode (`original`, `fit`, `fill-width`), fine X/Y offsets, reset position.
+      3. **Code Style**: Barcode width, height, margin, show-number toggle; QR size, error correction (L/M/Q/H), dot style, corner style, logo upload.
+      4. **Text Style**: Font size (`pt` or `px`), gap between code and text, font weight (`Regular` / `Bold`), text alignment (`Left`, `Center`, `Right`).
+      5. **Units & Export**: Default unit, export DPI (`72`, `150`, `300`, `600`), lock aspect ratio, "Export code only" checkbox.
+    - **"Reset advanced settings"** link to restore default styling options.
+- **Canvas & Preview Enhancements**:
+  - **Direct Canvas Interactions**:
+    - Click label text directly in the preview to edit it.
+    - Click & drag code to position it on artboard; double-click code to reset position.
+    - Thin selection outline on hover.
+  - **Floating Indicators**:
+    - Artboard size chip on the canvas (e.g. "60 x 40 mm").
+    - Compact floating zoom control in the corner of the canvas.
+    - Friendly sample code preview with a gentle hint when fields are empty: "Pick a template or a product to begin".
+  - **Single Status Line**:
+    - Replaces scattered warnings with one concise line under the preview: green dot + "Ready to scan" when valid, or a single amber message with an auto-action "Fix" button when an automated remedy exists (e.g. GS1 check digit calculation or barcode sizing).
+- **Clean Action Footer**:
+  - Primary **Save** button with subtle status text ("Saved" / "Unsaved changes").
+  - **Download** button with a compact popover menu: **PNG** and **SVG** with embedded DPI selector (defaults to 300).
+  - More actions (**...**) menu: Reset, Duplicate as new, and Export code only toggle.
+- **Smart Defaults & Persistent Memory**:
+  - New designs default unit to `mm` and start with the default template (or Medium 60x40 mm). Existing saved designs preserve their saved parameters.
+  - Remembers last used template, colors, and Advanced accordion state in `localStorage`.
+  - Hides units and raw pixels in default view unless Custom or Advanced is opened.
+- **Full Backward Compatibility**:
+  - Preserves all saved code data formats, template schemas, multi-line label rendering, supplier placeholders, product links, and print label compatibility.
 
 ### 2.3 Products (`/products`)
 - **Navigation & Routing**:

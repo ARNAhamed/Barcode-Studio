@@ -17,6 +17,8 @@ class CodeResource extends JsonResource
         return [
             'id' => $this->id,
             'product_id' => $this->product_id,
+            'template_id' => $this->template_id,
+            'template_name' => $this->template?->name ?? ($this->settings['template_name'] ?? null),
             'name' => $this->name,
             'type' => $this->type,
             'format' => $this->format,

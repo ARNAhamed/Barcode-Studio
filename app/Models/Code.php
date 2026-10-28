@@ -14,6 +14,7 @@ class Code extends Model
 
     protected $fillable = [
         'product_id',
+        'template_id',
         'name',
         'type',
         'format',
@@ -35,6 +36,11 @@ class Code extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class)->withTrashed();
+    }
+
+    public function template(): BelongsTo
+    {
+        return $this->belongsTo(Template::class)->withTrashed();
     }
 
     public function getPreviewUrlAttribute(): ?string

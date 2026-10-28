@@ -30,6 +30,7 @@ export default function QrControls({
   validationError,
   sizeError = null,
   section = 'all', // 'size' | 'colors' | 'label' | 'all'
+  selectedProduct = null,
 }) {
   const currentUnit = settings.unit || 'px';
   const unitConfig = UNITS.find((u) => u.value === currentUnit) || UNITS[0];
@@ -290,6 +291,7 @@ export default function QrControls({
       settings={settings}
       onChange={onChange}
       activeUnit={settings.unit || 'px'}
+      selectedProduct={selectedProduct}
     />
   );
 

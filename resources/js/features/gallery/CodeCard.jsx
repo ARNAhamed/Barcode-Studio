@@ -92,6 +92,13 @@ export default function CodeCard({ code, onDelete }) {
           <p className="text-xs font-mono text-gray-500 truncate mt-0.5 select-all" title={code.value}>
             {code.value}
           </p>
+
+          {(code.template_name || code.settings?.template_name) && (
+            <p className="text-[11px] text-gray-500 truncate mt-1" title={`Template: ${code.template_name || code.settings?.template_name}`}>
+              <span className="text-gray-400">Template:</span>{' '}
+              <span className="font-medium text-gray-700">{code.template_name || code.settings?.template_name}</span>
+            </p>
+          )}
         </div>
 
         {/* Footer with Date & Ghost Actions */}

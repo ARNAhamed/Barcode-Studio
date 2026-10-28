@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { toPx, fromPx } from '../../utils/units';
+import { AVAILABLE_PLACEHOLDERS, fillPlaceholders, hasPlaceholders } from '../../utils/placeholders';
 
 export default function LabelTextControls({
   settings,
   onChange,
   activeUnit = 'px',
+  selectedProduct = null,
 }) {
+  const inputRef = useRef(null);
   const label = settings.label || '';
   const fontUnit = settings.labelFontUnit || 'pt';
   const fontSize =
@@ -18,6 +21,25 @@ export default function LabelTextControls({
   const gapPx = settings.labelGap !== undefined ? Number(settings.labelGap) : 4;
   const weight = settings.labelWeight || 'normal';
   const align = settings.labelAlign || 'center';
+
+  const handleInsertPlaceholder = (tag) => {
+    const input = inputRef.current;
+    const current = settings.label || '';
+    if (!input) {
+      onChange({ ...settings, label: current ? `${current} ${tag}` : tag });
+      return;
+    }
+
+    const start = input.selectionStart ?? current.length;
+    const end = input.selectionEnd ?? current.length;
+    const nextVal = current.substring(0, start) + tag + current.substring(end);
+    onChange({ ...settings, label: nextVal });
+
+    setTimeout(() => {
+      input.focus();
+      input.setSelectionRange(start + tag.length, start + tag.length);
+    }, 0);
+  };
 
   // Gap in display unit
   const gapInUnit = activeUnit === 'px' ? gapPx : fromPx(gapPx, activeUnit);
@@ -81,18 +103,47 @@ export default function LabelTextControls({
 
   return (
     <div className="space-y-4">
-      {/* 1. Custom Label Input */}
+      {/* 1. Custom Label Input & Placeholders */}
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1.5">
-          Custom Label Text <span className="text-gray-400 font-normal">(optional)</span>
+          Custom Label Text <span className="text-gray-400 font-normal">(supports {`{placeholders}`})</span>
         </label>
         <input
+          ref={inputRef}
           type="text"
           value={label}
           onChange={(e) => onChange({ ...settings, label: e.target.value })}
-          placeholder="e.g. Ergonomic Keyboard - $89.50"
-          className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors"
+          placeholder="e.g. {name} • {price}"
+          className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors font-mono"
         />
+
+        {/* Click-to-insert placeholder chips */}
+        <div className="mt-2 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] text-gray-500 font-medium">Insert:</span>
+            {AVAILABLE_PLACEHOLDERS.map((p) => (
+              <button
+                key={p.tag}
+                type="button"
+                onClick={() => handleInsertPlaceholder(p.tag)}
+                title={`Insert ${p.label}`}
+                className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-mono text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-200 transition-colors cursor-pointer select-none"
+              >
+                {p.tag}
+              </button>
+            ))}
+          </div>
+
+          {selectedProduct && hasPlaceholders(label) && (
+            <div className="px-2.5 py-1.5 bg-indigo-50/60 border border-indigo-100 rounded-md text-xs text-indigo-900 flex items-start gap-1.5">
+              <span className="font-semibold text-indigo-700 shrink-0">Live preview:</span>
+              <span className="text-indigo-950 truncate font-mono">
+                {fillPlaceholders(label, selectedProduct) || '(empty)'}
+              </span>
+            </div>
+          )}
+        </div>
+
         <p className="mt-1 text-[11px] text-gray-500">
           Positioned with the code as one unified object on the artboard and exports.
         </p>

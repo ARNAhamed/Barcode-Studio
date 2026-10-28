@@ -25,10 +25,16 @@ import ProductPicker from '../features/designer/ProductPicker';
 import Skeleton from '../components/Skeleton';
 import PageHeader from '../components/PageHeader';
 
+import TemplateBar from '../features/templates/TemplateBar';
+import SaveTemplateModal from '../features/templates/SaveTemplateModal';
+import TemplateManagerModal from '../features/templates/TemplateManagerModal';
+
 import { getCode, createCode, updateCode } from '../api/codes';
 import { getProduct } from '../api/products';
 import { generateBarcodeNumber } from '../api/barcodes';
+import { getTemplates, updateTemplate } from '../api/templates';
 import { validateBarcode, validateQr } from '../utils/validators';
+import { fillPlaceholders, hasPlaceholders } from '../utils/placeholders';
 import {
   validateDimension,
   validateArtboardDimension,
@@ -128,6 +134,69 @@ function CollapsibleSection({
   );
 }
 
+// Helper to extract comparable design attributes (excluding encoded value and dynamic UI states)
+const extractDesignSettings = (mode, codeSettings, artboard, exportDpi) => {
+  const base = {
+    mode,
+    dpi: exportDpi || 300,
+    artboard: {
+      preset: artboard?.preset,
+      width: Number(artboard?.width),
+      height: Number(artboard?.height),
+      unit: artboard?.unit,
+      orientation: artboard?.orientation,
+      background: artboard?.background,
+      border: Boolean(artboard?.border),
+      radius: Number(artboard?.radius),
+      alignment: artboard?.alignment,
+      padding: Number(artboard?.padding),
+      fit: artboard?.fit,
+      xOffset: Number(artboard?.xOffset),
+      yOffset: Number(artboard?.yOffset),
+      exportCodeOnly: Boolean(artboard?.exportCodeOnly),
+    },
+  };
+
+  if (mode === 'barcode') {
+    return {
+      ...base,
+      format: codeSettings?.format,
+      unit: codeSettings?.unit,
+      width: Number(codeSettings?.width),
+      height: Number(codeSettings?.height),
+      lockAspectRatio: Boolean(codeSettings?.lockAspectRatio),
+      margin: Number(codeSettings?.margin),
+      displayValue: Boolean(codeSettings?.displayValue),
+      fontSize: Number(codeSettings?.fontSize),
+      lineColor: codeSettings?.lineColor,
+      background: codeSettings?.background,
+      labelFontSize: Number(codeSettings?.labelFontSize),
+      labelFontUnit: codeSettings?.labelFontUnit,
+      labelGap: Number(codeSettings?.labelGap),
+      labelWeight: codeSettings?.labelWeight,
+      labelAlign: codeSettings?.labelAlign,
+      labelPattern: codeSettings?.labelPattern || '',
+    };
+  } else {
+    return {
+      ...base,
+      unit: codeSettings?.unit,
+      size: Number(codeSettings?.size),
+      errorCorrection: codeSettings?.errorCorrection,
+      dotStyle: codeSettings?.dotStyle,
+      cornerStyle: codeSettings?.cornerStyle,
+      foreground: codeSettings?.foreground,
+      background: codeSettings?.background,
+      labelFontSize: Number(codeSettings?.labelFontSize),
+      labelFontUnit: codeSettings?.labelFontUnit,
+      labelGap: Number(codeSettings?.labelGap),
+      labelWeight: codeSettings?.labelWeight,
+      labelAlign: codeSettings?.labelAlign,
+      labelPattern: codeSettings?.labelPattern || '',
+    };
+  }
+};
+
 export default function DesignerPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -150,9 +219,26 @@ export default function DesignerPage() {
   const [qrSettings, setQrSettings] = useState(DEFAULT_QR_SETTINGS);
   const [artboardSettings, setArtboardSettings] = useState(DEFAULT_ARTBOARD_SETTINGS);
 
+  // Templates state
+  const [appliedTemplate, setAppliedTemplate] = useState(null);
+  const [appliedTemplateSnapshot, setAppliedTemplateSnapshot] = useState(null);
+  const [isSaveTemplateModalOpen, setIsSaveTemplateModalOpen] = useState(false);
+  const [isManagerModalOpen, setIsManagerModalOpen] = useState(false);
+  const [isUpdatingTemplate, setIsUpdatingTemplate] = useState(false);
+  const isInitialTemplateLoaded = useRef(false);
+
   const [calculatedModuleWidth, setCalculatedModuleWidth] = useState(null);
   const [isGeneratingValue, setIsGeneratingValue] = useState(false);
   const [warnings, setWarnings] = useState({ scannabilityWarning: null, codeExceedsWarning: null });
+
+  // Query: Templates list
+  const { data: templates = [], isLoading: isLoadingTemplates } = useQuery({
+    queryKey: ['templates'],
+    queryFn: async () => {
+      const res = await getTemplates();
+      return res.data || [];
+    },
+  });
 
   // Collapsible accordion open states
   const [openSections, setOpenSections] = useState({
@@ -191,6 +277,180 @@ export default function DesignerPage() {
     }
   };
 
+  // Active settings shortcut
+  const activeSettings = type === 'barcode' ? barcodeSettings : qrSettings;
+
+  // Track if current design differs from applied template
+  const currentDesignSnapshot = JSON.stringify(
+    extractDesignSettings(type, activeSettings, artboardSettings, dpi)
+  );
+  const isModified = Boolean(
+    appliedTemplate &&
+    appliedTemplateSnapshot &&
+    currentDesignSnapshot !== appliedTemplateSnapshot
+  );
+
+  // Apply template settings
+  const applyTemplateSettings = (tpl, skipConfirm = false, showToast = true) => {
+    if (appliedTemplate && isModified && !skipConfirm) {
+      const confirmed = window.confirm(
+        'You have unsaved modifications to your current design. Apply template and overwrite design settings?'
+      );
+      if (!confirmed) return false;
+    }
+
+    if (!tpl) {
+      setAppliedTemplate(null);
+      setAppliedTemplateSnapshot(null);
+      return true;
+    }
+
+    const targetType = tpl.type;
+    setType(targetType);
+
+    // Artboard
+    const newArtboard = {
+      ...DEFAULT_ARTBOARD_SETTINGS,
+      ...(tpl.settings?.artboard || {}),
+    };
+    setArtboardSettings(newArtboard);
+
+    // DPI
+    const newDpi = tpl.settings?.dpi || 300;
+    setDpi(newDpi);
+
+    // Label Pattern
+    const currentPattern = tpl.settings?.labelPattern || tpl.settings?.label || '';
+    const resolvedLabel = selectedProduct && currentPattern
+      ? fillPlaceholders(currentPattern, selectedProduct)
+      : (tpl.settings?.label || currentPattern);
+
+    let newCodeSettings;
+    if (targetType === 'barcode') {
+      newCodeSettings = {
+        ...DEFAULT_BARCODE_SETTINGS,
+        ...tpl.settings,
+        label: resolvedLabel,
+        labelPattern: currentPattern,
+        dpi: newDpi,
+      };
+      delete newCodeSettings.artboard;
+      delete newCodeSettings.value;
+      setBarcodeSettings(newCodeSettings);
+    } else {
+      newCodeSettings = {
+        ...DEFAULT_QR_SETTINGS,
+        ...tpl.settings,
+        label: resolvedLabel,
+        labelPattern: currentPattern,
+        dpi: newDpi,
+      };
+      delete newCodeSettings.artboard;
+      delete newCodeSettings.value;
+      setQrSettings(newCodeSettings);
+    }
+
+    setAppliedTemplate(tpl);
+    const snapshot = JSON.stringify(
+      extractDesignSettings(targetType, newCodeSettings, newArtboard, newDpi)
+    );
+    setAppliedTemplateSnapshot(snapshot);
+
+    if (showToast) {
+      toast.success(`Applied template "${tpl.name}"`);
+    }
+    return true;
+  };
+
+  // Switch between Barcode & QR modes
+  const handleTypeChange = (newType) => {
+    if (newType === type) return;
+    if (appliedTemplate && isModified) {
+      const confirmed = window.confirm(
+        'Switching format will change template settings. Discard modifications?'
+      );
+      if (!confirmed) return;
+    }
+    setType(newType);
+
+    // Find default template for newType
+    const defaultForNewType = templates.find((t) => t.type === newType && t.is_default);
+    if (defaultForNewType) {
+      applyTemplateSettings(defaultForNewType, true, false);
+    } else {
+      setAppliedTemplate(null);
+      setAppliedTemplateSnapshot(null);
+    }
+  };
+
+  // Reset to applied template
+  const handleResetToTemplate = () => {
+    if (!appliedTemplate) return;
+    applyTemplateSettings(appliedTemplate, true, true);
+  };
+
+  // Update applied template with current design modifications
+  const handleUpdateAppliedTemplate = async () => {
+    if (!appliedTemplate) return;
+    setIsUpdatingTemplate(true);
+    try {
+      const settingsToSave = {
+        ...activeSettings,
+        artboard: {
+          ...artboardSettings,
+        },
+        dpi,
+      };
+      delete settingsToSave.value;
+
+      let thumbnailBlob = null;
+      const captureNode =
+        artboardSettings.preset !== 'auto' && !artboardSettings.exportCodeOnly
+          ? captureRef.current
+          : codeCaptureRef.current || captureRef.current;
+
+      if (captureNode) {
+        try {
+          thumbnailBlob = await captureElementAsBlob(captureNode, 150);
+        } catch (e) {
+          console.warn('Could not capture updated thumbnail', e);
+        }
+      }
+
+      const formData = new FormData();
+      formData.append('name', appliedTemplate.name);
+      formData.append('type', appliedTemplate.type);
+      formData.append('settings', JSON.stringify(settingsToSave));
+      if (thumbnailBlob) {
+        formData.append('thumbnail', thumbnailBlob, 'thumbnail.png');
+      }
+
+      const res = await updateTemplate(appliedTemplate.id, formData);
+      const updated = res.data;
+      queryClient.invalidateQueries({ queryKey: ['templates'] });
+      setAppliedTemplate(updated);
+      setAppliedTemplateSnapshot(
+        JSON.stringify(extractDesignSettings(type, activeSettings, artboardSettings, dpi))
+      );
+      toast.success(`Template "${updated.name}" updated!`);
+    } catch (err) {
+      console.error('Update template error:', err);
+      toast.error('Failed to update template.');
+    } finally {
+      setIsUpdatingTemplate(false);
+    }
+  };
+
+  // Helper to capture preview thumbnail for SaveTemplateModal
+  const captureTemplateThumbnail = async () => {
+    const captureNode =
+      artboardSettings.preset !== 'auto' && !artboardSettings.exportCodeOnly
+        ? captureRef.current
+        : codeCaptureRef.current || captureRef.current;
+    if (!captureNode) return null;
+    return await captureElementAsBlob(captureNode, 150);
+  };
+
   // Fetch code if in edit mode (/designer/:id)
   const { data: codeData, isLoading: isLoadingCode } = useQuery({
     queryKey: ['code', id],
@@ -213,24 +473,18 @@ export default function DesignerPage() {
       setDpi(savedDpi);
 
       // Restore artboard settings (default to auto preset for legacy saved codes)
-      if (c.settings?.artboard) {
-        setArtboardSettings({
-          ...DEFAULT_ARTBOARD_SETTINGS,
-          ...c.settings.artboard,
-        });
-      } else {
-        setArtboardSettings({
-          ...DEFAULT_ARTBOARD_SETTINGS,
-          preset: 'auto',
-        });
-      }
+      const restoredArtboard = c.settings?.artboard
+        ? { ...DEFAULT_ARTBOARD_SETTINGS, ...c.settings.artboard }
+        : { ...DEFAULT_ARTBOARD_SETTINGS, preset: 'auto' };
+      setArtboardSettings(restoredArtboard);
 
+      let restoredCodeSettings;
       if (c.type === 'barcode') {
         const savedUnit = c.settings?.unit || 'px';
         const savedWidth = c.settings?.width !== undefined ? c.settings.width : 260;
         const savedHeight = c.settings?.height !== undefined ? c.settings.height : 100;
 
-        setBarcodeSettings({
+        restoredCodeSettings = {
           ...DEFAULT_BARCODE_SETTINGS,
           ...(c.settings || {}),
           unit: savedUnit,
@@ -238,21 +492,35 @@ export default function DesignerPage() {
           height: savedHeight,
           format: c.format || c.settings?.format || 'CODE128',
           dpi: savedDpi,
-        });
+        };
+        setBarcodeSettings(restoredCodeSettings);
       } else {
         const savedUnit = c.settings?.unit || 'px';
         const savedSize = c.settings?.size !== undefined ? c.settings.size : 220;
 
-        setQrSettings({
+        restoredCodeSettings = {
           ...DEFAULT_QR_SETTINGS,
           ...(c.settings || {}),
           unit: savedUnit,
           size: savedSize,
           dpi: savedDpi,
-        });
+        };
+        setQrSettings(restoredCodeSettings);
+      }
+
+      // If code was created from a template, link it and set baseline snapshot
+      if (c.template_id && templates.length > 0) {
+        const foundTpl = templates.find((t) => t.id === c.template_id);
+        if (foundTpl) {
+          setAppliedTemplate(foundTpl);
+          const snapshot = JSON.stringify(
+            extractDesignSettings(c.type, restoredCodeSettings, restoredArtboard, savedDpi)
+          );
+          setAppliedTemplateSnapshot(snapshot);
+        }
       }
     }
-  }, [codeData]);
+  }, [codeData, templates]);
 
   // Handle URL pre-selection: /designer?product_id=X
   const initialProductId = searchParams.get('product_id');
@@ -262,15 +530,7 @@ export default function DesignerPage() {
     enabled: Boolean(initialProductId) && !id,
   });
 
-  useEffect(() => {
-    if (initialProductData?.data && !id) {
-      const p = initialProductData.data;
-      handleSelectProduct(p);
-    }
-  }, [initialProductData, id]);
-
   // Format validation
-  const activeSettings = type === 'barcode' ? barcodeSettings : qrSettings;
   const validationResult =
     type === 'barcode'
       ? validateBarcode(activeSettings.format, value)
@@ -299,17 +559,24 @@ export default function DesignerPage() {
     setValue(autoValue);
     setName(`${product.name} ${type === 'barcode' ? 'Barcode' : 'QR Code'}`);
 
-    const labelText = `${product.name} • $${parseFloat(product.price || 0).toFixed(2)}`;
+    const currentPattern =
+      activeSettings.labelPattern ||
+      (hasPlaceholders(activeSettings.label) ? activeSettings.label : '{name} • {price}');
+
+    const labelText = fillPlaceholders(currentPattern, product);
+
     if (type === 'barcode') {
       setBarcodeSettings((prev) => ({
         ...prev,
         label: labelText,
+        labelPattern: currentPattern,
         format: product.barcode_number && /^\d{12,13}$/.test(product.barcode_number) ? 'EAN13' : prev.format,
       }));
     } else {
       setQrSettings((prev) => ({
         ...prev,
         label: labelText,
+        labelPattern: currentPattern,
       }));
     }
   };
@@ -317,6 +584,13 @@ export default function DesignerPage() {
   const handleClearProduct = () => {
     setSelectedProduct(null);
   };
+
+  useEffect(() => {
+    if (initialProductData?.data && !id) {
+      const p = initialProductData.data;
+      handleSelectProduct(p);
+    }
+  }, [initialProductData, id]);
 
   const handleDpiChange = (newDpi) => {
     setDpi(newDpi);
@@ -381,6 +655,8 @@ export default function DesignerPage() {
           exportCodeOnly: Boolean(artboardSettings.exportCodeOnly),
         },
         dpi,
+        template_id: appliedTemplate?.id || null,
+        template_name: appliedTemplate?.name || null,
       };
 
       const formData = new FormData();
@@ -389,6 +665,10 @@ export default function DesignerPage() {
       formData.append('format', type === 'barcode' ? (barcodeSettings.format || 'CODE128') : 'QR');
       formData.append('value', value.trim());
       formData.append('settings', JSON.stringify(settingsToSave));
+
+      if (appliedTemplate?.id) {
+        formData.append('template_id', appliedTemplate.id);
+      }
 
       if (selectedProduct?.id) {
         formData.append('product_id', selectedProduct.id);
@@ -518,6 +798,11 @@ export default function DesignerPage() {
 
   // Action: Reset
   const handleReset = () => {
+    if (appliedTemplate) {
+      applyTemplateSettings(appliedTemplate, true, false);
+      toast.success(`Reset to applied "${appliedTemplate.name}" template.`);
+      return;
+    }
     if (type === 'barcode') {
       setBarcodeSettings(DEFAULT_BARCODE_SETTINGS);
     } else {
@@ -566,7 +851,7 @@ export default function DesignerPage() {
             <div className="inline-flex p-0.5 bg-gray-100 border border-gray-200 rounded-lg">
               <button
                 type="button"
-                onClick={() => setType('barcode')}
+                onClick={() => handleTypeChange('barcode')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                   type === 'barcode'
                     ? 'bg-white text-indigo-600 font-semibold'
@@ -578,7 +863,7 @@ export default function DesignerPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setType('qr')}
+                onClick={() => handleTypeChange('qr')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                   type === 'qr'
                     ? 'bg-white text-indigo-600 font-semibold'
@@ -623,7 +908,21 @@ export default function DesignerPage() {
 
         {/* Right Column: Controls Editor (clamped 340px to 440px, scrolls independently on desktop) */}
         <div className="order-2 lg:order-2 w-full lg:w-[380px] xl:w-[420px] min-w-0 lg:min-w-[340px] lg:max-w-[440px] shrink-0 lg:h-full lg:overflow-y-auto lg:pr-1 [scrollbar-width:thin] [overscroll-behavior:contain]">
-          <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100">
+          <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+            {/* Top Bar: Design Templates */}
+            <TemplateBar
+              type={type}
+              templates={templates}
+              appliedTemplate={appliedTemplate}
+              isModified={isModified}
+              onSelectTemplate={(tpl) => applyTemplateSettings(tpl)}
+              onResetToTemplate={handleResetToTemplate}
+              onOpenSaveModal={() => setIsSaveTemplateModalOpen(true)}
+              onUpdateTemplate={handleUpdateAppliedTemplate}
+              onOpenManager={() => setIsManagerModalOpen(true)}
+              isUpdating={isUpdatingTemplate}
+            />
+
             {/* Card 1: Data Source & Content */}
             <div className="p-4 sm:p-5 space-y-3.5">
               <div className="flex items-center justify-between pb-2 border-b border-gray-100">
@@ -841,18 +1140,47 @@ export default function DesignerPage() {
                   settings={barcodeSettings}
                   onChange={setBarcodeSettings}
                   section="label"
+                  selectedProduct={selectedProduct}
                 />
               ) : (
                 <QrControls
                   settings={qrSettings}
                   onChange={setQrSettings}
                   section="label"
+                  selectedProduct={selectedProduct}
                 />
               )}
             </CollapsibleSection>
           </div>
         </div>
       </div>
+
+      {/* Save as Template Modal */}
+      <SaveTemplateModal
+        isOpen={isSaveTemplateModalOpen}
+        onClose={() => setIsSaveTemplateModalOpen(false)}
+        type={type}
+        currentDesign={{
+          barcodeSettings,
+          qrSettings,
+          artboardSettings,
+          dpi,
+        }}
+        captureThumbnail={captureTemplateThumbnail}
+        onSaved={(newTpl) => {
+          queryClient.invalidateQueries({ queryKey: ['templates'] });
+          applyTemplateSettings(newTpl, true, false);
+        }}
+      />
+
+      {/* Template Manager Modal */}
+      <TemplateManagerModal
+        isOpen={isManagerModalOpen}
+        onClose={() => setIsManagerModalOpen(false)}
+        activeMode={type}
+        appliedTemplateId={appliedTemplate?.id}
+        onApplyTemplate={(tpl) => applyTemplateSettings(tpl)}
+      />
     </div>
   );
 }

@@ -34,6 +34,7 @@ class CodeRequest extends FormRequest
     {
         return [
             'product_id' => ['nullable', 'exists:products,id'],
+            'template_id' => ['nullable', 'exists:templates,id'],
             'name' => ['required', 'string', 'max:255'],
             'type' => ['required', 'in:barcode,qr'],
             'format' => ['required', 'string', 'max:50'],

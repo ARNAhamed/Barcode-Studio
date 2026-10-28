@@ -5,6 +5,7 @@ use App\Http\Controllers\BinController;
 use App\Http\Controllers\CodeController;
 use App\Http\Controllers\PrintPresetController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\TemplateController;
 use Illuminate\Support\Facades\Route;
 
 // Unified Recycle Bin Summary
@@ -44,6 +45,16 @@ Route::delete('/codes/{id}/force', [CodeController::class, 'forceDelete']);
 Route::apiResource('codes', CodeController::class);
 // Allow POST to update for multipart form-data requests with file updates
 Route::post('/codes/{code}', [CodeController::class, 'update']);
+
+// Templates API
+Route::get('/templates', [TemplateController::class, 'index']);
+Route::post('/templates', [TemplateController::class, 'store']);
+Route::get('/templates/{template}', [TemplateController::class, 'show']);
+Route::put('/templates/{template}', [TemplateController::class, 'update']);
+Route::post('/templates/{template}', [TemplateController::class, 'update']); // for multipart update
+Route::delete('/templates/{template}', [TemplateController::class, 'destroy']);
+Route::post('/templates/{template}/duplicate', [TemplateController::class, 'duplicate']);
+Route::post('/templates/{template}/set-default', [TemplateController::class, 'setDefault']);
 
 // Print Presets API
 Route::get('/print-presets', [PrintPresetController::class, 'index']);

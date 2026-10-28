@@ -48,7 +48,7 @@ barcode-designer/
 ### 2.1 Gallery (`/`) — start page
 - Default route when the app opens.
 - Shows saved codes as a responsive card grid (1 / 2 / 3 / 4 columns).
-- Card: preview image, name, type badge (Barcode / QR), format, created date, actions (Edit, Download PNG, Delete).
+- Card: preview image, name, type badge (Barcode / QR), format, created date, actions (Edit, Download PNG, Delete). Shows a small "Template: <name>" line only if the code was created from a template.
 - Top bar: search box, filter chips (All / Barcode / QR), "Recycle Bin" button (with count badge, opens `/bin?tab=designs`), "Create New" button.
 - Empty state: friendly illustration/icon + text "No codes yet" + button "Design your first code".
 - Delete asks for confirmation ("Move to Recycle Bin") and shows a toast with an Undo action after deleting.
@@ -69,6 +69,16 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
   - Compact with tighter spacing, 13–14px text, 36px inputs, and small "Collapse all / Expand all" control.
   - Collapsible sections (**Artboard**, **Code Size**, **Colors**, **Label Text**) with most used section open by default.
   - Related small inputs placed side by side in two columns (e.g. Width and Height, Foreground and Background).
+- **Templates Bar (Top of Editor Panel)**:
+  - Positioned at the top of the editor panel above mode toggles.
+  - "Template" dropdown showing template name and small thumbnail, filtered to current mode (Barcode or QR), with the default template marked with a star icon.
+  - Choosing a template applies all its design settings to the editor and live preview, preserving the current encoded value and any picked product. Prompts confirmation if there are unsaved modifications.
+  - Action buttons:
+    - **Save as template**: opens modal with name, description, "Set as default" toggle, and a checkbox for including label pattern.
+    - **Update template**: visible/enabled when an existing template is applied and has modifications.
+    - **Manage**: opens the Template Manager modal.
+  - **Modified tag**: displays a small "Modified" badge when current design differs from the applied template, alongside a "Reset to template" button.
+  - **Initial load behavior**: New designs open with the default template of the active mode (if one exists). Editing a saved code preserves its saved settings and never gets overwritten by a default template.
 - Toggle at top: **Barcode | QR Code**.
 - **Source of data**: either type custom text OR pick a product from stock (autocomplete). Picking a product auto-fills the value (SKU / barcode number / URL).
 - **Artboard Canvas Controls**:
@@ -94,6 +104,11 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
   - QR Code: Single size input (square), error correction (L/M/Q/H), dot style, corner style, foreground and background colors, optional center logo upload.
 - **Label Text (Barcode & QR modes)**:
   - Custom label text field or product metadata.
+  - **Dynamic Placeholders**: Supports `{name}`, `{sku}`, `{price}`, `{category}`, `{barcode}`, `{quantity}`.
+    - Shared placeholder helper (`resources/js/utils/placeholders.js` and backend helper) replaces tokens with product fields (price formatted consistently with app currency/decimals).
+    - Unknown placeholders remain intact as plain text.
+    - Click-to-insert chips displayed below the label text input for easy token insertion at cursor position.
+    - Template pattern (e.g. `{name} • {price}`) saved in template and dynamically resolved when a product is picked.
   - **Font size**: Number input plus slider in the selected unit family (default `pt`, range 6–72 pt, default 12 pt, decimals allowed; or `px`). Quick step buttons: `A-` (-1) and `A+` (+1).
   - **Gap between code and text**: Number input plus slider in the selected unit (`px`, `mm`, `cm`, `inch`, stored internally in `px`), range 0–50 px equivalent (default 4 px). Quick step buttons: `-` (-1) and `+` (+1).
   - **Font weight**: Toggle button group between `Regular` (400) and `Bold` (700).
@@ -110,7 +125,7 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
   - Export DPI selector: 72, 150, 300, 600 (default 300).
   - PNG and SVG downloads export the whole artboard at chosen DPI/physical units.
   - Checkbox: "Export code only (without artboard)" for legacy behavior.
-  - Save artboard settings in `codes.settings`: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit mode, x/y offset, export_code_only, label text settings.
+  - Save artboard settings in `codes.settings`: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit mode, x/y offset, export_code_only, label text settings, template_id, template_name.
   - Reopening `/designer/:id` restores full artboard, code, and label styling state. Legacy saved codes default to `Auto` preset.
   - Preview saved to Gallery is the artboard; Gallery cards use `object-contain` so various aspect ratios render cleanly without distortion.
 - Validation: show a clear inline error if the value is invalid for the chosen format, or if size is non-positive or too small to scan.
@@ -221,7 +236,21 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 - **Products tab**: Name, SKU, Category, Price, Quantity, Deleted date, "days left" (30-day retention). Row actions: Restore, Delete permanently (with confirmation modal). Top actions: Restore all, Empty bin.
 - **Designs tab**: Preview thumbnail, Name, Type badge (Barcode / QR), Format, Deleted date, "days left" (30-day retention). Row actions: Restore, Delete permanently (with confirmation modal that it cannot be undone). Top actions: Restore all, Empty bin (scoped to active tab).
 - Empty states with friendly illustrations & loading skeletons for each tab.
-- Permanent delete clears preview images from storage. Auto-purge command permanently deletes items older than 30 days.
+- ### 2.6 Design Templates
+- Concept: A template stores the **DESIGN** of a code (dimensions, unit, DPI, artboard styles, alignment, padding, fit mode, offsets, colors, QR styles, label typography and label text pattern) — everything except the encoded value itself.
+- New codes can start from a template in one click.
+- **Starter Templates** (seeded on install):
+  - "Shelf label" (CODE128, 60 x 40 mm)
+  - "Small product label" (EAN13, 50 x 25 mm)
+  - "Box label" (CODE128, 100 x 50 mm)
+  - "Simple QR" (square, 50 x 50 mm)
+- **Template Manager Modal**:
+  - Fits the window (`max-h-[calc(100dvh-2rem)]`), structured flex column with fixed header, scrollable body, and fixed footer.
+  - Search box and type filter chips (`All`, `Barcode`, `QR`).
+  - List / grid items display: thumbnail image, name, type badge, dimensions/format, default star indicator, last updated date.
+  - Actions per template: Apply (loads design into designer), Rename, Duplicate, Set as default (only one default per type), Delete (with confirmation modal).
+- **Non-destructive Deletion**: Soft deleting or permanently deleting a template must never alter or break existing codes created from it.
+- **Gallery Integration**: Codes created from a template store `template_id` as a foreign key (`nullOnDelete`) plus the template name in settings, displaying "Template: <name>" on their gallery card.
 
 ## 3. Database Schema
 
@@ -245,12 +274,26 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 |---|---|---|
 | id | bigint PK | |
 | product_id | FK nullable | `nullOnDelete` |
+| template_id | FK nullable | `nullOnDelete` |
 | name | string | required |
 | type | enum(`barcode`,`qr`) | |
 | format | string | e.g. CODE128, QR |
 | value | text | encoded content |
-| settings | json | design options (colors, styles, unit, width, height, dpi, lock_aspect_ratio, artboard: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, export_code_only; label: text, font_size, font_unit, gap, weight, alignment) |
+| settings | json | design options (colors, styles, unit, width, height, dpi, lock_aspect_ratio, artboard: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, export_code_only; label: text, font_size, font_unit, gap, weight, alignment; template_name) |
 | preview_path | string nullable | saved PNG in `storage/app/public/previews` |
+| timestamps | | |
+| deleted_at | timestamp nullable | soft deletes |
+
+**templates**
+| column | type | notes |
+|---|---|---|
+| id | bigint PK | |
+| name | string | required, unique per type |
+| type | enum(`barcode`,`qr`) | required |
+| description | text | nullable |
+| settings | json | design options (format, unit, width, height, dpi, artboard: preset, width, height, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, colors, QR options: dot style, corner style, error correction, logo reference, label text options: font size, gap, weight, alignment, label text pattern; no encoded value) |
+| thumbnail_path | string nullable | saved PNG in `storage/app/public/templates` |
+| is_default | boolean | default false, max one default per type |
 | timestamps | | |
 | deleted_at | timestamp nullable | soft deletes |
 
@@ -297,6 +340,13 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 | DELETE | `/codes/{id}/force` | permanently delete single code & unlink preview |
 | POST | `/codes/trash/restore-all` | restore all trashed codes |
 | DELETE | `/codes/trash/empty` | permanently delete all trashed codes & preview files |
+| GET | `/templates` | list active templates (query: `search`, `type`) |
+| POST | `/templates` | create template (multipart: fields + `thumbnail` image) |
+| GET | `/templates/{id}` | show template |
+| PUT | `/templates/{id}` | update template |
+| DELETE | `/templates/{id}` | soft delete template |
+| POST | `/templates/{id}/duplicate` | duplicate template |
+| POST | `/templates/{id}/set-default` | set default template for type |
 | GET | `/products` | list active products (query: `search`, `sort`, `page`) |
 | GET | `/products/summary` | totals (total, low, out, trash) excluding trashed |
 | GET | `/products/lookup?q=` | autocomplete (max 10) excluding trashed |

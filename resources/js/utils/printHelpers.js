@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { toPx, fromPx, convertUnit } from './units';
+import { renderArtboardOffscreen } from './artboardRenderer';
 
 export const PAPER_SIZES = {
   a4: {
@@ -396,8 +397,46 @@ export const exportSheetPdf = async ({
   const paddingMm = parseFloat(placement.padding) || 1.5;
   const showBorders = Boolean(placement.showBorders);
 
-  // Cache loaded images
+  // Pre-render unique items at high resolution using renderArtboardOffscreen, with preview_url as fallback
   const imageCache = new Map();
+  for (const page of pages) {
+    for (const cell of page.cells || []) {
+      if (!cell.isEmpty && cell.item && !imageCache.has(cell.item.id)) {
+        try {
+          const item = cell.item;
+          let renderedDataUrl = null;
+          if (item.value && (item.type === 'barcode' || item.type === 'qr')) {
+            renderedDataUrl = await renderArtboardOffscreen({
+              type: item.type,
+              format: item.format,
+              value: item.value,
+              settings: item.settings || {},
+              artboardSettings: item.settings?.artboard || {},
+              labelText: item.settings?.label || item.label_text || '',
+              product: item.product || null,
+              pixelRatio: 3,
+              asDataUrl: true,
+            });
+          }
+          if (!renderedDataUrl && item.preview_url) {
+            renderedDataUrl = item.preview_url;
+          }
+          if (renderedDataUrl) {
+            const loaded = await loadImg(renderedDataUrl);
+            imageCache.set(item.id, loaded);
+          }
+        } catch (e) {
+          console.warn('Could not pre-render item for PDF, falling back to thumbnail:', e);
+          if (cell.item?.preview_url) {
+            try {
+              const loaded = await loadImg(cell.item.preview_url);
+              imageCache.set(cell.item.id, loaded);
+            } catch (err) {}
+          }
+        }
+      }
+    }
+  }
 
   for (let pIdx = 0; pIdx < pages.length; pIdx++) {
     if (pIdx > 0) {
@@ -431,14 +470,14 @@ export const exportSheetPdf = async ({
       }
 
       // Draw item if slot is not empty
-      if (!cell.isEmpty && cell.item?.preview_url) {
+      if (!cell.isEmpty && cell.item) {
         try {
-          const url = cell.item.preview_url;
-          let img = imageCache.get(url);
-          if (!img) {
-            img = await loadImg(url);
-            imageCache.set(url, img);
+          let img = imageCache.get(cell.item.id);
+          if (!img && cell.item.preview_url) {
+            img = await loadImg(cell.item.preview_url);
+            imageCache.set(cell.item.id, img);
           }
+          if (!img) continue;
 
           // Available inner cell area after padding
           const innerX = cellX + paddingMm;

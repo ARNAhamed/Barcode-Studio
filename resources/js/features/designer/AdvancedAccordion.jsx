@@ -180,6 +180,8 @@ export default function AdvancedAccordion({
   };
 
   const activeUnit = settings.unit || artboardSettings?.unit || 'mm';
+  const codeColor = type === 'barcode' ? (settings.lineColor || '#000000') : (settings.foreground || '#0F172A');
+  const labelColor = settings.labelColor || (settings.label && typeof settings.label === 'object' ? settings.label.color : null) || codeColor;
 
   // Logo upload for QR
   const handleLogoUpload = (e) => {
@@ -806,6 +808,41 @@ export default function AdvancedAccordion({
                           </button>
                         );
                       })}
+                    </div>
+                  </div>
+
+                  {/* Label Color Control */}
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="block text-[11px] font-medium text-gray-700">Label color</span>
+                      {labelColor.toLowerCase() !== codeColor.toLowerCase() && (
+                        <button
+                          type="button"
+                          onClick={() => onChangeSettings({ ...settings, labelColor: codeColor })}
+                          className="text-[11px] font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                        >
+                          Match code color
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 flex items-center gap-2 h-8 px-2 bg-white border border-gray-300 rounded hover:border-gray-400 transition-colors min-w-0">
+                        <input
+                          type="color"
+                          value={labelColor}
+                          onChange={(e) => onChangeSettings({ ...settings, labelColor: e.target.value })}
+                          className="w-5 h-5 rounded cursor-pointer border border-gray-200 p-0 shrink-0"
+                          title="Label text color"
+                        />
+                        <span className="text-xs font-mono text-gray-800 uppercase truncate">
+                          {labelColor}
+                        </span>
+                      </div>
+                      {labelColor.toLowerCase() === codeColor.toLowerCase() && (
+                        <span className="text-[11px] text-gray-400 select-none shrink-0">
+                          Matches code
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

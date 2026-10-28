@@ -40,6 +40,10 @@ import {
   downloadSvgElement,
   downloadArtboardSvg,
 } from '../utils/downloadHelpers';
+import {
+  renderArtboardOffscreen,
+  resolveLabelColor,
+} from '../utils/artboardRenderer';
 
 const DEFAULT_BARCODE_SETTINGS = {
   unit: 'mm',
@@ -55,6 +59,7 @@ const DEFAULT_BARCODE_SETTINGS = {
   lineColor: '#000000',
   background: '#ffffff',
   label: '',
+  labelColor: null,
   labelFontSize: 11,
   labelFontUnit: 'pt',
   labelGap: 4,
@@ -74,6 +79,7 @@ const DEFAULT_QR_SETTINGS = {
   background: '#ffffff',
   logo: null,
   label: '',
+  labelColor: null,
   labelFontSize: 11,
   labelFontUnit: 'pt',
   labelGap: 4,
@@ -370,17 +376,23 @@ export default function DesignerPage() {
       delete settingsToSave.value;
 
       let thumbnailBlob = null;
-      const captureNode =
-        artboardSettings.preset !== 'auto' && !artboardSettings.exportCodeOnly
-          ? captureRef.current
-          : codeCaptureRef.current || captureRef.current;
-
-      if (captureNode) {
-        try {
-          thumbnailBlob = await captureElementAsBlob(captureNode, 150);
-        } catch (e) {
-          console.warn('Could not capture updated thumbnail', e);
-        }
+      try {
+        const rawTplPattern = typeof activeSettings.label === 'string' ? activeSettings.label : (activeSettings.labelPattern || '');
+        const resolvedTplLabel = fillPlaceholders(rawTplPattern, selectedProduct);
+        thumbnailBlob = await renderArtboardOffscreen({
+          type: appliedTemplate.type,
+          format: appliedTemplate.type === 'barcode' ? (activeSettings.format || 'CODE128') : 'QR',
+          value: value.trim() || '123456789012',
+          settings: activeSettings,
+          artboardSettings,
+          labelText: resolvedTplLabel,
+          product: selectedProduct,
+          formatType: 'blob',
+          pixelRatio: 2,
+          maxDimension: 800,
+        });
+      } catch (e) {
+        console.warn('Could not capture updated thumbnail', e);
       }
 
       const formData = new FormData();
@@ -408,12 +420,25 @@ export default function DesignerPage() {
 
   // Helper for SaveTemplateModal thumbnail
   const captureTemplateThumbnail = async () => {
-    const captureNode =
-      artboardSettings.preset !== 'auto' && !artboardSettings.exportCodeOnly
-        ? captureRef.current
-        : codeCaptureRef.current || captureRef.current;
-    if (!captureNode) return null;
-    return await captureElementAsBlob(captureNode, 150);
+    try {
+      const rawPattern = typeof activeSettings.label === 'string' ? activeSettings.label : (activeSettings.labelPattern || '');
+      const resolvedLabel = fillPlaceholders(rawPattern, selectedProduct);
+      return await renderArtboardOffscreen({
+        type,
+        format: type === 'barcode' ? (barcodeSettings.format || 'CODE128') : 'QR',
+        value: value.trim() || '123456789012',
+        settings: activeSettings,
+        artboardSettings,
+        labelText: resolvedLabel,
+        product: selectedProduct,
+        formatType: 'blob',
+        pixelRatio: 2,
+        maxDimension: 800,
+      });
+    } catch (e) {
+      console.warn('Could not capture template thumbnail', e);
+      return null;
+    }
   };
 
   // Fetch code if in edit mode (/designer/:id)
@@ -442,12 +467,20 @@ export default function DesignerPage() {
         : { ...INITIAL_ARTBOARD_SETTINGS, preset: 'auto' };
       setArtboardSettings(restoredArtboard);
 
+      const savedLabelColor =
+        c.settings?.labelColor ||
+        c.settings?.label_color ||
+        (typeof c.settings?.label === 'object' ? c.settings?.label?.color : null) ||
+        null;
+
       let restoredCodeSettings;
       if (c.type === 'barcode') {
         const savedUnit = c.settings?.unit || 'mm';
         restoredCodeSettings = {
           ...DEFAULT_BARCODE_SETTINGS,
           ...(c.settings || {}),
+          labelColor: savedLabelColor,
+          label: typeof c.settings?.label === 'string' ? c.settings.label : (c.settings?.labelPattern || c.settings?.label?.text || ''),
           unit: savedUnit,
           format: c.format || c.settings?.format || 'CODE128',
           dpi: savedDpi,
@@ -458,6 +491,8 @@ export default function DesignerPage() {
         restoredCodeSettings = {
           ...DEFAULT_QR_SETTINGS,
           ...(c.settings || {}),
+          labelColor: savedLabelColor,
+          label: typeof c.settings?.label === 'string' ? c.settings.label : (c.settings?.labelPattern || c.settings?.label?.text || ''),
           unit: savedUnit,
           dpi: savedDpi,
         };
@@ -710,20 +745,29 @@ export default function DesignerPage() {
     }
 
     try {
-      const captureNode =
-        artboardSettings.preset !== 'auto' && !artboardSettings.exportCodeOnly
-          ? captureRef.current
-          : codeCaptureRef.current || captureRef.current;
-
-      const blob = await captureElementAsBlob(captureNode, dpi);
-
-      const rawPattern = activeSettings.label || '';
+      const rawPattern = typeof activeSettings.label === 'string' ? activeSettings.label : (activeSettings.labelPattern || '');
       const resolvedLabel = fillPlaceholders(rawPattern, selectedProduct);
+
+      // Generate off-screen, unscaled artboard capture (no zoom, pan, or clipping artifacts)
+      const blob = await renderArtboardOffscreen({
+        type,
+        format: type === 'barcode' ? (barcodeSettings.format || 'CODE128') : 'QR',
+        value: value.trim(),
+        settings: activeSettings,
+        artboardSettings,
+        labelText: resolvedLabel,
+        product: selectedProduct,
+        formatType: 'blob',
+        pixelRatio: 2,
+        maxDimension: 1200,
+      });
 
       const settingsToSave = {
         ...activeSettings,
         label: resolvedLabel,
         labelPattern: rawPattern,
+        labelColor: activeSettings.labelColor || null,
+        label_color: activeSettings.labelColor || null,
         artboard: { ...artboardSettings },
         dpi,
         template_id: appliedTemplate?.id || null,
@@ -749,6 +793,7 @@ export default function DesignerPage() {
 
       saveMutation.mutate(formData);
     } catch (err) {
+      console.error('Save preview error:', err);
       toast.error('Failed to capture preview image.');
     }
   };
@@ -797,6 +842,7 @@ export default function DesignerPage() {
         gap: labelGapPx,
         weight: labelWeight,
         align: labelAlign,
+        color: resolveLabelColor(activeSettings, type),
       } : null;
 
       const codeW = toPx(activeSettings.width || activeSettings.size, activeSettings.unit);
@@ -981,6 +1027,7 @@ export default function DesignerPage() {
             onDpiChange={handleDpiChange}
             onCalculatedModuleWidth={setCalculatedModuleWidth}
             onWarningsUpdate={setWarnings}
+            onChangeSettings={type === 'barcode' ? setBarcodeSettings : setQrSettings}
           />
         </div>
 

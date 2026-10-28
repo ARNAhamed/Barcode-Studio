@@ -37,13 +37,13 @@ export default function CodeCard({ code, onDelete }) {
       {/* Code Image Preview Container (#F4F4F5 / bg-zinc-100) */}
       <div
         onClick={() => navigate(`/designer/${code.id}`)}
-        className="w-full h-40 bg-[#F4F4F5] border-b border-gray-200 flex items-center justify-center p-4 cursor-pointer relative"
+        className="w-full h-44 bg-[#F4F4F5] border-b border-gray-200 flex items-center justify-center p-3 cursor-pointer relative"
       >
         {code.preview_url ? (
           <img
             src={code.preview_url}
             alt={code.name}
-            className="max-h-full max-w-full object-contain"
+            className="max-h-full max-w-full object-contain m-auto block select-none"
             loading="lazy"
           />
         ) : (

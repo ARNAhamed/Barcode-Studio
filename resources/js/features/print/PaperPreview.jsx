@@ -6,6 +6,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { getPaperDimensions } from '../../utils/printHelpers';
+import ArtboardView from '../../components/ArtboardView';
 
 export default function PaperPreview({
   config,
@@ -351,38 +352,10 @@ export default function PaperPreview({
 
                   {/* Render design code item inside label */}
                   {cell.item && (
-                    <div
-                      className="w-full h-full flex"
-                      style={{
-                        alignItems:
-                          placement.alignment === 'top-left' || placement.alignment === 'top-center'
-                            ? 'flex-start'
-                            : 'center',
-                        justifyContent:
-                          placement.alignment === 'top-left' ? 'flex-start' : 'center',
-                      }}
-                    >
-                      <img
-                        src={cell.item.preview_url}
-                        alt={cell.item.name}
-                        style={{
-                          maxWidth: '100%',
-                          maxHeight: '100%',
-                          width: placement.fit === 'fill' ? '100%' : 'auto',
-                          height: placement.fit === 'fill' ? '100%' : 'auto',
-                          objectFit: placement.fit === 'fill' ? 'fill' : 'contain',
-                          border:
-                            placement.showArtboardBorder && cell.item.settings?.artboard?.borderWidth
-                              ? `${cell.item.settings.artboard.borderWidth}px solid ${cell.item.settings.artboard.borderColor || '#000000'}`
-                              : 'none',
-                          backgroundColor:
-                            placement.showBackground !== false &&
-                            cell.item.settings?.artboard?.background
-                              ? cell.item.settings.artboard.background
-                              : 'transparent',
-                        }}
-                      />
-                    </div>
+                    <ArtboardView
+                      item={cell.item}
+                      placement={placement}
+                    />
                   )}
                 </div>
               );
@@ -422,6 +395,56 @@ export default function PaperPreview({
             <ChevronRight className="w-3.5 h-3.5 stroke-[1.5]" />
           </button>
         </div>
+      </div>
+
+      {/* 4. Multi-page Print Output for window.print() */}
+      <div className="print-pages-sheet-wrapper hidden print:block">
+        {pages.map((p) => (
+          <div
+            key={p.page}
+            className="print-sheet-page"
+            style={{
+              width: `${widthMm}mm`,
+              height: `${heightMm}mm`,
+              position: 'relative',
+              backgroundColor: '#ffffff',
+            }}
+          >
+            {p.cells?.map((cell) => {
+              const slotIndex = cell.slot - 1;
+              const col = slotIndex % cols;
+              const row = Math.floor(slotIndex / cols);
+              const cellX = leftMMm + col * (labelWMm + gapHMm);
+              const cellY = topMMm + row * (labelHMm + gapVMm);
+
+              return (
+                <div
+                  key={cell.slot}
+                  className="print-label-cell"
+                  style={{
+                    position: 'absolute',
+                    left: `${cellX}mm`,
+                    top: `${cellY}mm`,
+                    width: `${labelWMm}mm`,
+                    height: `${labelHMm}mm`,
+                    borderRadius: `${cornerRMm}mm`,
+                    padding: `${paddingMm}mm`,
+                    border: showLabelBorders ? '0.15mm solid #d1d5db' : 'none',
+                    boxSizing: 'border-box',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {cell.item && (
+                    <ArtboardView
+                      item={cell.item}
+                      placement={placement}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );

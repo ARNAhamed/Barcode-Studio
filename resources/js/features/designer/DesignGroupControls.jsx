@@ -448,6 +448,7 @@ export default function DesignGroupControls({
   // Color values
   const codeColor = type === 'barcode' ? (settings.lineColor || '#000000') : (settings.foreground || '#0F172A');
   const bgColor = settings.background || '#ffffff';
+  const labelColor = settings.labelColor || (settings.label && typeof settings.label === 'object' ? settings.label.color : null) || codeColor;
 
   const handleCodeColorChange = (newColor) => {
     if (type === 'barcode') {
@@ -462,6 +463,14 @@ export default function DesignGroupControls({
     if (artboardSettings?.preset !== 'auto') {
       onChangeArtboard({ ...artboardSettings, background: newColor });
     }
+  };
+
+  const handleLabelColorChange = (newColor) => {
+    onChangeSettings({ ...settings, labelColor: newColor });
+  };
+
+  const handleMatchCodeColor = () => {
+    onChangeSettings({ ...settings, labelColor: codeColor });
   };
 
   const isMultiLine = Boolean(settings.label && settings.label.includes('\n'));
@@ -975,6 +984,45 @@ export default function DesignGroupControls({
               </span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* 6. Label Color Control */}
+      <div className="min-w-0">
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <label className="text-xs font-semibold text-gray-800">Label color</label>
+          {labelColor.toLowerCase() !== codeColor.toLowerCase() && (
+            <button
+              type="button"
+              onClick={handleMatchCodeColor}
+              className="text-[11px] font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer transition-colors"
+              title="Reset label color to match code color"
+            >
+              Match code color
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 flex items-center gap-2 h-9 px-2 bg-white border border-gray-300 rounded-lg hover:border-gray-400 transition-colors min-w-0">
+            <input
+              type="color"
+              value={labelColor}
+              onChange={(e) => handleLabelColorChange(e.target.value)}
+              className="w-6 h-6 rounded cursor-pointer border border-gray-200 p-0 shrink-0"
+              title="Label text color"
+            />
+            <div className="min-w-0 flex-1 truncate">
+              <span className="block text-[10px] text-gray-400 uppercase leading-none truncate">Label text</span>
+              <span className="text-xs font-mono text-gray-800 uppercase truncate">
+                {labelColor}
+              </span>
+            </div>
+          </div>
+          {labelColor.toLowerCase() === codeColor.toLowerCase() && (
+            <span className="text-[11px] text-gray-400 px-2 select-none shrink-0">
+              Matches code
+            </span>
+          )}
         </div>
       </div>
     </div>

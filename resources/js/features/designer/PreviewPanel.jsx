@@ -18,6 +18,7 @@ import {
 import Button from '../../components/Button';
 import { DPIS, toPx, fromPx } from '../../utils/units';
 import { fillPlaceholders, hasPlaceholders } from '../../utils/placeholders';
+import { resolveLabelColor, getContrastRatio, getLuminance } from '../../utils/artboardRenderer';
 
 const SAMPLE_PRODUCT = {
   name: 'Wireless Headphones',
@@ -67,6 +68,7 @@ export default function PreviewPanel({
   onDpiChange,
   onCalculatedModuleWidth,
   onWarningsUpdate,
+  onChangeSettings,
 }) {
   const localBarcodeSvgRef = useRef(null);
   const sampleBarcodeSvgRef = useRef(null);
@@ -178,6 +180,10 @@ export default function PreviewPanel({
 
   // Total raw dimensions
   const totalRawPxWidth = codeRawPxWidth;
+  const effectiveLabelColor = resolveLabelColor(settings, type);
+  const artboardBg = artboardSettings?.background || settings.background || '#ffffff';
+  const labelContrastRatio = getContrastRatio(effectiveLabelColor, artboardBg);
+  const isLabelContrastLow = labelContrastRatio < 2.5 && (hasLabel || (type === 'barcode' && (settings.displayValue ?? true)));
   const totalRawPxHeight = codeRawPxHeight + (hasLabel ? labelGapPx + labelPxHeight : 0);
 
   // Artboard Dimensions
@@ -385,6 +391,10 @@ export default function PreviewPanel({
         });
         setRenderError(null);
 
+        // Tint human-readable text under barcode with labelColor
+        const textEls = activeBarcodeRef.current.querySelectorAll('text');
+        textEls.forEach((t) => t.setAttribute('fill', effectiveLabelColor));
+
         const svgBBox = activeBarcodeRef.current.getBBox?.();
         if (svgBBox && svgBBox.width > 0) {
           const estimatedBars = value.length * 11 + 35;
@@ -407,6 +417,7 @@ export default function PreviewPanel({
     codeRawPxHeight,
     onCalculatedModuleWidth,
     activeBarcodeRef,
+    effectiveLabelColor,
   ]);
 
   // Render Sample Barcode on Empty
@@ -591,6 +602,13 @@ export default function PreviewPanel({
     statusFixLabel = 'Fit to artboard';
   } else if (warnings.scannabilityWarning) {
     statusProblem = warnings.scannabilityWarning;
+  } else if (isLabelContrastLow) {
+    statusProblem = 'Label color has low contrast';
+    statusFixAction = () => {
+      const fixColor = getLuminance(artboardBg) > 0.5 ? '#000000' : '#ffffff';
+      onChangeSettings?.({ ...settings, labelColor: fixColor });
+    };
+    statusFixLabel = 'Fix';
   }
 
   // Artboard Size readout chip
@@ -779,7 +797,7 @@ export default function PreviewPanel({
                           fontSize: `${labelFontSizePx}px`,
                           fontWeight: labelWeight === 'bold' ? 700 : 400,
                           textAlign: labelAlign,
-                          color: '#0F172A',
+                          color: effectiveLabelColor,
                           maxWidth: `${Math.round(codeRawPxWidth)}px`,
                         }}
                         title="Click to edit label text"
@@ -787,7 +805,7 @@ export default function PreviewPanel({
                         {resolvedLabelText.split('\n').map((line, idx) => (
                           <p
                             key={idx}
-                            style={{ color: isPatternUnlinked ? '#64748B' : '#0F172A' }}
+                            style={{ color: isPatternUnlinked ? '#64748B' : effectiveLabelColor }}
                             className="w-full break-words whitespace-normal leading-tight m-0 p-0"
                           >
                             {line}
@@ -811,6 +829,7 @@ export default function PreviewPanel({
                           fontSize: `${labelFontSizePx}px`,
                           fontWeight: labelWeight === 'bold' ? 700 : 400,
                           textAlign: labelAlign,
+                          color: effectiveLabelColor,
                           maxWidth: `${Math.round(codeRawPxWidth)}px`,
                         }}
                         title="Click to edit label text"
@@ -818,7 +837,7 @@ export default function PreviewPanel({
                         {resolvedLabelText.split('\n').map((line, idx) => (
                           <p
                             key={idx}
-                            style={{ color: isPatternUnlinked ? '#64748B' : '#0F172A' }}
+                            style={{ color: isPatternUnlinked ? '#64748B' : effectiveLabelColor }}
                             className="w-full break-words whitespace-normal leading-tight m-0 p-0"
                           >
                             {line}

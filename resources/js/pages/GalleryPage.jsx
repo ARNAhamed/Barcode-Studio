@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { LayoutGrid, Trash2, Plus } from 'lucide-react';
+import { LayoutGrid, Trash2, Plus, RefreshCw } from 'lucide-react';
 
 import PageHeader from '../components/PageHeader';
 import Filters from '../features/gallery/Filters';
 import CodeGrid from '../features/gallery/CodeGrid';
+import RebuildPreviewsModal from '../features/gallery/RebuildPreviewsModal';
 import Modal from '../components/Modal';
 import Button from '../components/Button';
 import { getCodes, deleteCode, restoreCode } from '../api/codes';
@@ -27,6 +28,7 @@ export default function GalleryPage() {
   // Delete modal state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [codeToDelete, setCodeToDelete] = useState(null);
+  const [isRebuildModalOpen, setIsRebuildModalOpen] = useState(false);
 
   // Sync state if URL changes
   useEffect(() => {
@@ -182,11 +184,22 @@ export default function GalleryPage() {
         title="Code Gallery"
         description="Browse, download, and manage your collection of saved barcodes and QR codes."
         action={
-          <Link to="/designer">
-            <Button variant="primary" size="md" icon={Plus}>
-              Create New
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="md"
+              icon={RefreshCw}
+              onClick={() => setIsRebuildModalOpen(true)}
+              disabled={!allCodesResponse?.data?.length}
+            >
+              Rebuild previews
             </Button>
-          </Link>
+            <Link to="/designer">
+              <Button variant="primary" size="md" icon={Plus}>
+                Create New
+              </Button>
+            </Link>
+          </div>
         }
       />
 
@@ -261,6 +274,14 @@ export default function GalleryPage() {
           </div>
         )}
       </Modal>
+
+      {/* Rebuild Previews Batch Modal */}
+      <RebuildPreviewsModal
+        isOpen={isRebuildModalOpen}
+        onClose={() => setIsRebuildModalOpen(false)}
+        codes={allCodesResponse?.data || []}
+        onSuccess={invalidateQueries}
+      />
     </div>
   );
 }

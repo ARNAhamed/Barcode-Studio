@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { toPng } from 'html-to-image';
 import {
   Sparkles,
   ArrowRight,
@@ -32,6 +31,7 @@ import { bulkCreateCodes } from '../../api/codes';
 import { AVAILABLE_PLACEHOLDERS, fillPlaceholders } from '../../utils/placeholders';
 import { validateBarcode, validateQr } from '../../utils/validators';
 import BulkCodeRenderer from './BulkCodeRenderer';
+import { renderArtboardOffscreen } from '../../utils/artboardRenderer';
 
 export default function BulkGenerateModal({
   isOpen,
@@ -358,17 +358,21 @@ export default function BulkGenerateModal({
         await new Promise((resolve) => setTimeout(resolve, 60));
 
         let previewDataUrl = null;
-        if (offscreenCaptureRef.current) {
-          try {
-            previewDataUrl = await toPng(offscreenCaptureRef.current, {
-              cacheBust: true,
-              skipFonts: true,
-              backgroundColor: '#ffffff',
-              pixelRatio: 1.5,
-            });
-          } catch (e) {
-            console.warn('Preview capture fallback:', e);
-          }
+        try {
+          previewDataUrl = await renderArtboardOffscreen({
+            type: selectedTemplate.type,
+            format: currentItem.format,
+            value: currentItem.value || currentItem.autoFixedValue || 'CODE',
+            settings: selectedTemplate.settings,
+            artboardSettings: selectedTemplate.settings?.artboard,
+            labelText: currentItem.labelText,
+            product: currentItem.product,
+            formatType: 'dataUrl',
+            pixelRatio: 2,
+            maxDimension: 1200,
+          });
+        } catch (e) {
+          console.warn('renderArtboardOffscreen error in bulk generate:', e);
         }
 
         renderedChunkPayloads.push({

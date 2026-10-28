@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import JsBarcode from 'jsbarcode';
 import QRCodeStyling from 'qr-code-styling';
 import { toPx } from '../../utils/units';
+import { resolveLabelColor } from '../../utils/artboardRenderer';
 
 export default function BulkCodeRenderer({
   template,
@@ -18,6 +19,7 @@ export default function BulkCodeRenderer({
   const format = template?.settings?.format || (type === 'qr' ? 'QR' : 'CODE128');
   const settings = template?.settings || {};
   const artboardSettings = settings.artboard || {};
+  const labelColor = resolveLabelColor(settings, type);
 
   const codeUnit = settings.unit || 'px';
   const codeRawPxWidth = type === 'barcode'
@@ -103,6 +105,11 @@ export default function BulkCodeRenderer({
           background: settings.background || 'transparent',
           margin: 0,
         });
+
+        if (svgRef.current) {
+          const textEls = svgRef.current.querySelectorAll('text');
+          textEls.forEach((t) => t.setAttribute('fill', labelColor));
+        }
       } catch (err) {
         // If JsBarcode throws on invalid format, clear SVG
         if (svgRef.current) {
@@ -189,7 +196,7 @@ export default function BulkCodeRenderer({
                   fontSize: `${labelFontSizePx}px`,
                   fontWeight: labelWeight === 'bold' ? 700 : 400,
                   textAlign: labelAlign,
-                  color: '#0F172A',
+                  color: labelColor,
                   maxWidth: `${Math.round(codeRawPxWidth)}px`,
                 }}
               >
@@ -215,7 +222,7 @@ export default function BulkCodeRenderer({
                   fontSize: `${labelFontSizePx}px`,
                   fontWeight: labelWeight === 'bold' ? 700 : 400,
                   textAlign: labelAlign,
-                  color: '#0F172A',
+                  color: labelColor,
                   maxWidth: `${Math.round(codeRawPxWidth)}px`,
                 }}
               >

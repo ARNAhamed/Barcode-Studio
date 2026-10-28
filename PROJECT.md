@@ -163,9 +163,10 @@ graph TD
 
 ### 4.1 Gallery (`/`)
 - **Default Route:** Serves as the start page cataloging all saved designs.
-- **Card Grid:** Responsive card grid (1 / 2 / 3 / 4 columns) with centered preview on neutral light gray canvas (`bg-zinc-100`).
+- **Card Grid:** Responsive card grid (1 / 2 / 3 / 4 columns) with preview centered on neutral light gray canvas (`#F4F4F5` / `bg-zinc-100`).
+- **Preview Thumbnail Display:** Previews are displayed using `object-contain` centered with a small padding (`p-3`) on the `#F4F4F5` background. Never uses `object-cover` or fixed heights that crop. Card size remains consistent regardless of aspect ratio.
 - **Card Details:** Name, type badge (Barcode / QR), format, created date, and actions (Edit, Download PNG, Print, Delete). Displays a small `"Template: <name>"` line if created from a template, and a subtle batch label for codes generated in bulk.
-- **Toolbar:** Search box, format filters (All / Barcode / QR / Last bulk run), and `+ New Design` primary button. *(Note: Header does NOT have a Recycle Bin button; accessed via sidebar).*
+- **Toolbar & Batch Rebuild Previews:** Search box, format filters (All / Barcode / QR / Last bulk run), `+ New Design` primary button, and **"Rebuild previews"** action. The Rebuild Previews tool regenerates preview images of selected or all saved codes from their saved settings in sequential batches with a real-time progress indicator and a Cancel button, then refreshes the Gallery.
 - **Delete Confirmation:** Soft-deletes code to the Recycle Bin with undo toast notification.
 
 ### 4.2 Designer (`/designer` and `/designer/:id`)
@@ -174,18 +175,21 @@ graph TD
   - **Right Pane (~30–35% width, clamped 340–440px):** Independent vertical scrolling (`overscroll-behavior: contain`), displaying essential controls by default.
   - At 1024px and above, the outer page body does not scroll (`height: calc(100dvh - <header>)` with `overflow: hidden`). Below 1024px, preview is sticky at top (max 40vh) with controls underneath.
 - **Preview Pane (Left):**
-  - **Artboard Canvas:** Centered live SVG rendering reflecting exact dimensions, colors, margins, and typography.
+  - **Artboard Canvas:** Centered live SVG rendering reflecting exact dimensions, colors, margins, label color, and typography.
   - **Interactive Canvas Direct Manipulation:**
     - Click & drag code on the artboard to position it freely; double-click code to reset offsets.
     - Click label text directly in the preview to focus and edit the field.
     - Thin selection outline on hover.
   - **Floating Zoom Widget:** Fixed zoom steps (`25%`, `50%`, `75%`, `100%`, `150%`, `200%`, `300%`, `400%`), clickable percentage dropdown, and `Fit` button with auto re-fit on resize. Supports `Ctrl` + mouse wheel zoom, touchscreen pinch zoom, and keyboard shortcuts (`+`, `-`, `0` for Fit). Canvas drag-to-pan when zoomed in beyond viewport.
   - **Floating Artboard Size Chip:** Displays physical dimensions (e.g. `50 × 25 mm`).
-  - **Single Status Line:** Replaces scattered warnings with one concise line under preview: green dot + `"Ready to scan"` when valid, or single amber message with an auto-action `"Fix"` button (e.g., auto-fix check digit).
+  - **Single Status Line:** Replaces scattered warnings with one concise line under preview: green dot + `"Ready to scan"` when valid, or single amber message with an auto-action `"Fix"` button (e.g., auto-fix check digit, or low contrast fix for label color).
   - **Action Footer:**
-    - Primary `Save` button with status text ("Saved" / "Unsaved changes").
+    - Primary `Save` button with status text ("Saved" / "Unsaved changes"). Saving automatically re-renders a fresh, uncropped preview image.
     - `Download` button with popover: **PNG** and **SVG** with embedded DPI selector (72, 150, 300; defaults to 300).
     - More actions (`...`) menu: Reset, Duplicate as new, and Export code only toggle.
+- **Shared Off-Screen Preview Rendering:**
+  - Every saved preview (Designer Save, Bulk Generate, Template Thumbnails, and Rebuild Previews) is generated via ONE shared rendering engine that draws the complete artboard (code, label text with `labelColor`, background, border, padding) at its real physical size in an off-screen, unscaled container (completely isolated from zoom, pan, pane overflow, or "Export code only" toggles).
+  - Awaits font loading (`document.fonts.ready`) and asynchronous QR rendering before capturing at a sensible 2x pixel ratio (capped at ~1200px on the longest dimension). Always includes the complete label text.
 - **Editor Controls (Right Pane):**
   - **Top Row:** Mode switch (**Barcode | QR Code**), followed by a row containing a **Template** dropdown and a **Product** picker.
   - **Design Group (Always Visible):**
@@ -198,12 +202,13 @@ graph TD
       - **Code Size Chips:** Barcode presets (`Small 30×10 mm`, `Medium 45×15 mm`, `Large 60×20 mm`), QR presets (`Small 15 mm`, `Medium 25 mm`, `Large 40 mm`), `Auto`, and `Custom`.
     - **Artboard Sizing:** Select dropdown: `Fit to code`, `Small label (50 × 25 mm)`, `Shelf label (60 × 40 mm)`, `Product label (100 × 50 mm)`, `Shipping label (100 × 150 mm)`, `Square (50 × 50 mm)`, `A6`, `A5`, `A4`, `Business card (90 × 55 mm)`, and `Custom`.
     - **Colors:** Code foreground and background color swatches with hex pickers and a **Swap** icon button.
+    - **Label Color Control:** Positioned directly below the Colors row. Contains a single color swatch with compact picker and hex input, plus a "Match code color" shortcut button. Governs label text color (and barcode human-readable text). Defaults to code color for new designs and backward-compatible fallbacks for legacy designs. A gentle warning appears in the status line if contrast against the background is insufficient, with a one-click "Fix" action.
   - **Advanced Settings (Vertical Accordion):**
     - Single-open accordion containing collapsible panels with chevron indicators:
       1. **Artboard Style:** Card border (toggle, color, width), corner radius, and background color.
       2. **Placement:** 3x3 alignment grid, padding, fit mode (`original`, `fit`, `fill-width`), fine X/Y offsets, reset position.
       3. **Code Style:** Bar width multiplier, margin, show-number toggle; QR error correction (L/M/Q/H), dot style (`square`, `dots`, `rounded`, `extra-rounded`, `classy`), corner style (`square`, `dot`, `extra-rounded`), and logo file upload.
-      4. **Text Style:** Font size, font family, gap, font weight (Regular/Bold), text alignment (Left/Center/Right).
+      4. **Text Style:** Font size, font family, gap, font weight (Regular/Bold), text alignment (Left/Center/Right), and **Label Color** picker (synchronized in real time with the Design group control).
       5. **Export:** Export DPI (`72`, `150`, `300`, `600`), lock aspect ratio, "Export code only" checkbox.
     - "Reset advanced settings" button to restore defaults.
 
@@ -260,11 +265,13 @@ graph TD
   - **Custom Dimensions:** Label width/height, columns, rows, margins (top/left), gaps (horizontal/vertical), and corner radius.
   - **Start Position:** Select which cell on the sheet to start printing from (skips used labels on partly used sheets).
 - **Placement & Fitting inside Label Cell:**
-  - Fit modes: `Original size`, `Fit to label` (scales down preserving aspect ratio), `Fill label`.
+  - Fit modes: `Original size`, `Fit to label` (default: scales down preserving aspect ratio), `Fill label`.
   - Toggle artboard background color and border on/off during print.
-- **Output Engines:**
+  - Fits the entire artboard inside the label cell with its padding so nothing is cut off and label text is always visible.
+- **Output & Render Engines:**
+  - **Direct Dynamic Rendering:** Each label cell is rendered directly from its saved design settings (`codes.settings`) at print and PDF time using the shared render function (vector SVG or high-resolution off-screen render), using the stored preview thumbnail only as a fallback. The live preview on screen, browser `@media print`, and PDF document match identically.
   - **Browser Print:** `@media print` with exact `@page` paper size, 0 margins, and browser UI suppression.
-  - **Download PDF:** Vectorized PDF generation via `jspdf` at 300 DPI matching the exact sheet layout.
+  - **Download PDF:** Vectorized/high-resolution PDF generation via `jspdf` at 300 DPI matching the exact sheet layout.
   - **Presets:** Save and manage custom sheet configurations in `print_presets` table (`GET`, `POST`, `DELETE /api/print-presets`).
 
 ### 4.5 Recycle Bin (`/bin`)
@@ -471,7 +478,7 @@ Stores saved barcode and QR code designs.
 - `type` (enum: `'barcode'`, `'qr'`)
 - `format` (string — e.g. `'CODE128'`, `'EAN13'`, `'QR'`)
 - `value` (text — encoded content)
-- `settings` (json — design options: colors, styles, unit, width, height, dpi, lock_aspect_ratio, artboard: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, export_code_only; label: text, font_size, font_unit, gap, weight, alignment; template_name)
+- `settings` (json — design options: colors, styles, unit, width, height, dpi, lock_aspect_ratio, artboard: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, export_code_only; label: text, color/labelColor, font_size, font_unit, gap, weight, alignment; template_name)
 - `preview_path` (string, nullable — saved PNG snapshot in `storage/app/public/previews`)
 - `generated_at` (timestamp, nullable — bulk generation timestamp)
 - `created_at`, `updated_at` (timestamps)
@@ -483,7 +490,7 @@ Reusable styling blueprints for the designer.
 - `name` (string, required)
 - `type` (enum: `'barcode'`, `'qr'`)
 - `description` (text, nullable)
-- `settings` (json — design options: format, unit, width, height, dpi, artboard: preset, width, height, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, colors, QR options: dot style, corner style, error correction, logo reference, label text options: font size, gap, weight, alignment, label text pattern; no encoded value)
+- `settings` (json — design options: format, unit, width, height, dpi, artboard: preset, width, height, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, colors, QR options: dot style, corner style, error correction, logo reference, label text options: color/labelColor, font size, gap, weight, alignment, label text pattern; no encoded value)
 - `thumbnail_path` (string, nullable — saved PNG in `storage/app/public/templates`)
 - `is_default` (boolean, default `false` — max one default per type)
 - `created_at`, `updated_at` (timestamps)

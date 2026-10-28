@@ -109,7 +109,7 @@ export const downloadSvgElement = (
       textElem.setAttribute('font-size', `${fontSizePx}px`);
       textElem.setAttribute('font-weight', weight);
       textElem.setAttribute('font-family', 'system-ui, -apple-system, sans-serif');
-      textElem.setAttribute('fill', '#0F172A');
+      textElem.setAttribute('fill', labelOptions.color || '#0F172A');
       textElem.textContent = line;
       clone.appendChild(textElem);
       if (idx === lines.length - 1) {
@@ -184,6 +184,10 @@ export const downloadArtboardSvg = ({
   let codeInnerXml = '';
   if (codeSvgElement) {
     const clone = codeSvgElement.cloneNode(true);
+    if (labelOptions?.color) {
+      const texts = clone.querySelectorAll('text');
+      texts.forEach((t) => t.setAttribute('fill', labelOptions.color));
+    }
     codeInnerXml = clone.outerHTML || new XMLSerializer().serializeToString(clone);
   }
 
@@ -208,7 +212,7 @@ export const downloadArtboardSvg = ({
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;');
-        return `<text x="${textX}" y="${lineY}" text-anchor="${anchor}" font-size="${fontSizePx}" font-weight="${weight}" font-family="system-ui, -apple-system, sans-serif" fill="#0F172A">${escaped}</text>`;
+        return `<text x="${textX}" y="${lineY}" text-anchor="${anchor}" font-size="${fontSizePx}" font-weight="${weight}" font-family="system-ui, -apple-system, sans-serif" fill="${labelOptions.color || '#0F172A'}">${escaped}</text>`;
       })
       .join('\n    ');
   }

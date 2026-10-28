@@ -19,6 +19,13 @@ class ProductResource extends JsonResource
             'name' => $this->name,
             'sku' => $this->sku,
             'barcode_number' => $this->barcode_number,
+            'supplier_id' => $this->supplier_id,
+            'supplier' => $this->supplier ? [
+                'id' => $this->supplier->id,
+                'name' => $this->supplier->name,
+                'mobile' => $this->supplier->mobile,
+                'deleted_at' => $this->supplier->deleted_at?->toISOString(),
+            ] : null,
             'category' => $this->category,
             'price' => (float) $this->price,
             'quantity' => (int) $this->quantity,

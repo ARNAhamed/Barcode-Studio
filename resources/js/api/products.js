@@ -73,7 +73,7 @@ export const exportProducts = async (payload = {}) => {
   });
 
   const today = new Date().toISOString().split('T')[0];
-  let filename = `stock-selected-${payload.all_matching ? 'all' : payload.ids?.length || 0}-${today}.csv`;
+  let filename = `products-selected-${payload.all_matching ? 'all' : payload.ids?.length || 0}-${today}.csv`;
 
   const disposition = response.headers && response.headers['content-disposition'];
   if (disposition && disposition.includes('filename=')) {
@@ -122,11 +122,17 @@ export const previewProductImport = async (file) => {
   return response.data;
 };
 
-export const commitProductImport = async ({ file, mode = 'update_existing', autoGenerateBarcodes = false }) => {
+export const commitProductImport = async ({
+  file,
+  mode = 'update_existing',
+  autoGenerateBarcodes = false,
+  createMissingSuppliers = false,
+}) => {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('mode', mode);
   formData.append('auto_generate_barcodes', autoGenerateBarcodes ? '1' : '0');
+  formData.append('create_missing_suppliers', createMissingSuppliers ? '1' : '0');
   const response = await api.post('/products/import/commit', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',

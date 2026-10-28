@@ -4,7 +4,8 @@ import { Toaster } from 'react-hot-toast';
 import Sidebar from './components/Sidebar';
 import GalleryPage from './pages/GalleryPage';
 import DesignerPage from './pages/DesignerPage';
-import StockPage from './pages/StockPage';
+import ItemsPage from './pages/ItemsPage';
+import SuppliersPage from './pages/SuppliersPage';
 import RecycleBinPage from './pages/RecycleBinPage';
 import PrintLabelsPage from './pages/PrintLabelsPage';
 
@@ -66,10 +67,16 @@ export default function MainApp() {
             <Route path="/" element={<GalleryPage />} />
             <Route path="/designer" element={<DesignerPage />} />
             <Route path="/designer/:id" element={<DesignerPage />} />
-            <Route path="/stock" element={<StockPage />} />
+            <Route path="/products" element={<Navigate to="/products/items" replace />} />
+            <Route path="/products/items" element={<ItemsPage />} />
+            <Route path="/products/suppliers" element={<SuppliersPage />} />
+            <Route path="/stock" element={<Navigate to="/products/items" replace />} />
+            <Route path="/stock/items" element={<Navigate to="/products/items" replace />} />
+            <Route path="/stock/suppliers" element={<Navigate to="/products/suppliers" replace />} />
+            <Route path="/stock/bin" element={<Navigate to="/bin?tab=products" replace />} />
+            <Route path="/stock/*" element={<Navigate to="/products/items" replace />} />
             <Route path="/print" element={<PrintLabelsPage />} />
             <Route path="/bin" element={<RecycleBinPage />} />
-            <Route path="/stock/bin" element={<Navigate to="/bin?tab=products" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

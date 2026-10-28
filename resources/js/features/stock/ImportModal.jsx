@@ -30,6 +30,7 @@ export default function ImportModal({ isOpen, onClose, onSuccess }) {
   // Import options
   const [importMode, setImportMode] = useState('update_existing'); // 'skip_existing' | 'update_existing'
   const [autoGenerateBarcodes, setAutoGenerateBarcodes] = useState(false);
+  const [createMissingSuppliers, setCreateMissingSuppliers] = useState(false);
 
   // Preview & Result data
   const [previewData, setPreviewData] = useState(null);
@@ -48,6 +49,7 @@ export default function ImportModal({ isOpen, onClose, onSuccess }) {
     setPreviewData(null);
     setImportResult(null);
     setAutoGenerateBarcodes(false);
+    setCreateMissingSuppliers(false);
     setImportMode('update_existing');
     onClose();
   };
@@ -135,6 +137,7 @@ export default function ImportModal({ isOpen, onClose, onSuccess }) {
         file,
         mode: importMode,
         autoGenerateBarcodes,
+        createMissingSuppliers,
       });
 
       setImportResult(result);
@@ -436,6 +439,18 @@ export default function ImportModal({ isOpen, onClose, onSuccess }) {
                 Auto-generate missing barcodes for rows with empty barcode numbers
               </span>
             </label>
+
+            <label className="flex items-center gap-2 cursor-pointer select-none pt-2 border-t border-gray-200 text-gray-700">
+              <input
+                type="checkbox"
+                checked={createMissingSuppliers}
+                onChange={(e) => setCreateMissingSuppliers(e.target.checked)}
+                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500/20 w-4 h-4 cursor-pointer"
+              />
+              <span className="text-xs">
+                Create missing suppliers automatically if not found
+              </span>
+            </label>
           </div>
 
           {/* Preview Table - Capped to 40vh with its own vertical scroll, zero horizontal scroll */}
@@ -449,7 +464,7 @@ export default function ImportModal({ isOpen, onClose, onSuccess }) {
                     <th className="w-40 px-2 py-2 text-left">Product / SKU</th>
                     <th className="w-24 px-2 py-2 text-center">Price / Qty</th>
                     <th className="w-28 px-2 py-2 text-center">Barcode</th>
-                    <th className="px-2 py-2 text-left">Details / Errors</th>
+                    <th className="px-2 py-2 text-left">Details / Warnings</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -508,6 +523,14 @@ export default function ImportModal({ isOpen, onClose, onSuccess }) {
                                 <span className="text-red-500 italic">Missing SKU</span>
                               )}
                             </p>
+                            {r.data.supplier && (
+                              <p
+                                className="text-[11px] text-gray-400 truncate"
+                                title={`Supplier: ${r.data.supplier}`}
+                              >
+                                Supplier: {r.data.supplier}
+                              </p>
+                            )}
                           </td>
                           <td className="px-2 py-1.5 min-w-0 text-center">
                             <span className="text-gray-900 font-normal">
@@ -540,6 +563,18 @@ export default function ImportModal({ isOpen, onClose, onSuccess }) {
                                     title={err}
                                   >
                                     &bull; {err}
+                                  </p>
+                                ))}
+                              </div>
+                            ) : r.warnings && r.warnings.length > 0 ? (
+                              <div className="space-y-0.5">
+                                {r.warnings.map((warn, wIdx) => (
+                                  <p
+                                    key={wIdx}
+                                    className="text-amber-600 text-[11px] leading-tight truncate"
+                                    title={warn}
+                                  >
+                                    &bull; {warn}
                                   </p>
                                 ))}
                               </div>

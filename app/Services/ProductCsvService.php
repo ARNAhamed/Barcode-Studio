@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Product;
+use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -28,7 +29,7 @@ class ProductCsvService
             ]);
         }
 
-        $query = Product::query(); // Excludes trashed by default
+        $query = Product::query()->with('supplier'); // Excludes trashed by default
 
         if ($allMatching) {
             if ($search = $request->input('search')) {
@@ -42,6 +43,12 @@ class ProductCsvService
 
             if ($category = $request->input('category')) {
                 $query->where('category', $category);
+            }
+
+            if ($supplierId = $request->input('supplier_id')) {
+                $query->where('supplier_id', $supplierId);
+            } elseif ($request->boolean('no_supplier') || $request->input('no_supplier') === '1') {
+                $query->whereNull('supplier_id');
             }
 
             if ($status = $request->input('status')) {
@@ -70,7 +77,7 @@ class ProductCsvService
         }
 
         $count = $query->count();
-        $filename = "stock-selected-{$count}-" . now()->format('Y-m-d') . '.csv';
+        $filename = "products-selected-{$count}-" . now()->format('Y-m-d') . '.csv';
 
         $headers = [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -81,7 +88,7 @@ class ProductCsvService
             'Expires' => '0',
         ];
 
-        $columns = ['name', 'sku', 'barcode_number', 'category', 'price', 'quantity', 'low_stock_threshold', 'description'];
+        $columns = ['name', 'sku', 'barcode_number', 'category', 'supplier', 'price', 'quantity', 'low_stock_threshold', 'description'];
 
         return response()->stream(function () use ($query, $columns) {
             $handle = fopen('php://output', 'w');
@@ -96,6 +103,7 @@ class ProductCsvService
                         $p->sku,
                         $p->barcode_number ?? '',
                         $p->category ?? '',
+                        $p->supplier?->name ?? '',
                         number_format((float) $p->price, 2, '.', ''),
                         $p->quantity,
                         $p->low_stock_threshold ?? 10,
@@ -123,7 +131,7 @@ class ProductCsvService
             'Expires' => '0',
         ];
 
-        $columns = ['name', 'sku', 'barcode_number', 'category', 'price', 'quantity', 'low_stock_threshold', 'description'];
+        $columns = ['name', 'sku', 'barcode_number', 'category', 'supplier', 'price', 'quantity', 'low_stock_threshold', 'description'];
 
         return response()->stream(function () use ($columns) {
             $handle = fopen('php://output', 'w');
@@ -135,6 +143,7 @@ class ProductCsvService
                 'ELEC-MOUSE-001',
                 '2001000000018',
                 'Electronics',
+                'Lanka Office Supplies',
                 '29.99',
                 '50',
                 '10',
@@ -146,6 +155,7 @@ class ProductCsvService
                 'ELEC-KEY-002',
                 '',
                 'Electronics',
+                'Serendib Packaging',
                 '89.50',
                 '20',
                 '5',
@@ -170,10 +180,12 @@ class ProductCsvService
             $rowNum = $item['row'];
             $data = $item['data'];
             $errors = [];
+            $warnings = [];
 
             $name = trim($data['name'] ?? '');
             $sku = trim($data['sku'] ?? '');
             $barcode = trim($data['barcode_number'] ?? '');
+            $supplierName = trim($data['supplier'] ?? '');
             $priceRaw = trim($data['price'] ?? '');
             $qtyRaw = trim($data['quantity'] ?? '');
             $thresholdRaw = trim($data['low_stock_threshold'] ?? '');
@@ -189,7 +201,18 @@ class ProductCsvService
                 $errors[] = 'SKU is required.';
             }
 
-            // 2. Numeric and non-negative checks
+            // 2. Supplier lookup
+            $supplierId = null;
+            if ($supplierName !== '') {
+                $matchedSupplier = Supplier::whereRaw('LOWER(name) = ?', [strtolower($supplierName)])->first();
+                if ($matchedSupplier) {
+                    $supplierId = $matchedSupplier->id;
+                } else {
+                    $warnings[] = "Supplier '{$supplierName}' not found (will be created if enabled).";
+                }
+            }
+
+            // 3. Numeric and non-negative checks
             if ($priceRaw !== '') {
                 // Strip optional leading currency sign if present
                 $cleanPrice = ltrim($priceRaw, '$€£');
@@ -212,7 +235,7 @@ class ProductCsvService
                 }
             }
 
-            // 3. In-file duplicates
+            // 4. In-file duplicates
             if ($sku !== '') {
                 if (isset($seenSkus[$sku])) {
                     $errors[] = "Duplicate SKU '{$sku}' found inside import file.";
@@ -229,7 +252,7 @@ class ProductCsvService
                 }
             }
 
-            // 4. Recycle Bin checks
+            // 5. Recycle Bin checks
             if ($sku !== '') {
                 if (Product::onlyTrashed()->where('sku', $sku)->exists()) {
                     $errors[] = "SKU '{$sku}' belongs to a product in the Recycle Bin. Restore or delete it first.";
@@ -242,13 +265,13 @@ class ProductCsvService
                 }
             }
 
-            // 5. Existing active product check
+            // 6. Existing active product check
             $existingProduct = null;
             if ($sku !== '') {
                 $existingProduct = Product::where('sku', $sku)->first();
             }
 
-            // 6. Barcode conflict check against other active products
+            // 7. Barcode conflict check against other active products
             if ($barcode !== '') {
                 $barcodeConflict = Product::where('barcode_number', $barcode)
                     ->when($existingProduct, fn($q) => $q->where('id', '!=', $existingProduct->id))
@@ -274,6 +297,8 @@ class ProductCsvService
                     'name' => $name,
                     'sku' => $sku,
                     'barcode_number' => $barcode,
+                    'supplier' => $supplierName,
+                    'supplier_id' => $supplierId,
                     'category' => $category,
                     'price' => $priceRaw !== '' ? $priceRaw : '0.00',
                     'quantity' => $qtyRaw !== '' ? $qtyRaw : '0',
@@ -282,6 +307,7 @@ class ProductCsvService
                 ],
                 'status' => $status,
                 'errors' => $errors,
+                'warnings' => $warnings,
             ];
         }
 
@@ -302,11 +328,12 @@ class ProductCsvService
     public function commit(
         string $filePath,
         string $mode = 'update_existing',
-        bool $autoGenerateBarcodes = false
+        bool $autoGenerateBarcodes = false,
+        bool $createMissingSuppliers = false
     ): array {
         $preview = $this->preview($filePath);
 
-        return DB::transaction(function () use ($preview, $mode, $autoGenerateBarcodes) {
+        return DB::transaction(function () use ($preview, $mode, $autoGenerateBarcodes, $createMissingSuppliers) {
             $created = 0;
             $updated = 0;
             $skipped = 0;
@@ -319,6 +346,22 @@ class ProductCsvService
                 }
 
                 $data = $row['data'];
+                $supplierName = trim($data['supplier'] ?? '');
+                $supplierId = $data['supplier_id'] ?? null;
+
+                if ($supplierName !== '' && !$supplierId) {
+                    $existingSupplier = Supplier::whereRaw('LOWER(name) = ?', [strtolower($supplierName)])->first();
+                    if ($existingSupplier) {
+                        $supplierId = $existingSupplier->id;
+                    } elseif ($createMissingSuppliers) {
+                        $newSupplier = Supplier::create([
+                            'name' => $supplierName,
+                            'mobile' => '0770000000',
+                            'status' => 'active',
+                        ]);
+                        $supplierId = $newSupplier->id;
+                    }
+                }
 
                 if ($row['status'] === 'new') {
                     $barcode = $data['barcode_number'];
@@ -328,6 +371,7 @@ class ProductCsvService
                     }
 
                     Product::create([
+                        'supplier_id' => $supplierId,
                         'name' => $data['name'],
                         'sku' => $data['sku'],
                         'barcode_number' => !empty($barcode) ? $barcode : null,
@@ -348,6 +392,9 @@ class ProductCsvService
                     $product = Product::where('sku', $data['sku'])->first();
                     if ($product) {
                         $product->name = $data['name'];
+                        if ($supplierId !== null) {
+                            $product->supplier_id = $supplierId;
+                        }
                         if ($data['category'] !== '') {
                             $product->category = $data['category'];
                         }

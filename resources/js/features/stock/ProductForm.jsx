@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Wand2, Loader2 } from 'lucide-react';
+import { Wand2, Loader2, Plus } from 'lucide-react';
 import Button from '../../components/Button';
 import { generateBarcodeNumber } from '../../api/barcodes';
+import { getSuppliers } from '../../api/suppliers';
+import SupplierFormModal from '../suppliers/SupplierFormModal';
 
 export default function ProductForm({
   product = null,
@@ -16,11 +19,21 @@ export default function ProductForm({
 }) {
   const isEditing = Boolean(product?.id);
   const nameInputRef = useRef(null);
+  const queryClient = useQueryClient();
+
+  const [showNewSupplierModal, setShowNewSupplierModal] = useState(false);
+
+  const { data: suppliersResponse } = useQuery({
+    queryKey: ['active-suppliers'],
+    queryFn: () => getSuppliers({ status: 'active', per_page: 100 }),
+  });
+  const activeSuppliers = suppliersResponse?.data || [];
 
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
     barcode_number: '',
+    supplier_id: '',
     category: '',
     price: '',
     quantity: '0',
@@ -62,6 +75,7 @@ export default function ProductForm({
           name: product.name || '',
           sku: product.sku || '',
           barcode_number: product.barcode_number || '',
+          supplier_id: product.supplier_id ? String(product.supplier_id) : '',
           category: product.category || '',
           price: product.price !== undefined && product.price !== null ? String(product.price) : '',
           quantity: product.quantity !== undefined && product.quantity !== null ? String(product.quantity) : '0',
@@ -72,6 +86,7 @@ export default function ProductForm({
           name: '',
           sku: '',
           barcode_number: '',
+          supplier_id: '',
           category: '',
           price: '',
           quantity: '0',
@@ -138,6 +153,7 @@ export default function ProductForm({
       name: formData.name.trim(),
       sku: formData.sku.trim(),
       barcode_number: formData.barcode_number.trim() || null,
+      supplier_id: formData.supplier_id ? parseInt(formData.supplier_id, 10) : null,
       category: formData.category.trim() || null,
       price: parseFloat(formData.price),
       quantity: parseInt(formData.quantity, 10),
@@ -286,6 +302,38 @@ export default function ProductForm({
         />
       </div>
 
+      {/* Supplier (Column 2) with + New Supplier shortcut */}
+      <div className="col-span-1">
+        <div className="flex items-center justify-between mb-1">
+          <label htmlFor="supplier_id" className="block text-xs font-medium text-gray-700">
+            Supplier <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <button
+            type="button"
+            onClick={() => setShowNewSupplierModal(true)}
+            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium inline-flex items-center gap-1 cursor-pointer"
+            title="Create a new supplier"
+          >
+            <Plus className="w-3 h-3" />
+            <span>New supplier</span>
+          </button>
+        </div>
+        <select
+          id="supplier_id"
+          name="supplier_id"
+          value={formData.supplier_id}
+          onChange={handleChange}
+          className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors cursor-pointer"
+        >
+          <option value="">No Supplier</option>
+          {activeSuppliers.map((s) => (
+            <option key={s.id} value={String(s.id)}>
+              {s.name} {s.contact_person ? `(${s.contact_person})` : ''}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Price (Column 2) */}
       <div className="col-span-1">
         <label htmlFor="price" className="block text-xs font-medium text-gray-700 mb-1">
@@ -386,6 +434,26 @@ export default function ProductForm({
             {isEditing ? 'Save Changes' : 'Create Product'}
           </Button>
         </div>
+      )}
+
+      {/* Embedded New Supplier Modal Shortcut */}
+      {showNewSupplierModal && (
+        <SupplierFormModal
+          isOpen={true}
+          onClose={() => setShowNewSupplierModal(false)}
+          onSuccess={(newSupplier) => {
+            queryClient.invalidateQueries({ queryKey: ['active-suppliers'] });
+            queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+            queryClient.invalidateQueries({ queryKey: ['suppliers-summary'] });
+            if (newSupplier?.id) {
+              setFormData((prev) => {
+                const next = { ...prev, supplier_id: String(newSupplier.id) };
+                checkIfDirty(next);
+                return next;
+              });
+            }
+          }}
+        />
       )}
     </form>
   );

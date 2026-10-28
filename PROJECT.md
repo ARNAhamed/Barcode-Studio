@@ -134,20 +134,28 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
   - If 12 digits are entered for EAN13, offer a 1-click action to auto-calculate and append the correct GS1 check digit.
 - After save, show toast and redirect to Gallery.
 
-### 2.3 Stock Management (`/stock`)
-- Table of products with search, sort, pagination (10 per page).
+### 2.3 Products (`/products`)
+- **Navigation & Routing**:
+  - Sidebar: "Products" is an expandable group with two sub-items: **Items** (`/products/items`) and **Suppliers** (`/products/suppliers`). Expanded automatically when any products route is active, with sensible compact behavior on narrow sidebars, and sub-navigation on mobile.
+  - Route `/products` redirects to `/products/items`.
+  - Legacy redirects: old `/stock` and `/stock/*` redirect to `/products/items` and `/bin?tab=products` so previous bookmarks keep working seamlessly.
+  - **Shared Tab Switcher**: Small tab switcher (`Items` | `Suppliers`) rendered directly under the page header on both pages so they feel like one cohesive section.
+
+#### 2.3.1 Items (`/products/items`)
+- Current products inventory page (formerly Stock Management).
 - **Row & Table Density**: Compact rows (~44-48px height, `py-2` on cells), text 14px, secondary text 12-13px, header ~40px with small gray label, 1px dividers, subtle hover. Tight two-line cells with 28-32px action icon buttons. Checkbox, text, and action buttons centered vertically.
-- Columns: Name & SKU, Barcode Number, Category, Price, Quantity, Status (In stock / Low / Out), Actions.
-- Actions: Edit, Delete (moves to Recycle Bin with Undo toast), **Generate Code** (opens Designer with the product pre-selected).
-- **Add / Edit Product in a Pop-up Modal** (replacing the drawer):
+- Columns: Checkbox, Name & SKU, Barcode Number, Supplier (truncated with tooltip, hidden below 1280px), Category, Price, Quantity, Status (In stock / Low / Out), Actions.
+- Actions: Edit, Delete (moves to Recycle Bin with Undo toast), **Generate Code** (opens Designer with product pre-selected).
+- **Supplier Filter**: Filter dropdown placed next to search box (All suppliers, each supplier, No supplier).
+- **Add / Edit Product Modal**:
   - Centered modal fitting window (`max-h-[calc(100dvh-2rem)]`, width ~560-640px `max-w-xl`, full-screen on mobile).
   - Fixed header (title + close icon), scrollable body, fixed footer with Cancel (secondary) and Save (primary).
-  - Clean two-column grid on desktop: Name full width, SKU and Barcode with "Generate" Wand button side by side, Category and Price side by side, Quantity and Low stock threshold side by side, Description full width. One column on mobile.
+  - Clean two-column grid on desktop: Name full width, SKU and Barcode with "Generate" Wand button side by side, **Supplier** searchable dropdown (with "+ New supplier" shortcut that opens the supplier modal and selects the new supplier) and Category side by side, Price and Quantity side by side, Low stock threshold, Description full width. One column on mobile.
   - Inline validation messages, autofocus first field, close on Escape, confirm before closing if unsaved changes.
 - **Header Actions on ONE Row**:
-  - Order: **Import** (secondary), **Export** (secondary), **Add Product** (primary, last).
+  - Order: **Import** (secondary), **Export** (secondary), **Generate codes** (secondary, active when items selected), **Add Product** (primary, last).
   - Placed on one row, right-aligned, `gap-2`, 36px height (`h-9`), `whitespace-nowrap`, never wrapping.
-  - Below 768px: Import and Export display as icon-only buttons with tooltips while Add Product keeps its label, still on one row.
+  - Below 768px: Import and Export display as icon-only buttons with tooltips while Add Product keeps its label.
 - **Row Selection & Bulk Actions**:
   - Row checkboxes, "Select all on this page" in table header, and live selected count in toolbar (`3 selected`) with a "Clear selection" link.
   - When the current page is fully selected, offer a "Select all {N} products across all pages" link.
@@ -157,37 +165,45 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
     - Button in the selection toolbar next to Export: "Generate codes". Disabled when nothing is selected.
     - Limits single run to 500 products (with clear alert message if > 500 selected).
     - Opens **Bulk Generate Modal** (3 steps, fits window `max-h-[calc(100dvh-2rem)]`, fixed header, scrollable body, fixed footer, responsive, full screen on mobile):
-      - **Step 1: Settings**:
-        - Template: dropdown of saved templates (default is pre-selected) with thumbnail. If no templates exist, shows link to Designer.
-        - Code value source: "Barcode number" (default), "SKU", or "Custom pattern" with placeholders (`{sku}`, `{barcode}`, etc.).
-        - Label text: use template's pattern or override with custom pattern (placeholders as clickable chips).
-        - Products without barcode number: "Generate a barcode number automatically" (uses BarcodeNumberGenerator and saves to product), "Use SKU instead", or "Skip these products".
-        - Products with invalid value for format (e.g. EAN13 check digit/length): flagged with clear reason. Option to fix automatically (append check digit or generate new number) or skip.
-        - Existing code conflict resolution: "Skip", "Create another", or "Replace the existing code" (moves old code to Recycle Bin).
-        - Code naming pattern (default `{name}`).
-      - **Step 2: Preview**:
-        - Compact table (no horizontal scroll) with Product, Value, Format, Status (`Ready`, `Will generate number`, `Warning`, `Error`, `Skipped`) and reason.
-        - Live thumbnails of first 3 codes rendered with chosen template.
-        - Summary of Total, Ready, Warnings, Errors, Skipped, plus toggle/filter to show only problems.
-        - "Generate" button disabled while 0 ready items.
-      - **Step 3: Generate**:
-        - Renders each code in browser with same rendering function Designer uses (identical visual output), creates preview PNG, and saves to Gallery.
-        - Processed in batches (e.g. 10 at a time, up to 25 per request) with progress bar, current item name, and Cancel button (created codes remain if run cancelled). Shows failures with a "Retry failed" button.
-        - Results screen: created, skipped, failed counts with actions: "View in Gallery" (filtered to the new batch), "Print labels" (opens `/print` with these codes preselected), and "Close".
+      - Step 1: Settings (template selection, value source, label text pattern override, missing barcode resolution, invalid format auto-fix, existing code resolution, naming pattern).
+      - Step 2: Preview (compact table, live thumbnails of first 3 items, summary counters, filter for problems only, generate disabled if 0 ready items).
+      - Step 3: Generate (in-browser rendering matching Designer, batch upload to `POST /codes/bulk`, progress bar, cancel, retry failed, results screen with View in Gallery, Print labels, and Close).
 - **CSV Export & Import**:
-  - **Export (`POST /api/products/export`)**: Exports only the selected products. Disabled when 0 products are selected (with tooltip: "Select products to export"). Button displays count, e.g. `Export (3)`. Payload accepts `{ ids: [...], all_matching: boolean, search, category, status }`. Validates IDs and excludes trashed products. Output CSV has UTF-8 BOM, standard columns (`name, sku, barcode_number, category, price, quantity, low_stock_threshold, description`), and date-based filename (e.g. `stock-selected-3-YYYY-MM-DD.csv`). Shows success toast upon completion.
-  - **Sample Template (`GET /api/products/import/template`)**: Downloads `products_import_template.csv` with standard headers and 2 example rows.
+  - **Export (`POST /api/products/export`)**: Exports only selected products (or all matching). Disabled when 0 selected. Output CSV has UTF-8 BOM, standard columns (`name, sku, barcode_number, supplier, category, price, quantity, low_stock_threshold, description`), and date-based filename (e.g. `products-selected-3-YYYY-MM-DD.csv`). Shows success toast upon completion.
+  - **Sample Template (`GET /api/products/import/template`)**: Downloads `products_import_template.csv` with standard headers including `supplier` and example rows.
   - **Import 3-Step Modal**:
-    - Structured 3-part flex column: fixed header (shrink-0), scrollable body (flex-1 min-h-0 overflow-y-auto), and fixed bottom footer (shrink-0, border-t, bg-white) so buttons (Back, Cancel, Import) are never cut off.
-    - Centered vertically within window at every size with `max-h-[calc(100vh-2rem)]` (or `100dvh`), full-screen on mobile (`390px`).
-    - Compact summary counters and options box to maximize preview visibility on 1366x768 and 1920x1080.
-    - Zero horizontal scrolling; capped table height (~40vh) with internal vertical scroll, truncated error messages with title tooltips.
-    - Step 1: Drag-and-drop CSV upload, 5 MB limit, sample template download.
-    - Step 2: Validation preview with color-coded badges (`New`, `Update`, `Error`), mode toggle ("Skip existing" / "Update existing"), and auto-generate missing barcodes toggle. Import button disabled if 0 valid rows.
-    - Step 3: Result summary card and auto-refresh of inventory, summary cards, and caches.
-- Low stock rule: quantity <= `low_stock_threshold` (default 10) shows an amber badge; 0 shows a red badge.
+    - Matches supplier name to existing suppliers (case-insensitive); flags unknown supplier names as a warning; includes toggle "Create missing suppliers".
+    - Structured 3-part flex column: fixed header, scrollable body, fixed bottom footer.
+    - Validation preview with color-coded badges (`New`, `Update`, `Error`), mode toggle ("Skip existing" / "Update existing"), and auto-generate missing barcodes toggle.
+- Low stock rule: quantity <= `low_stock_threshold` (default 10) shows amber badge; 0 shows red badge.
 - Summary cards on top: Total products, Low stock, Out of stock.
 - Header includes "Recycle Bin" button with count badge (opens `/bin?tab=products`).
+
+#### 2.3.2 Suppliers (`/products/suppliers`)
+- New dedicated Suppliers management page matching Items visual style and layout.
+- **Page Header**: Title "Suppliers", one-line description, and actions: "Export" (for selected suppliers), "Add Supplier" (primary).
+- **Summary Cards**:
+  - Total Suppliers
+  - Active Suppliers
+  - Products without a Supplier
+- **Compact Table**:
+  - Search input, status filter (All, Active, Inactive), sorting, pagination, row selection.
+  - Columns: Name (with contact person under it), Mobile, Email, City, Products (count badge linking to `/products/items?supplier_id={id}`), Status (Active / Inactive dot + text), Actions.
+  - Responsive column visibility: Hide Email and City below 1280px; keep only Name, Mobile, Products, and Actions below 1024px; stacked cards below 768px. Zero horizontal scroll.
+- **Add / Edit Supplier Modal**:
+  - Centered modal fitting window (`max-h-[calc(100dvh-2rem)]`, `max-w-xl`, full-screen on mobile).
+  - Two-column grid on desktop, one column on mobile. Fixed header, scrollable body, fixed footer.
+  - Fields: Supplier name (required, unique), Contact person, Mobile number (required, Sri Lankan formats accepted, e.g. `0771234567` or `+94771234567`), Phone number, Email, Address line 1, Address line 2, City, Postal code, Country (default "Sri Lanka"), Website, Payment terms (e.g. "30 days"), Notes, Status (`Active` / `Inactive`, default `Active`).
+  - Inline validation, Escape to close, unsaved changes confirmation.
+- **View Supplier Drawer / Modal**:
+  - Clean card layout with quick contact links: tap-to-call (`tel:`), email (`mailto:`), and map link generated from address.
+  - Payment terms, website link, and notes.
+  - Compact list of linked products (name, SKU, price, quantity) with link to view each in Items.
+- **Delete & Recycle Bin**:
+  - Delete soft-deletes supplier to Recycle Bin with undo toast.
+  - Products linked to trashed supplier keep link and display "Supplier (deleted)" in muted text.
+  - Permanent delete sets `supplier_id` to null on those products.
+  - Empty states, loading skeletons, and toasts.
 
 ### 2.4 Print Labels (`/print`)
 - **Layout**: Swapped two-pane layout on desktop — **live paper sheet preview on the LEFT (~65-70% width, fixed in place)** and **settings on the RIGHT (~30-35% width, clamped min 340px to max 440px, scrolls independently)**.
@@ -250,11 +266,12 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
   - Friendly alerts for empty selection, sheet overflow, or invalid custom dimensions exceeding paper limits.
 
 ### 2.5 Recycle Bin (`/bin`)
-- Unified Recycle Bin with two tabs: **Products** (`?tab=products`) and **Designs** (`?tab=designs`), each with a live count badge.
+- Unified Recycle Bin with three tabs: **Items** (`?tab=products` / `?tab=items`), **Suppliers** (`?tab=suppliers`), and **Designs** (`?tab=designs`), each with a live count badge.
 - Old `/stock/bin` redirects to `/bin?tab=products`.
-- Sidebar navigation includes a "Recycle Bin" item with total trashed count badge (`products + codes`).
-- Stock and Gallery headers both include a "Recycle Bin" button (`Trash2` icon, count badge) opening `/bin` on their respective tab.
-- **Products tab**: Name, SKU, Category, Price, Quantity, Deleted date, "days left" (30-day retention). Row actions: Restore, Delete permanently (with confirmation modal). Top actions: Restore all, Empty bin.
+- Sidebar navigation includes a "Recycle Bin" item with total trashed count badge (`products + suppliers + codes`).
+- Products, Suppliers, and Gallery headers include a "Recycle Bin" button (`Trash2` icon, count badge) opening `/bin` on their respective tab.
+- **Items tab**: Name, SKU, Category, Price, Quantity, Deleted date, "days left" (30-day retention). Row actions: Restore, Delete permanently (with confirmation modal). Top actions: Restore all, Empty bin.
+- **Suppliers tab**: Name, Contact person, Mobile, City, Deleted date, "days left" (30-day retention). Row actions: Restore, Delete permanently (with confirmation modal). Top actions: Restore all, Empty bin.
 - **Designs tab**: Preview thumbnail, Name, Type badge (Barcode / QR), Format, Deleted date, "days left" (30-day retention). Row actions: Restore, Delete permanently (with confirmation modal that it cannot be undone). Top actions: Restore all, Empty bin (scoped to active tab).
 - Empty states with friendly illustrations & loading skeletons for each tab.
 - ### 2.6 Design Templates
@@ -275,10 +292,32 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 
 ## 3. Database Schema
 
+**suppliers**
+| column | type | notes |
+|---|---|---|
+| id | bigint PK | |
+| name | string | required, unique among non-deleted (case-insensitive), indexed |
+| contact_person | string nullable | contact name |
+| mobile | string | required, indexed |
+| phone | string nullable | landline or secondary phone |
+| email | string nullable | valid email format |
+| address_line1 | string nullable | street address line 1 |
+| address_line2 | string nullable | street address line 2 |
+| city | string nullable | city |
+| postal_code | string nullable | postal code |
+| country | string | default 'Sri Lanka' |
+| website | string nullable | URL format |
+| payment_terms | string nullable | e.g. "30 days" |
+| notes | text nullable | internal notes |
+| status | enum(`active`,`inactive`) | default `active` |
+| timestamps | | |
+| deleted_at | timestamp nullable | soft deletes, indexed |
+
 **products**
 | column | type | notes |
 |---|---|---|
 | id | bigint PK | |
+| supplier_id | FK nullable | `nullOnDelete`, indexed |
 | name | string | required |
 | sku | string | unique, required |
 | barcode_number | string | nullable, unique |
@@ -352,8 +391,8 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| GET | `/bin/summary` | recycle bin counts: `{ products, codes, total }` |
-| GET | `/codes` | list active codes (query: `search`, `type`, `filter`) |
+| GET | `/bin/summary` | recycle bin counts: `{ products, codes, suppliers, total }` |
+| GET | `/codes` | list active codes (query: `search`, `type`, `filter`, `batch_id`) |
 | POST | `/codes` | create (multipart: fields + `preview` image) |
 | POST | `/codes/bulk` | bulk create codes (up to 25 items per request, multipart or json payload with previews) |
 | GET | `/codes/{id}` | show |
@@ -371,22 +410,40 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 | DELETE | `/templates/{id}` | soft delete template |
 | POST | `/templates/{id}/duplicate` | duplicate template |
 | POST | `/templates/{id}/set-default` | set default template for type |
-| GET | `/products` | list active products (query: `search`, `sort`, `page`) |
+| GET | `/products` | list active products (query: `search`, `supplier_id`, `no_supplier`, `sort`, `page`) |
 | GET | `/products/summary` | totals (total, low, out, trash) excluding trashed |
 | GET | `/products/lookup?q=` | autocomplete (max 10) excluding trashed |
 | GET | `/products/trash` | list trashed products (query: `search`, `sort`, `page`) |
-| POST | `/products` | create |
-| PUT | `/products/{id}` | update |
+| POST | `/products` | create product (supports `supplier_id`) |
+| PUT | `/products/{id}` | update product (supports `supplier_id`) |
 | DELETE | `/products/{id}` | soft delete (move to recycle bin) |
 | POST | `/products/{id}/restore` | restore single trashed product |
 | DELETE | `/products/{id}/force` | permanently delete single product |
 | POST | `/products/trash/restore-all` | restore all trashed products |
 | DELETE | `/products/trash/empty` | permanently delete all trashed products |
 | POST | `/products/bulk-generate-barcodes` | bulk auto-generate barcodes for products with empty numbers |
-| POST | `/products/export` | export selected products as CSV with UTF-8 BOM (`{ ids: [], all_matching: boolean, search, category, status }`) |
-| GET | `/products/import/template` | download sample CSV template with standard headers & example rows |
-| POST | `/products/import/preview` | parse and validate CSV file (checks duplicates, trashed items, formats) |
-| POST | `/products/import/commit` | commit import `{ mode: skip_existing|update_existing, auto_generate_barcodes }` |
+| POST | `/products/export` | export selected products as CSV with UTF-8 BOM (`{ ids: [], all_matching: boolean, search, category, status, supplier_id }`) |
+| GET | `/products/import/template` | download sample CSV template with standard headers (`supplier` included) & example rows |
+| POST | `/products/import/preview` | parse and validate CSV file (checks duplicates, trashed items, formats, supplier matches) |
+| POST | `/products/import/commit` | commit import `{ mode: skip_existing|update_existing, auto_generate_barcodes, create_missing_suppliers }` |
+| GET | `/suppliers` | list active suppliers (query: `search`, `status`, `sort`, `page`) |
+| GET | `/suppliers/summary` | supplier summary counts `{ total, active, no_supplier_products }` |
+| GET | `/suppliers/lookup?q=` | active suppliers lookup (max 10) for dropdown |
+| GET | `/suppliers/{id}` | show supplier with linked products list |
+| POST | `/suppliers` | create supplier |
+| PUT | `/suppliers/{id}` | update supplier |
+| DELETE | `/suppliers/{id}` | soft delete (move to recycle bin) |
+| GET | `/suppliers/trash` | list trashed suppliers (query: `search`, `sort`, `page`) |
+| POST | `/suppliers/{id}/restore` | restore single trashed supplier |
+| DELETE | `/suppliers/{id}/force` | permanently delete supplier (sets `supplier_id` null on products) |
+| POST | `/suppliers/trash/restore-all` | restore all trashed suppliers |
+| DELETE | `/suppliers/trash/empty` | permanently delete all trashed suppliers |
+| POST | `/suppliers/export` | export selected suppliers as CSV with UTF-8 BOM (`{ ids: [], all_matching: boolean, search, status }`) |
+| POST | `/barcodes/generate` | generate unique valid barcode number `{ format }` |
+| POST | `/barcodes/validate` | validate format and check digit `{ format, number }` |
+| GET | `/print-presets` | list saved sheet print presets |
+| POST | `/print-presets` | save new sheet print preset |
+| DELETE | `/print-presets/{id}` | delete saved sheet print preset |
 | POST | `/barcodes/generate` | generate unique valid barcode number `{ format }` |
 | POST | `/barcodes/validate` | validate format and check digit `{ format, number }` |
 | GET | `/print-presets` | list saved sheet print presets |

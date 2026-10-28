@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ShieldAlert,
   Layers,
+  Truck,
 } from 'lucide-react';
 
 import Button from '../components/Button';
@@ -43,6 +44,14 @@ import {
   emptyCodesTrash,
 } from '../api/codes';
 
+import {
+  getTrashedSuppliers,
+  restoreSupplier,
+  forceDeleteSupplier,
+  restoreAllSuppliers,
+  emptySupplierTrash,
+} from '../api/suppliers';
+
 import { getBinSummary } from '../api/bin';
 
 export default function RecycleBinPage() {
@@ -50,14 +59,17 @@ export default function RecycleBinPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Active tab: 'products' | 'designs'
-  const activeTab = searchParams.get('tab') === 'designs' ? 'designs' : 'products';
+  // Active tab: 'products' | 'suppliers' | 'designs'
+  const tabParam = searchParams.get('tab');
+  const activeTab = tabParam === 'designs' ? 'designs' : tabParam === 'suppliers' ? 'suppliers' : 'products';
 
   const setActiveTab = (tab) => {
     setSearchParams({ tab });
     setProductSearch('');
+    setSupplierSearch('');
     setDesignSearch('');
     setProductPage(1);
+    setSupplierPage(1);
     setDesignPage(1);
   };
 
@@ -65,13 +77,17 @@ export default function RecycleBinPage() {
   const [productSearch, setProductSearch] = useState('');
   const [productPage, setProductPage] = useState(1);
 
+  // Suppliers filters & pagination
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const [supplierPage, setSupplierPage] = useState(1);
+
   // Designs filters & pagination
   const [designSearch, setDesignSearch] = useState('');
   const [designType, setDesignType] = useState('all'); // 'all' | 'barcode' | 'qr'
   const [designPage, setDesignPage] = useState(1);
 
   // Modals state
-  const [itemToDelete, setItemToDelete] = useState(null); // { type: 'product'|'code', item }
+  const [itemToDelete, setItemToDelete] = useState(null); // { type: 'product'|'supplier'|'code', item }
   const [isEmptyBinModalOpen, setIsEmptyBinModalOpen] = useState(false);
 
   // Query: Bin Summary counts
@@ -85,6 +101,13 @@ export default function RecycleBinPage() {
     queryKey: ['products-trash', { search: productSearch, page: productPage }],
     queryFn: () => getTrashedProducts({ search: productSearch || undefined, page: productPage, per_page: 10 }),
     enabled: activeTab === 'products',
+  });
+
+  // Query: Trashed Suppliers
+  const { data: supplierTrashResponse, isLoading: isSuppliersLoading } = useQuery({
+    queryKey: ['suppliers-trash', { search: supplierSearch, page: supplierPage }],
+    queryFn: () => getTrashedSuppliers({ search: supplierSearch || undefined, page: supplierPage, per_page: 10 }),
+    enabled: activeTab === 'suppliers',
   });
 
   // Query: Trashed Designs
@@ -103,6 +126,9 @@ export default function RecycleBinPage() {
   const trashedProducts = productTrashResponse?.data || [];
   const productMeta = productTrashResponse?.meta;
 
+  const trashedSuppliers = supplierTrashResponse?.data || [];
+  const supplierMeta = supplierTrashResponse?.meta;
+
   const trashedCodes = codeTrashResponse?.data || [];
   const codeMeta = codeTrashResponse?.meta;
 
@@ -111,6 +137,9 @@ export default function RecycleBinPage() {
     queryClient.invalidateQueries({ queryKey: ['products'] });
     queryClient.invalidateQueries({ queryKey: ['products-summary'] });
     queryClient.invalidateQueries({ queryKey: ['products-trash'] });
+    queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+    queryClient.invalidateQueries({ queryKey: ['suppliers-summary'] });
+    queryClient.invalidateQueries({ queryKey: ['suppliers-trash'] });
     queryClient.invalidateQueries({ queryKey: ['codes'] });
     queryClient.invalidateQueries({ queryKey: ['codes-all'] });
     queryClient.invalidateQueries({ queryKey: ['codes-trash'] });
@@ -211,11 +240,60 @@ export default function RecycleBinPage() {
     },
   });
 
+  // --- Supplier Mutations ---
+  const restoreSupplierMutation = useMutation({
+    mutationFn: restoreSupplier,
+    onSuccess: (res) => {
+      invalidateAll();
+      toast.success(res.message || 'Supplier restored successfully.');
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to restore supplier.');
+    },
+  });
+
+  const forceDeleteSupplierMutation = useMutation({
+    mutationFn: forceDeleteSupplier,
+    onSuccess: () => {
+      invalidateAll();
+      toast.success('Supplier permanently deleted.');
+      setItemToDelete(null);
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to delete supplier.');
+    },
+  });
+
+  const restoreAllSuppliersMutation = useMutation({
+    mutationFn: restoreAllSuppliers,
+    onSuccess: (res) => {
+      invalidateAll();
+      toast.success(res.message || 'All suppliers restored.');
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to restore suppliers.');
+    },
+  });
+
+  const emptySuppliersTrashMutation = useMutation({
+    mutationFn: emptySupplierTrash,
+    onSuccess: (res) => {
+      invalidateAll();
+      toast.success(res.message || 'Suppliers recycle bin emptied.');
+      setIsEmptyBinModalOpen(false);
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to empty recycle bin.');
+    },
+  });
+
   // Modal actions
   const handleConfirmPermanentDelete = () => {
     if (!itemToDelete) return;
     if (itemToDelete.type === 'product') {
       forceDeleteProductMutation.mutate(itemToDelete.item.id);
+    } else if (itemToDelete.type === 'supplier') {
+      forceDeleteSupplierMutation.mutate(itemToDelete.item.id);
     } else {
       forceDeleteCodeMutation.mutate(itemToDelete.item.id);
     }
@@ -224,17 +302,32 @@ export default function RecycleBinPage() {
   const handleConfirmEmptyBin = () => {
     if (activeTab === 'products') {
       emptyProductsTrashMutation.mutate();
+    } else if (activeTab === 'suppliers') {
+      emptySuppliersTrashMutation.mutate();
     } else {
       emptyCodesTrashMutation.mutate();
     }
   };
 
-  const currentTabCount = activeTab === 'products' ? (binSummary?.products || 0) : (binSummary?.codes || 0);
+  const currentTabCount =
+    activeTab === 'products'
+      ? binSummary?.products || 0
+      : activeTab === 'suppliers'
+      ? binSummary?.suppliers || 0
+      : binSummary?.codes || 0;
+
   const isActionPending =
     forceDeleteProductMutation.isPending ||
+    forceDeleteSupplierMutation.isPending ||
     forceDeleteCodeMutation.isPending ||
     emptyProductsTrashMutation.isPending ||
+    emptySuppliersTrashMutation.isPending ||
     emptyCodesTrashMutation.isPending;
+
+  const isRestoreAllPending =
+    restoreAllProductsMutation.isPending ||
+    restoreAllSuppliersMutation.isPending ||
+    restoreAllCodesMutation.isPending;
 
   return (
     <div className="space-y-6">
@@ -251,12 +344,14 @@ export default function RecycleBinPage() {
               onClick={() => {
                 if (activeTab === 'products') {
                   restoreAllProductsMutation.mutate();
+                } else if (activeTab === 'suppliers') {
+                  restoreAllSuppliersMutation.mutate();
                 } else {
                   restoreAllCodesMutation.mutate();
                 }
               }}
-              disabled={currentTabCount === 0 || restoreAllProductsMutation.isPending || restoreAllCodesMutation.isPending}
-              isLoading={restoreAllProductsMutation.isPending || restoreAllCodesMutation.isPending}
+              disabled={currentTabCount === 0 || isRestoreAllPending}
+              isLoading={isRestoreAllPending}
             >
               Restore all
             </Button>
@@ -266,7 +361,7 @@ export default function RecycleBinPage() {
               size="md"
               icon={Trash2}
               onClick={() => setIsEmptyBinModalOpen(true)}
-              disabled={currentTabCount === 0 || emptyProductsTrashMutation.isPending || emptyCodesTrashMutation.isPending}
+              disabled={currentTabCount === 0 || isActionPending}
             >
               Empty bin
             </Button>
@@ -286,9 +381,25 @@ export default function RecycleBinPage() {
           }`}
         >
           <Package className="w-4 h-4 stroke-[1.5]" />
-          <span>Products</span>
+          <span>Items</span>
           <span className="text-xs text-gray-500 font-normal">
             ({binSummary?.products ?? 0})
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('suppliers')}
+          className={`flex items-center gap-2 py-2.5 px-3 border-b-2 font-medium text-sm transition-colors cursor-pointer ${
+            activeTab === 'suppliers'
+              ? 'border-indigo-600 text-indigo-600 font-semibold'
+              : 'border-transparent text-gray-500 hover:text-gray-900'
+          }`}
+        >
+          <Truck className="w-4 h-4 stroke-[1.5]" />
+          <span>Suppliers</span>
+          <span className="text-xs text-gray-500 font-normal">
+            ({binSummary?.suppliers ?? 0})
           </span>
         </button>
 
@@ -576,6 +687,255 @@ export default function RecycleBinPage() {
                 itemLabel="products"
                 onPageChange={setProductPage}
                 isLoading={isProductsLoading}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* SUPPLIERS TAB CONTENT */}
+      {activeTab === 'suppliers' && (
+        <div className="space-y-4">
+          {/* Search bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="relative w-full sm:w-80">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 stroke-[1.5]" />
+              <input
+                type="text"
+                value={supplierSearch}
+                onChange={(e) => {
+                  setSupplierSearch(e.target.value);
+                  setSupplierPage(1);
+                }}
+                placeholder="Search trashed suppliers..."
+                className="w-full h-9 pl-9 pr-8 bg-white border border-gray-300 rounded-lg text-sm placeholder:text-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors"
+              />
+              {supplierSearch && (
+                <button
+                  type="button"
+                  onClick={() => setSupplierSearch('')}
+                  className="p-1 text-gray-400 hover:text-gray-600 absolute right-2 top-1/2 -translate-y-1/2 rounded cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5 stroke-[1.5]" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Suppliers Table Card */}
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden w-full">
+            {/* Desktop / Tablet Table (768px and up) */}
+            <div className="hidden md:block w-full">
+              <table className="w-full table-fixed text-left border-collapse">
+                <thead>
+                  <tr className="h-10 border-b border-gray-200 bg-white text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="py-2 px-3 sm:px-4 w-[35%] truncate text-left align-middle">Supplier</th>
+                    <th className="py-2 px-3 w-[18%] truncate text-center align-middle">Mobile</th>
+                    <th className="py-2 px-3 w-[15%] truncate text-center align-middle">City</th>
+                    <th className="hidden xl:table-cell py-2 px-3 w-[14%] truncate text-center align-middle">Deleted Date</th>
+                    <th className="py-2 px-3 w-[14%] truncate text-center align-middle">Retention</th>
+                    <th className="py-2 px-3 sm:px-4 text-center w-[14%] truncate align-middle">Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-gray-100 text-sm">
+                  {isSuppliersLoading ? (
+                    <Skeleton type="table-row" count={5} />
+                  ) : trashedSuppliers.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-16 px-4 text-center">
+                        <EmptyState
+                          icon={Trash2}
+                          title="No suppliers in Recycle Bin"
+                          description={
+                            supplierSearch
+                              ? 'No trashed suppliers match your search query.'
+                              : 'Suppliers moved to the bin will appear here for 30 days before permanent removal.'
+                          }
+                          actionText={supplierSearch ? 'Clear search' : 'Back to Suppliers'}
+                          onAction={() => (supplierSearch ? setSupplierSearch('') : navigate('/products/suppliers'))}
+                          actionIcon={Truck}
+                          className="border-0 shadow-none bg-transparent"
+                        />
+                      </td>
+                    </tr>
+                  ) : (
+                    trashedSuppliers.map((supplier) => {
+                      const deletedDate = supplier.deleted_at
+                        ? new Date(supplier.deleted_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })
+                        : '—';
+
+                      const daysLeft = supplier.days_left !== undefined ? supplier.days_left : 30;
+
+                      return (
+                        <tr key={supplier.id} className="hover:bg-gray-50/75 transition-colors">
+                          <td className="py-2 px-3 sm:px-4 min-w-0 text-left align-middle">
+                            <div
+                              className="font-medium text-gray-900 truncate leading-tight text-sm"
+                              title={supplier.name}
+                            >
+                              {supplier.name}
+                            </div>
+                            {supplier.contact_person && (
+                              <div
+                                className="text-xs text-gray-500 truncate mt-0.5 leading-none"
+                                title={supplier.contact_person}
+                              >
+                                Contact: {supplier.contact_person}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="py-2 px-3 text-center min-w-0 align-middle">
+                            <span className="font-mono text-gray-600 text-xs">
+                              {supplier.mobile}
+                            </span>
+                          </td>
+
+                          <td className="py-2 px-3 text-center min-w-0 align-middle text-xs text-gray-600">
+                            {supplier.city || <span className="text-gray-300">—</span>}
+                          </td>
+
+                          <td className="hidden xl:table-cell py-2 px-3 text-center min-w-0 align-middle text-xs text-gray-500">
+                            {deletedDate}
+                          </td>
+
+                          <td className="py-2 px-3 text-center min-w-0 align-middle">
+                            <span className="inline-flex items-center gap-1.5 text-xs text-gray-700 font-medium">
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  daysLeft <= 5 ? 'bg-red-500' : 'bg-green-500'
+                                }`}
+                              />
+                              {daysLeft}d left
+                            </span>
+                          </td>
+
+                          <td className="py-2 px-3 sm:px-4 text-center shrink-0 min-w-0 align-middle">
+                            <div className="inline-flex items-center justify-center gap-1.5">
+                              <Button
+                                variant="secondary"
+                                size="xs"
+                                onClick={() => restoreSupplierMutation.mutate(supplier.id)}
+                                isLoading={restoreSupplierMutation.isPending}
+                                icon={RotateCcw}
+                                title="Restore Supplier"
+                              >
+                                Restore
+                              </Button>
+
+                              <button
+                                type="button"
+                                onClick={() => setItemToDelete({ type: 'supplier', item: supplier })}
+                                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                                title="Delete Permanently"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 stroke-[1.5]" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Stacked Cards (below 768px) */}
+            <div className="md:hidden divide-y divide-gray-100 w-full">
+              {isSuppliersLoading ? (
+                <div className="p-4 space-y-3">
+                  <Skeleton type="card" count={3} />
+                </div>
+              ) : trashedSuppliers.length === 0 ? (
+                <div className="py-12 px-4 text-center">
+                  <EmptyState
+                    icon={Trash2}
+                    title="No suppliers in Recycle Bin"
+                    description={
+                      supplierSearch
+                        ? 'No trashed suppliers match your search query.'
+                        : 'Suppliers moved to the bin will appear here for 30 days.'
+                    }
+                    actionText={supplierSearch ? 'Clear search' : 'Back to Suppliers'}
+                    onAction={() => (supplierSearch ? setSupplierSearch('') : navigate('/products/suppliers'))}
+                    actionIcon={Truck}
+                    className="border-0 shadow-none bg-transparent"
+                  />
+                </div>
+              ) : (
+                trashedSuppliers.map((supplier) => {
+                  const daysLeft = supplier.days_left !== undefined ? supplier.days_left : 30;
+                  return (
+                    <div key={supplier.id} className="p-4 space-y-2 bg-white hover:bg-gray-50/50 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold text-gray-900 text-sm truncate" title={supplier.name}>
+                            {supplier.name}
+                          </h3>
+                          {supplier.contact_person && (
+                            <p className="text-xs text-gray-500 mt-0.5 truncate">
+                              Contact: {supplier.contact_person}
+                            </p>
+                          )}
+                        </div>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-gray-700 font-medium shrink-0">
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              daysLeft <= 5 ? 'bg-red-500' : 'bg-green-500'
+                            }`}
+                          />
+                          {daysLeft}d left
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-gray-100 text-xs">
+                        <div className="flex items-center gap-3 text-gray-600">
+                          <span>{supplier.mobile}</span>
+                          {supplier.city && <span>{supplier.city}</span>}
+                        </div>
+
+                        <div className="inline-flex items-center gap-1 shrink-0">
+                          <Button
+                            variant="secondary"
+                            size="xs"
+                            onClick={() => restoreSupplierMutation.mutate(supplier.id)}
+                            isLoading={restoreSupplierMutation.isPending}
+                            icon={RotateCcw}
+                          >
+                            Restore
+                          </Button>
+                          <button
+                            type="button"
+                            onClick={() => setItemToDelete({ type: 'supplier', item: supplier })}
+                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 stroke-[1.5]" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Pagination */}
+            {supplierMeta && (
+              <Pagination
+                page={supplierPage}
+                lastPage={supplierMeta.last_page}
+                from={supplierMeta.from}
+                to={supplierMeta.to}
+                total={supplierMeta.total}
+                itemLabel="suppliers"
+                onPageChange={setSupplierPage}
+                isLoading={isSuppliersLoading}
               />
             )}
           </div>
@@ -922,8 +1282,14 @@ export default function RecycleBinPage() {
       <Modal
         isOpen={Boolean(itemToDelete)}
         onClose={() => setItemToDelete(null)}
-        title={itemToDelete?.type === 'product' ? 'Permanently Delete Product?' : 'Permanently Delete Design?'}
-        description="This action cannot be undone. All associated data and preview files will be permanently erased."
+        title={
+          itemToDelete?.type === 'product'
+            ? 'Permanently Delete Product?'
+            : itemToDelete?.type === 'supplier'
+            ? 'Permanently Delete Supplier?'
+            : 'Permanently Delete Design?'
+        }
+        description="This action cannot be undone. All associated data will be permanently erased."
         footer={
           <>
             <Button
@@ -950,10 +1316,14 @@ export default function RecycleBinPage() {
               <p className="font-semibold">
                 {itemToDelete.type === 'product'
                   ? `Product: ${itemToDelete.item.name} (${itemToDelete.item.sku})`
+                  : itemToDelete.type === 'supplier'
+                  ? `Supplier: ${itemToDelete.item.name} (${itemToDelete.item.mobile})`
                   : `Design: ${itemToDelete.item.name} (${itemToDelete.item.format})`}
               </p>
               <p className="text-xs text-red-700 mt-1">
-                This item will be completely removed from the database and cannot be recovered.
+                {itemToDelete.type === 'supplier'
+                  ? 'This supplier will be completely removed from the database and any linked products will have their supplier cleared.'
+                  : 'This item will be completely removed from the database and cannot be recovered.'}
               </p>
             </div>
           </div>
@@ -964,9 +1334,19 @@ export default function RecycleBinPage() {
       <Modal
         isOpen={isEmptyBinModalOpen}
         onClose={() => setIsEmptyBinModalOpen(false)}
-        title={activeTab === 'products' ? 'Empty Products Recycle Bin?' : 'Empty Designs Recycle Bin?'}
+        title={
+          activeTab === 'products'
+            ? 'Empty Products Recycle Bin?'
+            : activeTab === 'suppliers'
+            ? 'Empty Suppliers Recycle Bin?'
+            : 'Empty Designs Recycle Bin?'
+        }
         description={`This will permanently delete all ${
-          activeTab === 'products' ? 'products' : 'designs'
+          activeTab === 'products'
+            ? 'products'
+            : activeTab === 'suppliers'
+            ? 'suppliers'
+            : 'designs'
         } currently in the Recycle Bin. This action cannot be undone.`}
         footer={
           <>
@@ -993,7 +1373,12 @@ export default function RecycleBinPage() {
             <p className="font-semibold">Warning: Irreversible Action</p>
             <p className="text-xs text-amber-700 mt-1">
               You are about to permanently purge {currentTabCount}{' '}
-              {activeTab === 'products' ? 'products' : 'designs'}.
+              {activeTab === 'products'
+                ? 'products'
+                : activeTab === 'suppliers'
+                ? 'suppliers'
+                : 'designs'}
+              .
             </p>
           </div>
         </div>

@@ -5,6 +5,7 @@ use App\Http\Controllers\BinController;
 use App\Http\Controllers\CodeController;
 use App\Http\Controllers\PrintPresetController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TemplateController;
 use Illuminate\Support\Facades\Route;
 
@@ -33,6 +34,19 @@ Route::post('/products/import/commit', [ProductController::class, 'importCommit'
 
 // Products CRUD
 Route::apiResource('products', ProductController::class);
+
+// Suppliers API - Trash, Summary, Lookup, Export
+Route::get('/suppliers/summary', [SupplierController::class, 'summary']);
+Route::get('/suppliers/lookup', [SupplierController::class, 'lookup']);
+Route::get('/suppliers/trash', [SupplierController::class, 'trash']);
+Route::post('/suppliers/trash/restore-all', [SupplierController::class, 'restoreAll']);
+Route::delete('/suppliers/trash/empty', [SupplierController::class, 'emptyTrash']);
+Route::post('/suppliers/{id}/restore', [SupplierController::class, 'restore']);
+Route::delete('/suppliers/{id}/force', [SupplierController::class, 'forceDelete']);
+Route::post('/suppliers/export', [SupplierController::class, 'export']);
+
+// Suppliers CRUD
+Route::apiResource('suppliers', SupplierController::class);
 
 // Codes API - Trash & Recycle Bin
 Route::get('/codes/trash', [CodeController::class, 'trash']);

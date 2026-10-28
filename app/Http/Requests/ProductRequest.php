@@ -38,6 +38,7 @@ class ProductRequest extends FormRequest
                 'max:100',
                 Rule::unique('products', 'barcode_number')->whereNull('deleted_at')->ignore($productId),
             ],
+            'supplier_id' => ['nullable', 'integer', Rule::exists('suppliers', 'id')->whereNull('deleted_at')],
             'category' => ['nullable', 'string', 'max:100'],
             'price' => ['nullable', 'numeric', 'min:0'],
             'quantity' => ['nullable', 'integer', 'min:0'],

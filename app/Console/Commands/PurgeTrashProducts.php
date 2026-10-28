@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Code;
 use App\Models\Product;
+use App\Models\Supplier;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
@@ -21,7 +22,7 @@ class PurgeTrashProducts extends Command
      *
      * @var string
      */
-    protected $description = 'Permanently delete products and designs that have been in the Recycle Bin for more than 30 days';
+    protected $description = 'Permanently delete products, suppliers and designs that have been in the Recycle Bin for more than 30 days';
 
     /**
      * Execute the console command.
@@ -32,6 +33,11 @@ class PurgeTrashProducts extends Command
 
         // Purge expired products
         $productCount = Product::onlyTrashed()
+            ->where('deleted_at', '<=', $cutoffDate)
+            ->forceDelete();
+
+        // Purge expired suppliers
+        $supplierCount = Supplier::onlyTrashed()
             ->where('deleted_at', '<=', $cutoffDate)
             ->forceDelete();
 
@@ -48,7 +54,7 @@ class PurgeTrashProducts extends Command
             $code->forceDelete();
         }
 
-        $this->info("Successfully purged {$productCount} expired products and {$codeCount} expired designs from the Recycle Bin.");
+        $this->info("Successfully purged {$productCount} products, {$supplierCount} suppliers, and {$codeCount} designs from the Recycle Bin.");
 
         return Command::SUCCESS;
     }

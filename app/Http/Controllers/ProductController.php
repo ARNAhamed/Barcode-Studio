@@ -20,7 +20,7 @@ class ProductController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = Product::query()->withCount('codes');
+        $query = Product::query()->with('supplier')->withCount('codes');
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -29,6 +29,12 @@ class ProductController extends Controller
                     ->orWhere('barcode_number', 'like', "%{$search}%")
                     ->orWhere('category', 'like', "%{$search}%");
             });
+        }
+
+        if ($supplierId = $request->input('supplier_id')) {
+            $query->where('supplier_id', $supplierId);
+        } elseif ($request->boolean('no_supplier') || $request->input('no_supplier') === '1') {
+            $query->whereNull('supplier_id');
         }
 
         if ($ids = $request->input('ids')) {
@@ -314,15 +320,18 @@ class ProductController extends Controller
             'file' => ['required', 'file', 'max:5120'],
             'mode' => ['nullable', 'string', 'in:skip_existing,update_existing'],
             'auto_generate_barcodes' => ['nullable'],
+            'create_missing_suppliers' => ['nullable'],
         ]);
 
         $mode = $request->input('mode', 'update_existing');
         $autoGenerateBarcodes = $request->boolean('auto_generate_barcodes');
+        $createMissingSuppliers = $request->boolean('create_missing_suppliers');
 
         $result = $csvService->commit(
             $request->file('file')->getRealPath(),
             $mode,
-            $autoGenerateBarcodes
+            $autoGenerateBarcodes,
+            $createMissingSuppliers
         );
 
         return response()->json($result);

@@ -23,11 +23,11 @@ Built as a **single project, unified Laravel + React SPA** running on the same o
   * **Instant Validation:** Live validation for symbology-specific rules (e.g. 12–13 digits for EAN-13).
   * **Export Options:** **Save to Gallery** (stores high-res PNG in `storage/app/public/previews` via `html-to-image`), **Download PNG**, **Download SVG** (barcodes), and **Reset Settings**.
 
-* **Stock Management (`/stock`):**
-  * Inventory overview cards: **Total Products**, **Low Stock Alert**, and **Out of Stock**.
-  * Searchable, sortable, paginated table (10 products per page).
+* **Products (`/products` - Items & Suppliers):**
+  * Sub-navigation with tab switcher: **Items** (`/products/items`) and **Suppliers** (`/products/suppliers`).
+  * **Items**: Inventory overview cards (**Total Products**, **Low Stock Alert**, **Out of Stock**), searchable table, supplier assignment and filter, CSV import/export, bulk barcode generation with design templates.
+  * **Suppliers**: Full supplier directory with contact details (mobile, email, phone, city, Sri Lanka country default), linked products counter, quick tap-to-call / email / map actions, and supplier modal.
   * Status badges: **In stock** (green), **Low stock** (amber, triggered when `quantity <= low_stock_threshold`), and **Out of stock** (red).
-  * Slide-over right drawer for adding/editing products with client and server-side validation.
   * **Generate Code** button per product that opens the Designer with the product pre-selected.
 
 ---

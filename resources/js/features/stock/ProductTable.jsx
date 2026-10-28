@@ -34,6 +34,9 @@ export default function ProductTable({
   onPageChange,
   searchTerm,
   onSearchChange,
+  supplierFilter = '',
+  onSupplierFilterChange,
+  suppliersList = [],
   onEdit,
   onDelete,
   selectedIds = [],
@@ -121,24 +124,44 @@ export default function ProductTable({
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden w-full">
       {/* Table Toolbar & Bulk Actions */}
       <div className="p-3.5 sm:p-4 border-b border-gray-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" strokeWidth={1.5} />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search by name, SKU, barcode..."
-            className="w-full h-9 pl-9 pr-8 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => onSearchChange('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-md cursor-pointer"
-              aria-label="Clear search"
+        <div className="flex items-center gap-2 w-full sm:w-auto flex-1 max-w-md">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" strokeWidth={1.5} />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Search by name, SKU, barcode..."
+              className="w-full h-9 pl-9 pr-8 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => onSearchChange('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-md cursor-pointer"
+                aria-label="Clear search"
+              >
+                <X className="w-3.5 h-3.5" strokeWidth={1.5} />
+              </button>
+            )}
+          </div>
+
+          {/* Supplier filter */}
+          {onSupplierFilterChange && (
+            <select
+              value={supplierFilter || ''}
+              onChange={(e) => onSupplierFilterChange(e.target.value)}
+              className="h-9 text-xs bg-white text-gray-700 font-medium rounded-lg px-2.5 border border-gray-300 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer transition-colors shrink-0 max-w-[150px] truncate"
+              title="Filter by supplier"
             >
-              <X className="w-3.5 h-3.5" strokeWidth={1.5} />
-            </button>
+              <option value="">All suppliers</option>
+              <option value="no_supplier">No supplier</option>
+              {suppliersList.map((s) => (
+                <option key={s.id} value={String(s.id)}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
           )}
         </div>
 
@@ -274,6 +297,9 @@ export default function ProductTable({
                   {getSortIcon('category')}
                 </div>
               </th>
+              <th className="hidden xl:table-cell py-2 px-3 xl:w-[12%] text-center truncate align-middle">
+                Supplier
+              </th>
               <th
                 onClick={() => handleHeaderSort('price')}
                 className="py-2 px-3 w-[80px] min-w-[80px] text-center cursor-pointer select-none group hover:bg-gray-50 transition-colors align-middle"
@@ -302,7 +328,7 @@ export default function ProductTable({
               <Skeleton type="table-row" count={5} />
             ) : products.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-12 px-4 text-center">
+                <td colSpan={10} className="py-12 px-4 text-center">
                   <EmptyState
                     icon={PackageOpen}
                     title="No products found"
@@ -374,6 +400,29 @@ export default function ProductTable({
                         title={product.category}
                       >
                         {product.category}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300">—</span>
+                    )}
+                  </td>
+
+                  {/* Supplier (visible on xl+) */}
+                  <td className="hidden xl:table-cell py-2 px-3 text-center min-w-0 align-middle">
+                    {product.supplier ? (
+                      <span
+                        className={`inline-block max-w-full truncate text-xs ${
+                          product.supplier.deleted_at
+                            ? 'text-gray-400 italic line-through decoration-gray-300'
+                            : 'text-gray-600'
+                        }`}
+                        title={
+                          product.supplier.deleted_at
+                            ? `${product.supplier.name} (deleted)`
+                            : product.supplier.name
+                        }
+                      >
+                        {product.supplier.name}
+                        {product.supplier.deleted_at && ' (deleted)'}
                       </span>
                     ) : (
                       <span className="text-gray-300">—</span>
@@ -487,6 +536,15 @@ export default function ProductTable({
                   <p className="font-mono text-xs text-gray-500 mt-0.5 truncate" title={product.sku}>
                     SKU: {product.sku}
                   </p>
+                  {product.supplier && (
+                    <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                      <span className="text-gray-400">Supplier: </span>
+                      <span className={product.supplier.deleted_at ? 'line-through text-gray-400 italic' : 'text-gray-700'}>
+                        {product.supplier.name}
+                        {product.supplier.deleted_at && ' (deleted)'}
+                      </span>
+                    </p>
+                  )}
                 </div>
                 <div className="shrink-0">
                   {getStatusBadge(product)}

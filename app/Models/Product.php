@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -13,6 +14,7 @@ class Product extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'supplier_id',
         'name',
         'sku',
         'barcode_number',
@@ -24,6 +26,7 @@ class Product extends Model
     ];
 
     protected $casts = [
+        'supplier_id' => 'integer',
         'price' => 'decimal:2',
         'quantity' => 'integer',
         'low_stock_threshold' => 'integer',
@@ -34,6 +37,11 @@ class Product extends Model
         'stock_status',
         'days_left',
     ];
+
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class)->withTrashed();
+    }
 
     public function codes(): HasMany
     {

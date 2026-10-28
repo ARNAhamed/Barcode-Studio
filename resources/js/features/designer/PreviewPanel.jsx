@@ -17,6 +17,24 @@ import {
 } from 'lucide-react';
 import Button from '../../components/Button';
 import { DPIS, toPx, fromPx } from '../../utils/units';
+import { fillPlaceholders, hasPlaceholders } from '../../utils/placeholders';
+
+const SAMPLE_PRODUCT = {
+  name: 'Wireless Headphones',
+  sku: 'AUD-WNC-001',
+  price: '89.00',
+  category: 'Audio',
+  barcode_number: '9312345678907',
+  quantity: '42',
+  supplier: {
+    name: 'Apex Audio Co.',
+    contact_person: 'John Doe',
+    mobile: '+61 400 123 456',
+    phone: '(03) 9000 1122',
+    email: 'orders@apexaudio.com',
+    city: 'Melbourne',
+  },
+};
 
 const ZOOM_STEPS = [0.25, 0.50, 0.75, 1.00, 1.50, 2.00, 3.00, 4.00];
 
@@ -31,6 +49,7 @@ export default function PreviewPanel({
   isValid = true,
   validationError = null,
   validationResult = null,
+  selectedProduct = null,
   captureRef,
   codeCaptureRef,
   barcodeSvgRef,
@@ -114,17 +133,30 @@ export default function PreviewPanel({
     return () => observer.disconnect();
   }, []);
 
+  // Resolved Label Text for live canvas rendering and export
+  const isPatternUnlinked = !selectedProduct && hasPlaceholders(settings.label);
+  const resolvedLabelText = useMemo(() => {
+    if (!settings.label) return '';
+    if (selectedProduct) {
+      return fillPlaceholders(settings.label, selectedProduct);
+    }
+    if (hasPlaceholders(settings.label)) {
+      return fillPlaceholders(settings.label, SAMPLE_PRODUCT);
+    }
+    return settings.label;
+  }, [settings.label, selectedProduct]);
+
   // Compute Raw Code Pixel Dimensions
   const codeUnit = settings.unit || 'px';
   const codeRawPxWidth = type === 'barcode'
-    ? toPx(settings.width || 60, codeUnit)
-    : toPx(settings.size || 35, codeUnit);
+    ? toPx(settings.width || 45, codeUnit)
+    : toPx(settings.size || 25, codeUnit);
   const codeRawPxHeight = type === 'barcode'
-    ? toPx(settings.height || 25, codeUnit)
-    : toPx(settings.size || 35, codeUnit);
+    ? toPx(settings.height || 15, codeUnit)
+    : toPx(settings.size || 25, codeUnit);
 
   // Label Text & Unified Object Dimensions
-  const hasLabel = Boolean(settings.label && settings.label.trim());
+  const hasLabel = Boolean(resolvedLabelText && resolvedLabelText.trim());
   const labelFontUnit = settings.labelFontUnit || 'pt';
   const labelFontSize = Number(settings.labelFontSize || (labelFontUnit === 'pt' ? 11 : 14));
   const labelFontSizePx = labelFontUnit === 'pt' ? (labelFontSize * 96) / 72 : labelFontSize;
@@ -134,7 +166,7 @@ export default function PreviewPanel({
 
   // Multi-line estimation
   const estimatedCharWidth = labelFontSizePx * 0.55;
-  const explicitLines = hasLabel ? settings.label.split('\n') : [];
+  const explicitLines = hasLabel ? resolvedLabelText.split('\n') : [];
   let totalLabelLines = 0;
   explicitLines.forEach((line) => {
     const lineW = line.trim().length * estimatedCharWidth;
@@ -752,8 +784,12 @@ export default function PreviewPanel({
                         }}
                         title="Click to edit label text"
                       >
-                        {settings.label.split('\n').map((line, idx) => (
-                          <p key={idx} className="w-full break-words whitespace-normal leading-tight m-0 p-0">
+                        {resolvedLabelText.split('\n').map((line, idx) => (
+                          <p
+                            key={idx}
+                            style={{ color: isPatternUnlinked ? '#64748B' : '#0F172A' }}
+                            className="w-full break-words whitespace-normal leading-tight m-0 p-0"
+                          >
                             {line}
                           </p>
                         ))}
@@ -775,13 +811,16 @@ export default function PreviewPanel({
                           fontSize: `${labelFontSizePx}px`,
                           fontWeight: labelWeight === 'bold' ? 700 : 400,
                           textAlign: labelAlign,
-                          color: '#0F172A',
                           maxWidth: `${Math.round(codeRawPxWidth)}px`,
                         }}
                         title="Click to edit label text"
                       >
-                        {settings.label.split('\n').map((line, idx) => (
-                          <p key={idx} className="w-full break-words whitespace-normal leading-tight m-0 p-0">
+                        {resolvedLabelText.split('\n').map((line, idx) => (
+                          <p
+                            key={idx}
+                            style={{ color: isPatternUnlinked ? '#64748B' : '#0F172A' }}
+                            className="w-full break-words whitespace-normal leading-tight m-0 p-0"
+                          >
                             {line}
                           </p>
                         ))}

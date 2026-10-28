@@ -74,20 +74,29 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
     - **Format**: (Barcode mode only) Compact format selector (`CODE128`, `EAN13`, `EAN8`, `UPC`, `CODE39`, `ITF14`).
     - **Label Text**: Single-line input or compact textarea with a small **Insert** button that opens a scrollable, viewport-aware popover menu.
       - **Insert Menu**: Header note *"Fills in automatically from the selected product"*. Each placeholder shows live sample values (e.g., `Name  Wireless Headphones`). Grouped into Product and Supplier sections, with a `Supplier & Mobile` preset button at the bottom. Inserts at cursor position.
-      - **Live Label Preview**: Subtle *"Preview:"* line directly under the field resolving placeholders with the picked or sample product.
+      - **Product Auto-Fill & Live Preview**: When a product is picked, auto-fills the label pattern (template's pattern, last used pattern, or default `{name} • {price}`) if the field is empty, keeping any previously typed pattern intact. The preview canvas and subtle *"Preview:"* line under the field resolve the pattern against the selected product live (falling back to muted raw/sample placeholders when unlinked). Saves pattern with templates and resolved text with codes.
       - **Quick Size & Gap Row**: Directly below label text, compact row with **Size** (pt with `-` and `+` buttons, keyboard arrow navigation, Shift+arrow step 10) and **Gap** (selected unit with `-` and `+` buttons, step 1px equivalent, min 0). Kept in live two-way sync with Advanced > Text style.
-    - **Size**: Quick preset chips: `Auto` (fit to code), `Small` (50 x 25 mm), `Medium` (60 x 40 mm), `Large` (100 x 50 mm), and `Custom`.
-      - Selecting `Custom` displays manual Width, Height, an aspect-ratio lock, and a unit switch (`mm`, `cm`, `inch`, `px`), pre-filled with current dimensions. Typing updates the live preview with validation. Editing values while another preset is active automatically switches to `Custom`. Custom dimensions persist across saves and templates.
+    - **Size (Controls Code Dimensions)**:
+      - **Unit Switch**: Small segmented control (`mm`, `cm`, `inch`, `px`) positioned at the top right of the "Size" title row. Globally controls all length fields in the Designer (code dimensions, artboard dimensions, gap, and offsets).
+      - **Code Size Chips**: Sets the physical dimension of the barcode or QR code itself:
+        - Barcode presets: `Small` (30 × 10 mm), `Medium` (45 × 15 mm), `Large` (60 × 20 mm).
+        - QR presets: `Small` (15 mm), `Medium` (25 mm), `Large` (40 mm).
+        - `Auto`: Fits largest code size inside fixed artboard with padding, or defaults to Medium when artboard is "Fit to code".
+        - `Custom`: Displays code Width & Height (single Size field for QR) with number inputs, `-`/`+` buttons, aspect ratio lock (barcode), and live validation. Editing any dimension switches chip to `Custom`.
+    - **Artboard (Integrated Row within Size Block)**:
+      - Compact select dropdown directly below code sizing: `Fit to code` (default, artboard tightly wraps code + label + margin), `Small label (50 × 25 mm)`, `Shelf label (60 × 40 mm)`, `Product label (100 × 50 mm)`, `Shipping label (100 × 150 mm)`, `Square (50 × 50 mm)`, `A6`, `A5`, `A4`, `Business card (90 × 55 mm)`, and `Custom`.
+      - Selecting a preset displays dimensions and orientation swap button. Selecting `Custom` displays Width and Height inputs with swap button.
+      - Warning banner appears if code + label exceed artboard with quick "Shrink code to fit" or "Enlarge artboard" actions.
     - **Colors**: Two small color swatches (Code color and Background) with compact pickers and a **Swap** icon button.
   - **"Advanced" Accordion (Collapsed by Default, Remembers Open/Closed State)**:
-    - Replaced horizontal tabs with a **vertical accordion list** of full-width rows (icon, title, and chevron) with only ONE group open at a time to prevent horizontal clipping:
-      1. **Artboard**: Extended presets (Shipping 100x150, A6, A5, A4, Square, Business Card), orientation toggle, background color, border (toggle, color, width), corner radius.
+    - Vertical accordion list of full-width rows with only ONE group open at a time:
+      1. **Artboard Style**: Card border (toggle, color, width), corner radius, and background color palette (size & presets moved to main Size block).
       2. **Placement**: 3x3 alignment grid, padding, fit mode (`original`, `fit`, `fill-width`), fine X/Y offsets, reset position.
-      3. **Code Style**: Precision sizing with number inputs and `-`/`+` buttons alongside sliders. Barcode width, height, margin, and show-number toggle. QR size with `-`/`+` buttons, slider, "Fit to artboard" button, "% of artboard" badge, scannability indicator, error correction (L/M/Q/H), dot style, corner style, and logo upload.
+      3. **Code Style**: Margin, show-number toggle; QR error correction (L/M/Q/H), dot style, corner style, and logo upload.
       4. **Text Style**: Font size (with `-`/`+` buttons and unit toggle), gap (with `-`/`+` buttons), font weight (`Regular` / `Bold`), text alignment (`Left`, `Center`, `Right`).
-      5. **Units & Export**: Default unit, export DPI (`72`, `150`, `300`, `600`), lock aspect ratio, "Export code only" checkbox.
+      5. **Export**: Export DPI (`72`, `150`, `300`, `600`), lock aspect ratio, "Export code only" checkbox.
     - **"Reset advanced settings"** link to restore default styling options.
-    - Adequate bottom padding on editor pane so all controls and links remain fully visible and reachable inside the window without clipping.
+    - Bottom padding on editor pane so all controls and links remain fully visible and reachable inside the window without clipping.
 - **Canvas & Preview Enhancements**:
   - **Direct Canvas Interactions**:
     - Click label text directly in the preview to edit or focus the field.

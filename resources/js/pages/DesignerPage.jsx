@@ -43,10 +43,11 @@ import {
 
 const DEFAULT_BARCODE_SETTINGS = {
   unit: 'mm',
-  width: 60,
-  height: 25,
+  width: 45,
+  height: 15,
+  sizePreset: 'medium',
   lockAspectRatio: true,
-  aspectRatio: 2.4,
+  aspectRatio: 3,
   format: 'CODE128',
   margin: 6,
   displayValue: true,
@@ -64,7 +65,8 @@ const DEFAULT_BARCODE_SETTINGS = {
 
 const DEFAULT_QR_SETTINGS = {
   unit: 'mm',
-  size: 35,
+  size: 25,
+  sizePreset: 'medium',
   errorCorrection: 'Q',
   dotStyle: 'rounded',
   cornerStyle: 'extra-rounded',
@@ -80,10 +82,10 @@ const DEFAULT_QR_SETTINGS = {
   dpi: 300,
 };
 
-// Default Artboard for new designs: Medium shelf-label 60x40 mm
+// Default Artboard for new designs: Fit to code (auto)
 const INITIAL_ARTBOARD_SETTINGS = {
   ...DEFAULT_ARTBOARD_SETTINGS,
-  preset: 'shelf_label',
+  preset: 'auto',
   unit: 'mm',
   width: 60,
   height: 40,
@@ -284,16 +286,16 @@ export default function DesignerPage() {
 
     // Label Pattern
     const currentPattern = tpl.settings?.labelPattern || tpl.settings?.label || '';
-    const resolvedLabel = selectedProduct && currentPattern
-      ? fillPlaceholders(currentPattern, selectedProduct)
-      : (tpl.settings?.label || currentPattern);
+    if (currentPattern) {
+      localStorage.setItem('designer_last_label_pattern', currentPattern);
+    }
 
     let newCodeSettings;
     if (targetType === 'barcode') {
       newCodeSettings = {
         ...DEFAULT_BARCODE_SETTINGS,
         ...tpl.settings,
-        label: resolvedLabel,
+        label: currentPattern,
         labelPattern: currentPattern,
         dpi: newDpi,
       };
@@ -304,7 +306,7 @@ export default function DesignerPage() {
       newCodeSettings = {
         ...DEFAULT_QR_SETTINGS,
         ...tpl.settings,
-        label: resolvedLabel,
+        label: currentPattern,
         labelPattern: currentPattern,
         dpi: newDpi,
         linkToProductPage: tpl.settings?.linkToProductPage !== undefined ? Boolean(tpl.settings.linkToProductPage) : true,
@@ -517,26 +519,70 @@ export default function DesignerPage() {
     setValue(autoValue);
     setName(`${product.name} ${type === 'barcode' ? 'Barcode' : 'QR Code'}`);
 
-    const currentPattern =
-      activeSettings.labelPattern ||
-      (hasPlaceholders(activeSettings.label) ? activeSettings.label : '{name} • {price}');
+    // If label field is empty, apply pattern automatically; otherwise preserve existing user pattern
+    const existingLabel = (activeSettings.label || '').trim();
+    let targetPattern = existingLabel;
 
-    const labelText = fillPlaceholders(currentPattern, product);
+    if (!existingLabel) {
+      targetPattern =
+        appliedTemplate?.settings?.labelPattern ||
+        appliedTemplate?.settings?.label ||
+        localStorage.getItem('designer_last_label_pattern') ||
+        '{name} • {price}';
+    }
+
+    if (targetPattern) {
+      localStorage.setItem('designer_last_label_pattern', targetPattern);
+    }
 
     if (type === 'barcode') {
       setBarcodeSettings((prev) => ({
         ...prev,
-        label: labelText,
-        labelPattern: currentPattern,
+        label: targetPattern,
+        labelPattern: targetPattern,
         format: product.barcode_number && /^\d{12,13}$/.test(product.barcode_number) ? 'EAN13' : prev.format,
       }));
     } else {
       setQrSettings((prev) => ({
         ...prev,
-        label: labelText,
-        labelPattern: currentPattern,
+        label: targetPattern,
+        labelPattern: targetPattern,
       }));
     }
+  };
+
+  // Global unit change handler for all length fields in Designer
+  const handleChangeUnit = (newUnit) => {
+    const oldUnit = activeSettings.unit || 'mm';
+    if (newUnit === oldUnit) return;
+
+    const decimals = newUnit === 'px' ? 0 : newUnit === 'mm' ? 1 : 2;
+
+    setBarcodeSettings((prev) => ({
+      ...prev,
+      unit: newUnit,
+      width: convertUnit(prev.width, prev.unit || oldUnit, newUnit, decimals),
+      height: convertUnit(prev.height, prev.unit || oldUnit, newUnit, decimals),
+      labelGap: convertUnit(prev.labelGap || 0, prev.unit || oldUnit, newUnit, decimals),
+    }));
+
+    setQrSettings((prev) => ({
+      ...prev,
+      unit: newUnit,
+      size: convertUnit(prev.size, prev.unit || oldUnit, newUnit, decimals),
+      labelGap: convertUnit(prev.labelGap || 0, prev.unit || oldUnit, newUnit, decimals),
+    }));
+
+    const artboardOldUnit = artboardSettings.unit || oldUnit;
+    setArtboardSettings((prev) => ({
+      ...prev,
+      unit: newUnit,
+      width: convertUnit(prev.width, artboardOldUnit, newUnit, decimals),
+      height: convertUnit(prev.height, artboardOldUnit, newUnit, decimals),
+      padding: convertUnit(prev.padding !== undefined ? prev.padding : 5, artboardOldUnit, newUnit, decimals),
+      xOffset: convertUnit(prev.xOffset || 0, artboardOldUnit, newUnit, decimals),
+      yOffset: convertUnit(prev.yOffset || 0, artboardOldUnit, newUnit, decimals),
+    }));
   };
 
   const handleToggleLinkToProductPage = (checked) => {
@@ -671,8 +717,13 @@ export default function DesignerPage() {
 
       const blob = await captureElementAsBlob(captureNode, dpi);
 
+      const rawPattern = activeSettings.label || '';
+      const resolvedLabel = fillPlaceholders(rawPattern, selectedProduct);
+
       const settingsToSave = {
         ...activeSettings,
+        label: resolvedLabel,
+        labelPattern: rawPattern,
         artboard: { ...artboardSettings },
         dpi,
         template_id: appliedTemplate?.id || null,
@@ -729,7 +780,9 @@ export default function DesignerPage() {
   const handleDownloadSvg = () => {
     try {
       const filename = `${name.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'code'}.svg`;
-      const hasLbl = Boolean(activeSettings.label && activeSettings.label.trim());
+      const rawPattern = activeSettings.label || '';
+      const resolvedLabel = fillPlaceholders(rawPattern, selectedProduct);
+      const hasLbl = Boolean(resolvedLabel && resolvedLabel.trim());
       const labelFontUnit = activeSettings.labelFontUnit || 'pt';
       const labelFontSize = Number(activeSettings.labelFontSize || (labelFontUnit === 'pt' ? 12 : 16));
       const labelFontSizePx = labelFontUnit === 'pt' ? (labelFontSize * 96) / 72 : labelFontSize;
@@ -738,7 +791,7 @@ export default function DesignerPage() {
       const labelAlign = activeSettings.labelAlign || 'center';
 
       const labelOptions = hasLbl ? {
-        text: activeSettings.label,
+        text: resolvedLabel,
         fontSize: labelFontSize,
         fontUnit: labelFontUnit,
         gap: labelGapPx,
@@ -750,7 +803,7 @@ export default function DesignerPage() {
       const codeH = toPx(activeSettings.height || activeSettings.size, activeSettings.unit);
 
       const estimatedCharW = labelFontSizePx * 0.55;
-      const estimatedTextW = hasLbl ? activeSettings.label.trim().length * estimatedCharW : 0;
+      const estimatedTextW = hasLbl ? resolvedLabel.trim().length * estimatedCharW : 0;
       const isLabelWider = hasLbl && estimatedTextW > codeW;
       const labelLines = isLabelWider ? Math.min(3, Math.ceil(estimatedTextW / Math.max(80, codeW))) : 1;
       const labelPxHeight = hasLbl ? Math.round(labelFontSizePx * 1.35 * labelLines) : 0;
@@ -904,6 +957,7 @@ export default function DesignerPage() {
             settings={activeSettings}
             artboardSettings={artboardSettings}
             onArtboardChange={setArtboardSettings}
+            selectedProduct={selectedProduct}
             isValid={isValid}
             validationError={validationResult.error || sizeError || artboardError}
             validationResult={validationResult}
@@ -1014,6 +1068,7 @@ export default function DesignerPage() {
                   if (type === 'barcode') setBarcodeSettings(newSt);
                   else setQrSettings(newSt);
                 }}
+                onChangeUnit={handleChangeUnit}
                 artboardSettings={artboardSettings}
                 onChangeArtboard={setArtboardSettings}
                 onSwapColors={handleSwapColors}

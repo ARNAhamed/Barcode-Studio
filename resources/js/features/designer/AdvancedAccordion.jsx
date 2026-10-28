@@ -5,7 +5,7 @@ import {
   Layout,
   Maximize2,
   Type,
-  Sliders,
+  Download,
   RotateCcw,
   Lock,
   Unlock,
@@ -16,17 +16,9 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  Maximize,
-  AlertTriangle,
 } from 'lucide-react';
 import {
-  UNITS,
-  ARTBOARD_PRESETS,
   DPIS,
-  convertUnit,
-  toPx,
-  fromPx,
-  getPresetDimensionsInUnit,
 } from '../../utils/units';
 
 const ALIGNMENTS = [
@@ -82,7 +74,6 @@ function NumberStepper({
   shiftStep = 10,
   unit = '',
   className = '',
-  placeholder = '',
 }) {
   const handleKeyDown = (e) => {
     const current = parseFloat(value) || 0;
@@ -132,7 +123,6 @@ function NumberStepper({
         min={min}
         max={max}
         step={step}
-        placeholder={placeholder}
         className="w-full h-8 text-center text-xs font-mono text-gray-900 border-x border-gray-200 focus:outline-none px-1 appearance-none [moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
       {unit && (
@@ -170,7 +160,7 @@ export default function AdvancedAccordion({
 
   // Vertical accordion: only ONE group open at a time
   const [openGroup, setOpenGroup] = useState(() => {
-    return localStorage.getItem('designer_advanced_group') || 'artboard';
+    return localStorage.getItem('designer_advanced_group') || 'artboardStyle';
   });
 
   const handleToggleOuter = () => {
@@ -189,67 +179,9 @@ export default function AdvancedAccordion({
     });
   };
 
-  const currentUnit = settings.unit || artboardSettings?.unit || 'mm';
-  const unitConfig = UNITS.find((u) => u.value === currentUnit) || UNITS[2];
+  const activeUnit = settings.unit || artboardSettings?.unit || 'mm';
 
-  // Helper for step size: 0.5 below 20mm, 1 above 20mm
-  const getDimensionStep = (valInUnit) => {
-    if (currentUnit === 'mm') {
-      return valInUnit < 20 ? 0.5 : 1;
-    }
-    if (currentUnit === 'px') return 2;
-    return 0.1;
-  };
-
-  // Artboard preset change
-  const handleArtboardPresetChange = (presetId) => {
-    if (presetId === 'auto') {
-      onChangeArtboard({ ...artboardSettings, preset: 'auto' });
-      return;
-    }
-    const preset = ARTBOARD_PRESETS.find((p) => p.id === presetId);
-    if (!preset || presetId === 'custom') {
-      onChangeArtboard({ ...artboardSettings, preset: 'custom' });
-      return;
-    }
-    const dims = getPresetDimensionsInUnit(preset, artboardSettings.unit || 'mm');
-    if (!dims) return;
-    onChangeArtboard({
-      ...artboardSettings,
-      preset: presetId,
-      width: dims.width,
-      height: dims.height,
-      orientation: dims.height > dims.width ? 'portrait' : 'landscape',
-    });
-  };
-
-  // QR Fit to Artboard calculation
-  const artboardW = artboardSettings?.width || 60;
-  const artboardH = artboardSettings?.height || 40;
-  const paddingVal = artboardSettings?.padding !== undefined ? artboardSettings.padding : 5;
-  const maxAvailableInArtboard = Math.max(
-    10,
-    Math.min(artboardW - 2 * paddingVal, artboardH - 2 * paddingVal)
-  );
-
-  const qrSizeInActiveUnit = settings.size || 35;
-  const qrPercentOfArtboard = artboardSettings.preset !== 'auto' && artboardW > 0
-    ? Math.round((qrSizeInActiveUnit / Math.min(artboardW, artboardH)) * 100)
-    : null;
-
-  const qrMinScannable = currentUnit === 'mm' ? 10 : currentUnit === 'cm' ? 1 : currentUnit === 'inch' ? 0.4 : 38;
-  const qrIsTooSmall = qrSizeInActiveUnit < qrMinScannable;
-
-  const handleFitQrToArtboard = () => {
-    if (artboardSettings.preset === 'auto') {
-      onChangeSettings({ ...settings, size: 40 });
-      return;
-    }
-    const fitted = parseFloat(maxAvailableInArtboard.toFixed(1));
-    onChangeSettings({ ...settings, size: Math.max(qrMinScannable, fitted) });
-  };
-
-  // Logo upload
+  // Logo upload for QR
   const handleLogoUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -273,7 +205,7 @@ export default function AdvancedAccordion({
         className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50/80 transition-colors cursor-pointer select-none"
       >
         <div className="flex items-center gap-2 min-w-0">
-          <Sliders className="w-3.5 h-3.5 text-gray-500 stroke-[1.5] shrink-0" />
+          <Layers className="w-3.5 h-3.5 text-gray-500 stroke-[1.5] shrink-0" />
           <span className="text-xs font-semibold text-gray-800 truncate">Advanced Settings</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -291,94 +223,78 @@ export default function AdvancedAccordion({
       {/* Accordion List: Full-Width Rows, Only ONE Open at a Time */}
       {isOuterOpen && (
         <div className="px-3 pb-8 space-y-2 bg-gray-50/40">
-          {/* Row 1: Artboard */}
+          {/* Row 1: Artboard Style (Presets & Size moved to main section) */}
           <div className="border border-gray-200 rounded-lg bg-white overflow-hidden min-w-0">
             <button
               type="button"
-              onClick={() => handleToggleGroup('artboard')}
+              onClick={() => handleToggleGroup('artboardStyle')}
               className="w-full px-3.5 py-2.5 flex items-center justify-between text-left hover:bg-gray-50 transition-colors cursor-pointer select-none"
             >
               <div className="flex items-center gap-2 min-w-0">
                 <Layers className="w-3.5 h-3.5 text-indigo-600 stroke-[1.5] shrink-0" />
-                <span className="text-xs font-semibold text-gray-800 truncate">Artboard</span>
+                <span className="text-xs font-semibold text-gray-800 truncate">Artboard style</span>
               </div>
               <ChevronDown
                 className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-150 shrink-0 ${
-                  openGroup === 'artboard' ? 'rotate-180' : ''
+                  openGroup === 'artboardStyle' ? 'rotate-180' : ''
                 }`}
               />
             </button>
 
-            {openGroup === 'artboard' && (
+            {openGroup === 'artboardStyle' && (
               <div className="p-3.5 pt-1 space-y-3 border-t border-gray-100 min-w-0">
-                {/* Preset */}
-                <div>
-                  <label className="block text-[11px] font-medium text-gray-700 mb-1">Preset</label>
-                  <select
-                    value={artboardSettings.preset || 'auto'}
-                    onChange={(e) => handleArtboardPresetChange(e.target.value)}
-                    className="w-full h-8 px-2.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-800 focus:outline-none focus:border-indigo-600 cursor-pointer"
-                  >
-                    {ARTBOARD_PRESETS.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Orientation */}
+                {/* Orientation (if fixed artboard) */}
                 {artboardSettings.preset !== 'auto' && (
                   <div>
-                    <label className="block text-[11px] font-medium text-gray-700 mb-1">Orientation</label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Orientation</label>
+                    <div className="grid grid-cols-2 gap-1.5">
                       <button
                         type="button"
                         onClick={() => {
-                          const w = artboardSettings.width || 60;
-                          const h = artboardSettings.height || 40;
-                          onChangeArtboard({
-                            ...artboardSettings,
-                            orientation: 'landscape',
-                            width: Math.max(w, h),
-                            height: Math.min(w, h),
-                          });
+                          if (artboardSettings.orientation !== 'portrait') {
+                            onChangeArtboard({
+                              ...artboardSettings,
+                              orientation: 'portrait',
+                              width: Math.min(Number(artboardSettings.width), Number(artboardSettings.height)),
+                              height: Math.max(Number(artboardSettings.width), Number(artboardSettings.height)),
+                            });
+                          }
                         }}
-                        className={`h-8 rounded-lg text-xs font-medium border cursor-pointer ${
-                          artboardSettings.orientation === 'landscape'
-                            ? 'bg-indigo-50 border-indigo-500 text-indigo-700 font-semibold'
-                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                        className={`h-7 px-2 text-xs font-medium rounded-md border flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                          artboardSettings.orientation === 'portrait'
+                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold'
+                            : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
                         }`}
                       >
-                        Landscape
+                        Portrait
                       </button>
                       <button
                         type="button"
                         onClick={() => {
-                          const w = artboardSettings.width || 60;
-                          const h = artboardSettings.height || 40;
-                          onChangeArtboard({
-                            ...artboardSettings,
-                            orientation: 'portrait',
-                            width: Math.min(w, h),
-                            height: Math.max(w, h),
-                          });
+                          if (artboardSettings.orientation !== 'landscape') {
+                            onChangeArtboard({
+                              ...artboardSettings,
+                              orientation: 'landscape',
+                              width: Math.max(Number(artboardSettings.width), Number(artboardSettings.height)),
+                              height: Math.min(Number(artboardSettings.width), Number(artboardSettings.height)),
+                            });
+                          }
                         }}
-                        className={`h-8 rounded-lg text-xs font-medium border cursor-pointer ${
-                          artboardSettings.orientation === 'portrait'
-                            ? 'bg-indigo-50 border-indigo-500 text-indigo-700 font-semibold'
-                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                        className={`h-7 px-2 text-xs font-medium rounded-md border flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                          artboardSettings.orientation === 'landscape'
+                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold'
+                            : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
                         }`}
                       >
-                        Portrait
+                        Landscape
                       </button>
                     </div>
                   </div>
                 )}
 
-                {/* Background Color */}
+                {/* Background Color Palette */}
                 <div>
-                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Background</label>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Artboard background</label>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {PRESET_BG_COLORS.map((c) => (
                       <button
@@ -551,7 +467,7 @@ export default function AdvancedAccordion({
                   <div className="flex justify-between items-center text-xs mb-1">
                     <span className="text-gray-700 font-medium">Padding</span>
                     <span className="font-mono text-gray-500">
-                      {artboardSettings.padding !== undefined ? artboardSettings.padding : 5} {artboardSettings.unit || 'mm'}
+                      {artboardSettings.padding !== undefined ? artboardSettings.padding : 5} {activeUnit}
                     </span>
                   </div>
                   <input
@@ -573,7 +489,7 @@ export default function AdvancedAccordion({
                 {/* X & Y Offsets */}
                 <div className="pt-2 border-t border-gray-100 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-gray-700">Fine position offset</span>
+                    <span className="text-xs font-medium text-gray-700">Position offset</span>
                     <button
                       type="button"
                       onClick={() => onChangeArtboard({ ...artboardSettings, xOffset: 0, yOffset: 0 })}
@@ -612,7 +528,7 @@ export default function AdvancedAccordion({
             )}
           </div>
 
-          {/* Row 3: Code Style */}
+          {/* Row 3: Code Style (Margin, Show Number, QR specifics) */}
           <div className="border border-gray-200 rounded-lg bg-white overflow-hidden min-w-0">
             <button
               type="button"
@@ -634,63 +550,7 @@ export default function AdvancedAccordion({
               <div className="p-3.5 pt-1 space-y-3.5 border-t border-gray-100 min-w-0">
                 {type === 'barcode' ? (
                   <>
-                    {/* Barcode Width */}
-                    <div>
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="font-medium text-gray-700">Width ({currentUnit})</span>
-                        <span className="font-mono text-gray-500">{settings.width} {currentUnit}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <NumberStepper
-                          value={settings.width || 60}
-                          onChange={(val) => onChangeSettings({ ...settings, width: parseFloat(val) || 0 })}
-                          min={unitConfig.min}
-                          max={unitConfig.max}
-                          step={getDimensionStep(settings.width || 60)}
-                          shiftStep={currentUnit === 'mm' ? 10 : 20}
-                          className="w-28 shrink-0"
-                        />
-                        <input
-                          type="range"
-                          min={unitConfig.min}
-                          max={unitConfig.max}
-                          step={unitConfig.step}
-                          value={settings.width || 60}
-                          onChange={(e) => onChangeSettings({ ...settings, width: parseFloat(e.target.value) || 0 })}
-                          className="w-full accent-indigo-600 cursor-pointer"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Barcode Height */}
-                    <div>
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="font-medium text-gray-700">Height ({currentUnit})</span>
-                        <span className="font-mono text-gray-500">{settings.height} {currentUnit}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <NumberStepper
-                          value={settings.height || 25}
-                          onChange={(val) => onChangeSettings({ ...settings, height: parseFloat(val) || 0 })}
-                          min={currentUnit === 'px' ? 30 : unitConfig.min * 0.4}
-                          max={currentUnit === 'px' ? 400 : unitConfig.max * 0.5}
-                          step={getDimensionStep(settings.height || 25)}
-                          shiftStep={currentUnit === 'mm' ? 5 : 10}
-                          className="w-28 shrink-0"
-                        />
-                        <input
-                          type="range"
-                          min={currentUnit === 'px' ? 30 : unitConfig.min * 0.4}
-                          max={currentUnit === 'px' ? 400 : unitConfig.max * 0.5}
-                          step={unitConfig.step}
-                          value={settings.height || 25}
-                          onChange={(e) => onChangeSettings({ ...settings, height: parseFloat(e.target.value) || 0 })}
-                          className="w-full accent-indigo-600 cursor-pointer"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Margin */}
+                    {/* Quiet zone margin */}
                     <div>
                       <div className="flex items-center justify-between text-xs mb-1">
                         <span className="font-medium text-gray-700">Quiet zone margin (px)</span>
@@ -731,57 +591,6 @@ export default function AdvancedAccordion({
                   </>
                 ) : (
                   <>
-                    {/* QR Code Precision Sizing */}
-                    <div>
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-gray-700">QR size ({currentUnit})</span>
-                          {qrPercentOfArtboard && (
-                            <span className="text-[10px] text-indigo-600 bg-indigo-50 px-1.5 py-0.2 rounded font-medium">
-                              {qrPercentOfArtboard}% of artboard
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleFitQrToArtboard}
-                          className="text-[11px] font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
-                          title="Fit largest size within artboard margins"
-                        >
-                          <Maximize className="w-3 h-3 stroke-[1.5]" />
-                          <span>Fit</span>
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <NumberStepper
-                          value={qrSizeInActiveUnit}
-                          onChange={(val) => onChangeSettings({ ...settings, size: parseFloat(val) || 0 })}
-                          min={qrMinScannable}
-                          max={artboardSettings.preset !== 'auto' ? maxAvailableInArtboard : 200}
-                          step={getDimensionStep(qrSizeInActiveUnit)}
-                          shiftStep={currentUnit === 'mm' ? 5 : 10}
-                          className="w-28 shrink-0"
-                        />
-                        <input
-                          type="range"
-                          min={qrMinScannable}
-                          max={artboardSettings.preset !== 'auto' ? Math.max(qrMinScannable + 10, maxAvailableInArtboard) : 200}
-                          step={unitConfig.step}
-                          value={qrSizeInActiveUnit}
-                          onChange={(e) => onChangeSettings({ ...settings, size: parseFloat(e.target.value) || 0 })}
-                          className="w-full accent-indigo-600 cursor-pointer"
-                        />
-                      </div>
-
-                      {qrIsTooSmall && (
-                        <p className="mt-1 text-[11px] text-amber-600 flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3 shrink-0 stroke-[1.5]" />
-                          <span>Below recommended scannable minimum ({qrMinScannable} {currentUnit})</span>
-                        </p>
-                      )}
-                    </div>
-
                     {/* Error Correction */}
                     <div>
                       <label className="block text-[11px] font-medium text-gray-700 mb-1">
@@ -964,7 +773,7 @@ export default function AdvancedAccordion({
                           className={`h-8 rounded text-xs font-medium border capitalize cursor-pointer ${
                             (settings.labelWeight || 'normal') === w
                               ? 'bg-indigo-50 border-indigo-500 text-indigo-700 font-semibold'
-                              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                           }`}
                         >
                           {w}
@@ -1004,50 +813,26 @@ export default function AdvancedAccordion({
             )}
           </div>
 
-          {/* Row 5: Units & Export */}
+          {/* Row 5: Export (DPI, Aspect ratio lock, Export code only) */}
           <div className="border border-gray-200 rounded-lg bg-white overflow-hidden min-w-0">
             <button
               type="button"
-              onClick={() => handleToggleGroup('units')}
+              onClick={() => handleToggleGroup('export')}
               className="w-full px-3.5 py-2.5 flex items-center justify-between text-left hover:bg-gray-50 transition-colors cursor-pointer select-none"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <Sliders className="w-3.5 h-3.5 text-indigo-600 stroke-[1.5] shrink-0" />
-                <span className="text-xs font-semibold text-gray-800 truncate">Units & export</span>
+                <Download className="w-3.5 h-3.5 text-indigo-600 stroke-[1.5] shrink-0" />
+                <span className="text-xs font-semibold text-gray-800 truncate">Export</span>
               </div>
               <ChevronDown
                 className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-150 shrink-0 ${
-                  openGroup === 'units' ? 'rotate-180' : ''
+                  openGroup === 'export' ? 'rotate-180' : ''
                 }`}
               />
             </button>
 
-            {openGroup === 'units' && (
+            {openGroup === 'export' && (
               <div className="p-3.5 pt-1 space-y-3.5 border-t border-gray-100 min-w-0">
-                {/* Unit Switch */}
-                <div>
-                  <label className="block text-[11px] font-medium text-gray-700 mb-1">Default unit</label>
-                  <div className="grid grid-cols-4 gap-1 p-0.5 bg-gray-100 rounded-lg border border-gray-200">
-                    {['mm', 'cm', 'inch', 'px'].map((u) => (
-                      <button
-                        key={u}
-                        type="button"
-                        onClick={() => {
-                          onChangeSettings({ ...settings, unit: u });
-                          onChangeArtboard({ ...artboardSettings, unit: u });
-                        }}
-                        className={`h-7 rounded text-xs font-medium cursor-pointer ${
-                          (settings.unit || 'mm') === u
-                            ? 'bg-white text-indigo-600 font-semibold shadow-xs'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        {u}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Export DPI */}
                 <div>
                   <label className="block text-[11px] font-medium text-gray-700 mb-1">Export DPI</label>

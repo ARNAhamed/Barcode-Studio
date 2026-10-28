@@ -7,8 +7,9 @@ import {
   ChevronDown,
   Lock,
   Unlock,
-  Check,
-  Package,
+  AlertTriangle,
+  RotateCw,
+  Sparkles,
 } from 'lucide-react';
 import {
   AVAILABLE_PLACEHOLDERS,
@@ -22,6 +23,7 @@ import {
   convertUnit,
   toPx,
   fromPx,
+  validateDimension,
   validateArtboardDimension,
 } from '../../utils/units';
 
@@ -57,30 +59,31 @@ function CompactStepper({
   value,
   onChange,
   min = 0,
-  max = 100,
+  max = 200,
   step = 1,
   shiftStep = 10,
   unit = '',
+  className = '',
 }) {
   const handleKeyDown = (e) => {
     const current = parseFloat(value) || 0;
     const delta = e.shiftKey ? shiftStep : step;
     if (e.key === 'ArrowUp') {
       e.preventDefault();
-      onChange(Math.min(max, current + delta));
+      onChange(Math.min(max, parseFloat((current + delta).toFixed(2))));
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      onChange(Math.max(min, current - delta));
+      onChange(Math.max(min, parseFloat((current - delta).toFixed(2))));
     }
   };
 
   return (
-    <div className="flex items-center gap-1.5 min-w-0">
-      <span className="text-[11px] font-medium text-gray-600 shrink-0">{label}:</span>
-      <div className="flex items-center border border-gray-300 rounded-lg bg-white overflow-hidden focus-within:border-indigo-600 focus-within:ring-2 focus-within:ring-indigo-500/20 h-7">
+    <div className={`flex items-center gap-1.5 min-w-0 ${className}`}>
+      {label && <span className="text-[11px] font-medium text-gray-600 shrink-0">{label}:</span>}
+      <div className="flex items-center border border-gray-300 rounded-lg bg-white overflow-hidden focus-within:border-indigo-600 focus-within:ring-2 focus-within:ring-indigo-500/20 h-7.5">
         <button
           type="button"
-          onClick={() => onChange(Math.max(min, (parseFloat(value) || 0) - step))}
+          onClick={() => onChange(Math.max(min, parseFloat(((parseFloat(value) || 0) - step).toFixed(2))))}
           disabled={parseFloat(value) <= min}
           className="w-5 h-full flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors shrink-0"
           tabIndex={-1}
@@ -98,11 +101,11 @@ function CompactStepper({
           min={min}
           max={max}
           step={step}
-          className="w-10 sm:w-12 h-full text-center text-xs font-mono text-gray-900 border-x border-gray-200 focus:outline-none px-0.5 appearance-none [moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          className="w-12 h-full text-center text-xs font-mono text-gray-900 border-x border-gray-200 focus:outline-none px-0.5 appearance-none [moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
         <button
           type="button"
-          onClick={() => onChange(Math.min(max, (parseFloat(value) || 0) + step))}
+          onClick={() => onChange(Math.min(max, parseFloat(((parseFloat(value) || 0) + step).toFixed(2))))}
           disabled={parseFloat(value) >= max}
           className="w-5 h-full flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors shrink-0"
           tabIndex={-1}
@@ -126,16 +129,19 @@ export default function DesignGroupControls({
   selectedProduct = null,
   linkToProductPage = true,
   onToggleLinkToProductPage,
-  // Label settings
+  // Settings & Units
   settings = {},
   onChangeSettings,
-  // Artboard & Sizing
+  onChangeUnit,
+  // Artboard
   artboardSettings = {},
   onChangeArtboard,
   // Colors
   onSwapColors,
   labelInputRef,
 }) {
+  const activeUnit = settings.unit || artboardSettings.unit || 'mm';
+
   const [isInsertMenuOpen, setIsInsertMenuOpen] = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
   const insertMenuRef = useRef(null);
@@ -161,26 +167,167 @@ export default function DesignGroupControls({
     setIsInsertMenuOpen((prev) => !prev);
   };
 
-  // Determine current Size Preset chip: 'auto' | 'small' | 'medium' | 'large' | 'custom'
-  const currentPreset = artboardSettings?.preset || 'auto';
-  let activeSizeChip = 'auto';
-  if (currentPreset === 'auto') {
-    activeSizeChip = 'auto';
-  } else if (currentPreset === 'custom') {
-    activeSizeChip = 'custom';
-  } else if (currentPreset === 'small_label' && artboardSettings.width === 50 && artboardSettings.height === 25) {
-    activeSizeChip = 'small';
-  } else if (currentPreset === 'shelf_label' && artboardSettings.width === 60 && artboardSettings.height === 40) {
-    activeSizeChip = 'medium';
-  } else if (currentPreset === 'product_label' && artboardSettings.width === 100 && artboardSettings.height === 50) {
-    activeSizeChip = 'large';
-  } else {
-    activeSizeChip = 'custom';
-  }
+  // -------------------------------------------------------------
+  // CODE SIZE CHIPS (Small, Medium, Large, Auto, Custom)
+  // -------------------------------------------------------------
+  // Preset values in mm:
+  // Barcode: Small 30x10, Medium 45x15, Large 60x20
+  // QR: Small 15, Medium 25, Large 40
+  const getPresetCodeDimsInUnit = (presetKey) => {
+    if (type === 'barcode') {
+      const presetsMm = {
+        small: { width: 30, height: 10 },
+        medium: { width: 45, height: 15 },
+        large: { width: 60, height: 20 },
+      };
+      const p = presetsMm[presetKey];
+      if (!p) return null;
+      return {
+        width: convertUnit(p.width, 'mm', activeUnit, 1),
+        height: convertUnit(p.height, 'mm', activeUnit, 1),
+      };
+    } else {
+      const presetsMm = {
+        small: 15,
+        medium: 25,
+        large: 40,
+      };
+      const s = presetsMm[presetKey];
+      if (!s) return null;
+      return { size: convertUnit(s, 'mm', activeUnit, 1) };
+    }
+  };
 
-  const handleSelectSizeChip = (chip) => {
-    const currentUnit = artboardSettings?.unit || 'mm';
+  // Determine current active chip: 'auto' | 'small' | 'medium' | 'large' | 'custom'
+  const activeCodeSizeChip = useMemo(() => {
+    if (settings.sizePreset === 'auto') return 'auto';
+    if (settings.sizePreset === 'custom') return 'custom';
+
+    // Check if current dimensions match small/medium/large
+    const smallDims = getPresetCodeDimsInUnit('small');
+    const medDims = getPresetCodeDimsInUnit('medium');
+    const lrgDims = getPresetCodeDimsInUnit('large');
+
+    if (type === 'barcode') {
+      const curW = Number(settings.width);
+      const curH = Number(settings.height);
+      if (smallDims && Math.abs(curW - smallDims.width) < 0.2 && Math.abs(curH - smallDims.height) < 0.2) return 'small';
+      if (medDims && Math.abs(curW - medDims.width) < 0.2 && Math.abs(curH - medDims.height) < 0.2) return 'medium';
+      if (lrgDims && Math.abs(curW - lrgDims.width) < 0.2 && Math.abs(curH - lrgDims.height) < 0.2) return 'large';
+    } else {
+      const curS = Number(settings.size);
+      if (smallDims && Math.abs(curS - smallDims.size) < 0.2) return 'small';
+      if (medDims && Math.abs(curS - medDims.size) < 0.2) return 'medium';
+      if (lrgDims && Math.abs(curS - lrgDims.size) < 0.2) return 'large';
+    }
+
+    return settings.sizePreset || 'custom';
+  }, [type, settings, activeUnit]);
+
+  // Calculate largest code size that fits in fixed artboard
+  const calculateAutoCodeSize = () => {
+    if (artboardSettings.preset === 'auto') {
+      // Medium defaults
+      return getPresetCodeDimsInUnit('medium');
+    }
+
+    const artW = Number(artboardSettings.width || 60);
+    const artH = Number(artboardSettings.height || 40);
+    const pad = Number(artboardSettings.padding !== undefined ? artboardSettings.padding : 5);
+    const availW = Math.max(10, artW - 2 * pad);
+    const availH = Math.max(10, artH - 2 * pad);
+
+    // Approximate label height in active unit
+    const labelH = settings.label ? convertUnit(8, 'mm', activeUnit, 1) : 0;
+    const maxCodeH = Math.max(5, availH - labelH);
+
+    if (type === 'barcode') {
+      // Barcode aspect ratio ~ 2.5:1
+      const targetW = Math.min(availW, maxCodeH * 2.5);
+      const targetH = targetW / 2.5;
+      return {
+        width: parseFloat(targetW.toFixed(1)),
+        height: parseFloat(targetH.toFixed(1)),
+      };
+    } else {
+      // QR is strictly square
+      const s = Math.min(availW, maxCodeH);
+      return { size: parseFloat(s.toFixed(1)) };
+    }
+  };
+
+  const handleSelectCodeSizeChip = (chip) => {
     if (chip === 'auto') {
+      const autoDims = calculateAutoCodeSize();
+      onChangeSettings({
+        ...settings,
+        ...autoDims,
+        sizePreset: 'auto',
+      });
+      return;
+    }
+
+    if (['small', 'medium', 'large'].includes(chip)) {
+      const dims = getPresetCodeDimsInUnit(chip);
+      onChangeSettings({
+        ...settings,
+        ...dims,
+        sizePreset: chip,
+      });
+      return;
+    }
+
+    if (chip === 'custom') {
+      onChangeSettings({
+        ...settings,
+        sizePreset: 'custom',
+      });
+    }
+  };
+
+  // Custom barcode width/height
+  const handleCustomWidthChange = (val) => {
+    const num = parseFloat(val);
+    const updates = {
+      width: isNaN(num) ? '' : num,
+      sizePreset: 'custom',
+    };
+    if (settings.lockAspectRatio && !isNaN(num) && num > 0) {
+      const ratio = settings.aspectRatio || (settings.width && settings.height ? settings.width / settings.height : 2.5);
+      updates.height = parseFloat((num / ratio).toFixed(1));
+    }
+    onChangeSettings({ ...settings, ...updates });
+  };
+
+  const handleCustomHeightChange = (val) => {
+    const num = parseFloat(val);
+    const updates = {
+      height: isNaN(num) ? '' : num,
+      sizePreset: 'custom',
+    };
+    if (settings.lockAspectRatio && !isNaN(num) && num > 0) {
+      const ratio = settings.aspectRatio || (settings.width && settings.height ? settings.width / settings.height : 2.5);
+      updates.width = parseFloat((num * ratio).toFixed(1));
+    }
+    onChangeSettings({ ...settings, ...updates });
+  };
+
+  const handleCustomQrSizeChange = (val) => {
+    const num = parseFloat(val);
+    onChangeSettings({
+      ...settings,
+      size: isNaN(num) ? '' : num,
+      sizePreset: 'custom',
+    });
+  };
+
+  // -------------------------------------------------------------
+  // ARTBOARD SELECT & WARNING
+  // -------------------------------------------------------------
+  const artboardPresetKey = artboardSettings.preset || 'auto';
+
+  const handleArtboardSelectChange = (presetId) => {
+    if (presetId === 'auto') {
       onChangeArtboard({
         ...artboardSettings,
         preset: 'auto',
@@ -188,112 +335,72 @@ export default function DesignGroupControls({
       return;
     }
 
-    if (chip === 'small') {
-      onChangeArtboard({
-        ...artboardSettings,
-        preset: 'small_label',
-        unit: 'mm',
-        width: 50,
-        height: 25,
-        orientation: 'landscape',
-      });
-      return;
-    }
-
-    if (chip === 'medium') {
-      onChangeArtboard({
-        ...artboardSettings,
-        preset: 'shelf_label',
-        unit: 'mm',
-        width: 60,
-        height: 40,
-        orientation: 'landscape',
-      });
-      return;
-    }
-
-    if (chip === 'large') {
-      onChangeArtboard({
-        ...artboardSettings,
-        preset: 'product_label',
-        unit: 'mm',
-        width: 100,
-        height: 50,
-        orientation: 'landscape',
-      });
-      return;
-    }
-
-    if (chip === 'custom') {
-      // Pre-fill with current artboard width/height or defaults
-      const curW = artboardSettings.width || 60;
-      const curH = artboardSettings.height || 40;
+    if (presetId === 'custom') {
       onChangeArtboard({
         ...artboardSettings,
         preset: 'custom',
-        width: curW,
-        height: curH,
-        unit: currentUnit,
       });
+      return;
     }
-  };
 
-  // Custom size width / height inputs: typing applies live and switches to custom
-  const handleCustomWidthChange = (val) => {
-    const num = parseFloat(val);
-    const updates = {
-      preset: 'custom',
-      width: isNaN(num) ? '' : num,
-    };
-    if (artboardSettings.lockAspectRatio && !isNaN(num) && num > 0) {
-      const ratio =
-        artboardSettings.width && artboardSettings.height && artboardSettings.height > 0
-          ? artboardSettings.width / artboardSettings.height
-          : 2;
-      updates.height = fromPx(toPx(num, artboardSettings.unit || 'mm') / ratio, artboardSettings.unit || 'mm', 2);
-    }
-    onChangeArtboard({ ...artboardSettings, ...updates });
-  };
+    const preset = ARTBOARD_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
 
-  const handleCustomHeightChange = (val) => {
-    const num = parseFloat(val);
-    const updates = {
-      preset: 'custom',
-      height: isNaN(num) ? '' : num,
-    };
-    if (artboardSettings.lockAspectRatio && !isNaN(num) && num > 0) {
-      const ratio =
-        artboardSettings.width && artboardSettings.height && artboardSettings.height > 0
-          ? artboardSettings.width / artboardSettings.height
-          : 2;
-      updates.width = fromPx(toPx(num, artboardSettings.unit || 'mm') * ratio, artboardSettings.unit || 'mm', 2);
-    }
-    onChangeArtboard({ ...artboardSettings, ...updates });
-  };
+    const w = convertUnit(preset.widthMm, 'mm', activeUnit, 1);
+    const h = convertUnit(preset.heightMm, 'mm', activeUnit, 1);
+    const isPortrait = h > w;
 
-  const handleCustomUnitChange = (newUnit) => {
-    const currentUnit = artboardSettings?.unit || 'mm';
-    if (newUnit === currentUnit) return;
-    const newW = convertUnit(artboardSettings.width || 60, currentUnit, newUnit, 2);
-    const newH = convertUnit(artboardSettings.height || 40, currentUnit, newUnit, 2);
     onChangeArtboard({
       ...artboardSettings,
-      preset: 'custom',
-      unit: newUnit,
-      width: newW,
-      height: newH,
+      preset: presetId,
+      width: w,
+      height: h,
+      orientation: isPortrait ? 'portrait' : 'landscape',
     });
   };
 
-  const toggleAspectLock = () => {
+  const handleSwapArtboardOrientation = () => {
+    const curW = artboardSettings.width || 60;
+    const curH = artboardSettings.height || 40;
     onChangeArtboard({
       ...artboardSettings,
-      preset: 'custom',
-      lockAspectRatio: !artboardSettings.lockAspectRatio,
+      width: curH,
+      height: curW,
+      orientation: artboardSettings.orientation === 'portrait' ? 'landscape' : 'portrait',
     });
   };
 
-  // Label text insertion at cursor position
+  // Check if code + label exceed artboard
+  const codeExceedsArtboard = useMemo(() => {
+    if (artboardSettings.preset === 'auto') return false;
+    const codeW = toPx(settings.width || settings.size || 35, activeUnit);
+    const codeH = toPx(settings.height || settings.size || 35, activeUnit);
+    const artW = toPx(artboardSettings.width || 60, activeUnit);
+    const artH = toPx(artboardSettings.height || 40, activeUnit);
+    const pad = toPx(artboardSettings.padding !== undefined ? artboardSettings.padding : 5, activeUnit);
+    return codeW > artW - 2 * pad || codeH > artH - 2 * pad;
+  }, [artboardSettings, settings, activeUnit]);
+
+  // Fix actions when code exceeds artboard
+  const handleShrinkCodeToFit = () => {
+    const autoDims = calculateAutoCodeSize();
+    onChangeSettings({
+      ...settings,
+      ...autoDims,
+      sizePreset: 'auto',
+    });
+  };
+
+  const handleEnlargeArtboard = () => {
+    onChangeArtboard({
+      ...artboardSettings,
+      preset: 'auto',
+    });
+  };
+
+  // -------------------------------------------------------------
+  // LABEL INSERTION & RESOLUTION
+  // -------------------------------------------------------------
   const handleInsertPlaceholder = (token) => {
     const current = settings.label || '';
     const input = labelInputRef?.current;
@@ -318,11 +425,25 @@ export default function DesignGroupControls({
   };
 
   // Live preview text for label
-  const previewProduct = selectedProduct || SAMPLE_PRODUCT;
   const resolvedLabelPreview = useMemo(() => {
     if (!settings.label) return '';
-    return fillPlaceholders(settings.label, previewProduct);
-  }, [settings.label, previewProduct]);
+    if (selectedProduct) {
+      return fillPlaceholders(settings.label, selectedProduct);
+    }
+    // Before product is picked, resolve against sample product or show raw
+    return fillPlaceholders(settings.label, SAMPLE_PRODUCT);
+  }, [settings.label, selectedProduct]);
+
+  // Scannability warning
+  const scannableWarning = useMemo(() => {
+    const minW = type === 'barcode' ? 20 : 10;
+    const minWInUnit = convertUnit(minW, 'mm', activeUnit, 1);
+    const curVal = type === 'barcode' ? Number(settings.width) : Number(settings.size);
+    if (curVal > 0 && curVal < minWInUnit) {
+      return `Below recommended scannable minimum (${minWInUnit} ${activeUnit})`;
+    }
+    return null;
+  }, [type, settings, activeUnit]);
 
   // Color values
   const codeColor = type === 'barcode' ? (settings.lineColor || '#000000') : (settings.foreground || '#0F172A');
@@ -344,18 +465,13 @@ export default function DesignGroupControls({
   };
 
   const isMultiLine = Boolean(settings.label && settings.label.includes('\n'));
-  const dimensionError =
-    activeSizeChip === 'custom'
-      ? validateArtboardDimension(artboardSettings.width, artboardSettings.unit) ||
-        validateArtboardDimension(artboardSettings.height, artboardSettings.unit)
-      : null;
 
   return (
     <div className="space-y-4 min-w-0">
       {/* 1. Value Field */}
       <div className="min-w-0">
         <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
-          <label className="text-xs font-medium text-gray-800">Value</label>
+          <label className="text-xs font-semibold text-gray-800">Value</label>
 
           <div className="flex items-center gap-2">
             {type === 'qr' && (
@@ -397,7 +513,7 @@ export default function DesignGroupControls({
       {/* 2. Format (Barcode mode only) */}
       {type === 'barcode' && (
         <div className="min-w-0">
-          <label className="block text-xs font-medium text-gray-800 mb-1.5">Format</label>
+          <label className="block text-xs font-semibold text-gray-800 mb-1.5">Format</label>
           <div className="relative">
             <select
               value={format}
@@ -415,10 +531,10 @@ export default function DesignGroupControls({
         </div>
       )}
 
-      {/* 3. Label text with Insert popover menu + Size & Gap Quick Steppers */}
+      {/* 3. Label text with Insert popover menu + Size & Gap Steppers */}
       <div className="min-w-0 space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <label className="text-xs font-medium text-gray-800">Label text</label>
+          <label className="text-xs font-semibold text-gray-800">Label text</label>
 
           {/* Insert Dropdown Popover */}
           <div className="relative" ref={insertMenuRef}>
@@ -452,7 +568,7 @@ export default function DesignGroupControls({
                     Product
                   </div>
                   {AVAILABLE_PLACEHOLDERS.slice(0, 6).map((item) => {
-                    const sampleVal = fillPlaceholders(item.tag, previewProduct);
+                    const sampleVal = fillPlaceholders(item.tag, selectedProduct || SAMPLE_PRODUCT);
                     return (
                       <button
                         key={item.tag}
@@ -475,7 +591,7 @@ export default function DesignGroupControls({
                     Supplier
                   </div>
                   {AVAILABLE_PLACEHOLDERS.slice(6).map((item) => {
-                    const sampleVal = fillPlaceholders(item.tag, previewProduct);
+                    const sampleVal = fillPlaceholders(item.tag, selectedProduct || SAMPLE_PRODUCT);
                     return (
                       <button
                         key={item.tag}
@@ -557,28 +673,56 @@ export default function DesignGroupControls({
         {settings.label && (
           <div className="text-[11px] text-gray-600 font-mono truncate bg-gray-50/80 px-2.5 py-1 rounded border border-gray-200">
             <span className="text-gray-400 font-sans mr-1.5 select-none font-medium">Preview:</span>
-            <span>{resolvedLabelPreview || '—'}</span>
+            <span className={selectedProduct ? 'text-gray-900 font-medium' : 'text-gray-500 italic'}>
+              {resolvedLabelPreview || '—'}
+            </span>
           </div>
         )}
       </div>
 
-      {/* 4. Size Quick Chips */}
-      <div className="min-w-0">
-        <label className="block text-xs font-medium text-gray-800 mb-1.5">Size</label>
+      {/* 4. CODE SIZE BLOCK (Units Switch + Code Size Chips + Integrated Artboard Row) */}
+      <div className="min-w-0 space-y-2.5 pt-1">
+        {/* Title row with global Unit Switch */}
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-xs font-semibold text-gray-800">
+            {type === 'barcode' ? 'Barcode size' : 'QR code size'}
+          </label>
+
+          {/* Global Units Segmented Control */}
+          <div className="inline-flex p-0.5 bg-gray-100 rounded-md border border-gray-300 text-[10px]">
+            {['mm', 'cm', 'inch', 'px'].map((u) => (
+              <button
+                key={u}
+                type="button"
+                onClick={() => onChangeUnit(u)}
+                className={`px-1.5 py-0.5 rounded font-medium transition-colors cursor-pointer ${
+                  activeUnit === u
+                    ? 'bg-white text-indigo-700 font-semibold shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+                title={`Use ${u} as length unit`}
+              >
+                {u}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Code Size Quick Chips */}
         <div className="grid grid-cols-5 gap-1 p-0.5 bg-gray-100/90 rounded-lg border border-gray-200">
           {[
-            { id: 'auto', label: 'Auto', desc: 'Fit to code' },
-            { id: 'small', label: 'Small', desc: '50 × 25 mm' },
-            { id: 'medium', label: 'Medium', desc: '60 × 40 mm' },
-            { id: 'large', label: 'Large', desc: '100 × 50 mm' },
-            { id: 'custom', label: 'Custom', desc: 'Specify dimensions' },
+            { id: 'auto', label: 'Auto', desc: 'Fit to artboard' },
+            { id: 'small', label: 'Small', desc: type === 'barcode' ? '30 × 10 mm' : '15 mm' },
+            { id: 'medium', label: 'Medium', desc: type === 'barcode' ? '45 × 15 mm' : '25 mm' },
+            { id: 'large', label: 'Large', desc: type === 'barcode' ? '60 × 20 mm' : '40 mm' },
+            { id: 'custom', label: 'Custom', desc: 'Specify exact dimensions' },
           ].map((chip) => {
-            const isSelected = activeSizeChip === chip.id;
+            const isSelected = activeCodeSizeChip === chip.id;
             return (
               <button
                 key={chip.id}
                 type="button"
-                onClick={() => handleSelectSizeChip(chip.id)}
+                onClick={() => handleSelectCodeSizeChip(chip.id)}
                 title={chip.desc}
                 className={`h-8 rounded-md text-xs font-medium transition-all cursor-pointer flex items-center justify-center truncate ${
                   isSelected
@@ -592,95 +736,201 @@ export default function DesignGroupControls({
           })}
         </div>
 
-        {/* When Custom is selected (or active), show width, height, aspect lock, and unit switch */}
-        {activeSizeChip === 'custom' && (
-          <div className="mt-2.5 p-3 bg-gray-50/90 border border-gray-200 rounded-lg space-y-2.5 min-w-0">
-            <div className="flex items-center justify-between text-xs flex-wrap gap-1">
-              <span className="font-semibold text-gray-800">Custom Dimensions</span>
-              <div className="inline-flex p-0.5 bg-gray-200/70 rounded border border-gray-300 text-[11px]">
-                {['mm', 'cm', 'inch', 'px'].map((u) => (
+        {/* Custom Code Dimension Controls */}
+        {activeCodeSizeChip === 'custom' && (
+          <div className="p-2.5 bg-gray-50/90 border border-gray-200 rounded-lg space-y-2 min-w-0">
+            {type === 'barcode' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                {/* Width */}
+                <div className="sm:col-span-5 min-w-0">
+                  <span className="block text-[11px] text-gray-500 mb-1 truncate">
+                    Width ({activeUnit})
+                  </span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="10"
+                    max="600"
+                    value={settings.width || ''}
+                    onChange={(e) => handleCustomWidthChange(e.target.value)}
+                    className="w-full h-8 px-2.5 bg-white border border-gray-300 rounded text-xs font-mono text-gray-900 focus:outline-none focus:border-indigo-600"
+                  />
+                </div>
+
+                {/* Aspect Lock */}
+                <div className="sm:col-span-2 flex justify-center pt-2 sm:pt-4">
                   <button
-                    key={u}
                     type="button"
-                    onClick={() => handleCustomUnitChange(u)}
-                    className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
-                      (artboardSettings?.unit || 'mm') === u
-                        ? 'bg-white text-indigo-600 font-semibold shadow-xs'
-                        : 'text-gray-600 hover:text-gray-900'
+                    onClick={() => onChangeSettings({ ...settings, lockAspectRatio: !settings.lockAspectRatio })}
+                    className={`w-8 h-8 rounded border flex items-center justify-center cursor-pointer transition-colors ${
+                      settings.lockAspectRatio
+                        ? 'bg-indigo-50 border-indigo-500 text-indigo-600'
+                        : 'bg-white border-gray-300 text-gray-400 hover:text-gray-700'
                     }`}
+                    title={settings.lockAspectRatio ? 'Lock aspect ratio' : 'Unlock aspect ratio'}
                   >
-                    {u}
+                    {settings.lockAspectRatio ? (
+                      <Lock className="w-3.5 h-3.5 stroke-[1.5]" />
+                    ) : (
+                      <Unlock className="w-3.5 h-3.5 stroke-[1.5]" />
+                    )}
                   </button>
-                ))}
-              </div>
-            </div>
+                </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
-              {/* Width */}
-              <div className="sm:col-span-5 min-w-0">
-                <span className="block text-[11px] text-gray-500 mb-1 truncate">
-                  Width ({artboardSettings?.unit || 'mm'})
-                </span>
+                {/* Height */}
+                <div className="sm:col-span-5 min-w-0">
+                  <span className="block text-[11px] text-gray-500 mb-1 truncate">
+                    Height ({activeUnit})
+                  </span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="5"
+                    max="400"
+                    value={settings.height || ''}
+                    onChange={(e) => handleCustomHeightChange(e.target.value)}
+                    className="w-full h-8 px-2.5 bg-white border border-gray-300 rounded text-xs font-mono text-gray-900 focus:outline-none focus:border-indigo-600"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-medium text-gray-700">QR code size ({activeUnit})</span>
                 <input
                   type="number"
                   step="0.5"
                   min="5"
-                  max="1000"
-                  value={artboardSettings.width || ''}
-                  onChange={(e) => handleCustomWidthChange(e.target.value)}
-                  className="w-full h-8 px-2.5 bg-white border border-gray-300 rounded text-xs font-mono text-gray-900 focus:outline-none focus:border-indigo-600"
+                  max="300"
+                  value={settings.size || ''}
+                  onChange={(e) => handleCustomQrSizeChange(e.target.value)}
+                  className="w-24 h-8 px-2.5 bg-white border border-gray-300 rounded text-xs font-mono text-gray-900 focus:outline-none focus:border-indigo-600 text-center"
                 />
               </div>
+            )}
 
-              {/* Aspect Ratio Lock */}
-              <div className="sm:col-span-2 flex justify-center pt-2 sm:pt-4">
-                <button
-                  type="button"
-                  onClick={toggleAspectLock}
-                  className={`w-8 h-8 rounded border flex items-center justify-center cursor-pointer transition-colors ${
-                    artboardSettings.lockAspectRatio
-                      ? 'bg-indigo-50 border-indigo-500 text-indigo-600'
-                      : 'bg-white border-gray-300 text-gray-400 hover:text-gray-700'
-                  }`}
-                  title={artboardSettings.lockAspectRatio ? 'Aspect ratio locked' : 'Aspect ratio unlocked'}
-                >
-                  {artboardSettings.lockAspectRatio ? (
-                    <Lock className="w-3.5 h-3.5 stroke-[1.5]" />
-                  ) : (
-                    <Unlock className="w-3.5 h-3.5 stroke-[1.5]" />
-                  )}
-                </button>
-              </div>
-
-              {/* Height */}
-              <div className="sm:col-span-5 min-w-0">
-                <span className="block text-[11px] text-gray-500 mb-1 truncate">
-                  Height ({artboardSettings?.unit || 'mm'})
-                </span>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="5"
-                  max="1000"
-                  value={artboardSettings.height || ''}
-                  onChange={(e) => handleCustomHeightChange(e.target.value)}
-                  className="w-full h-8 px-2.5 bg-white border border-gray-300 rounded text-xs font-mono text-gray-900 focus:outline-none focus:border-indigo-600"
-                />
-              </div>
-            </div>
-
-            {dimensionError && (
-              <p className="text-[11px] text-red-600 font-medium">
-                {dimensionError}
+            {scannableWarning && (
+              <p className="text-[11px] text-amber-600 flex items-center gap-1 font-medium">
+                <AlertTriangle className="w-3 h-3 shrink-0 stroke-[1.5]" />
+                <span>{scannableWarning}</span>
               </p>
             )}
           </div>
         )}
+
+        {/* ------------------------------------------------------------- */}
+        {/* ARTBOARD ROW (Integrated inside Size block) */}
+        {/* ------------------------------------------------------------- */}
+        <div className="pt-2 border-t border-gray-100 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <label className="text-xs font-semibold text-gray-800">Artboard</label>
+            {artboardPresetKey !== 'auto' && artboardPresetKey !== 'custom' && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono text-gray-400">
+                  {artboardSettings.width} × {artboardSettings.height} {activeUnit}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleSwapArtboardOrientation}
+                  className="p-1 rounded text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors cursor-pointer"
+                  title="Swap orientation (Landscape / Portrait)"
+                >
+                  <RotateCw className="w-3.5 h-3.5 stroke-[1.5]" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Artboard Select */}
+          <div className="relative">
+            <select
+              value={artboardPresetKey}
+              onChange={(e) => handleArtboardSelectChange(e.target.value)}
+              className="w-full h-8.5 pl-3 pr-8 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-800 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 appearance-none cursor-pointer transition-colors"
+            >
+              <option value="auto">Fit to code (default)</option>
+              <option value="small_label">Small label (50 × 25 mm)</option>
+              <option value="shelf_label">Shelf label (60 × 40 mm)</option>
+              <option value="product_label">Product label (100 × 50 mm)</option>
+              <option value="shipping_label">Shipping label (100 × 150 mm)</option>
+              <option value="square_50">Square (50 × 50 mm)</option>
+              <option value="a6">A6 (105 × 148 mm)</option>
+              <option value="a5">A5 (148 × 210 mm)</option>
+              <option value="a4">A4 (210 × 297 mm)</option>
+              <option value="business_card">Business card (90 × 55 mm)</option>
+              <option value="custom">Custom...</option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none stroke-[1.5]" />
+          </div>
+
+          {/* If Custom Artboard Selected, show dimensions */}
+          {artboardPresetKey === 'custom' && (
+            <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200 grid grid-cols-12 gap-2 items-center">
+              <div className="col-span-5">
+                <span className="block text-[10px] text-gray-500 mb-0.5">Width ({activeUnit})</span>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={artboardSettings.width || ''}
+                  onChange={(e) => onChangeArtboard({ ...artboardSettings, preset: 'custom', width: parseFloat(e.target.value) || 0 })}
+                  className="w-full h-8 px-2 bg-white border border-gray-300 rounded text-xs font-mono"
+                />
+              </div>
+
+              <div className="col-span-2 flex justify-center pt-3">
+                <button
+                  type="button"
+                  onClick={handleSwapArtboardOrientation}
+                  className="p-1 rounded text-gray-500 hover:text-gray-900 hover:bg-gray-100 cursor-pointer"
+                  title="Swap orientation"
+                >
+                  <RotateCw className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="col-span-5">
+                <span className="block text-[10px] text-gray-500 mb-0.5">Height ({activeUnit})</span>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={artboardSettings.height || ''}
+                  onChange={(e) => onChangeArtboard({ ...artboardSettings, preset: 'custom', height: parseFloat(e.target.value) || 0 })}
+                  className="w-full h-8 px-2 bg-white border border-gray-300 rounded text-xs font-mono"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Warning Banner if Code Exceeds Artboard with Quick Actions */}
+          {codeExceedsArtboard && (
+            <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs space-y-1.5 animate-in fade-in">
+              <div className="flex items-center gap-1.5 text-amber-800 font-medium">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 stroke-[1.5]" />
+                <span>Code exceeds artboard boundaries</span>
+              </div>
+              <div className="flex items-center gap-2 pl-5">
+                <button
+                  type="button"
+                  onClick={handleShrinkCodeToFit}
+                  className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded text-[11px] font-semibold cursor-pointer transition-colors"
+                >
+                  Shrink code to fit
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEnlargeArtboard}
+                  className="px-2 py-0.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 rounded text-[11px] font-medium cursor-pointer transition-colors"
+                >
+                  Enlarge artboard
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 5. Colors: Two swatches + Swap button */}
       <div className="min-w-0">
-        <label className="block text-xs font-medium text-gray-800 mb-1.5">Colors</label>
+        <label className="block text-xs font-semibold text-gray-800 mb-1.5">Colors</label>
         <div className="flex items-center gap-2">
           {/* Code Color Swatch */}
           <div className="flex-1 flex items-center gap-2 h-9 px-2 bg-white border border-gray-300 rounded-lg hover:border-gray-400 transition-colors min-w-0">

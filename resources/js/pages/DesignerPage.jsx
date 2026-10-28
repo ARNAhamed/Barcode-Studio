@@ -931,42 +931,42 @@ export default function DesignerPage() {
         </div>
 
         {/* Right Column: Controls Editor (clamped 340px to 440px, scrolls independently) */}
-        <div className="order-2 lg:order-2 w-full lg:w-[380px] xl:w-[420px] min-w-0 lg:min-w-[340px] lg:max-w-[440px] shrink-0 lg:h-full lg:overflow-y-auto lg:pr-1 [scrollbar-width:thin] [overscroll-behavior:contain]">
-          <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+        <div className="order-2 lg:order-2 w-full lg:w-[380px] xl:w-[420px] min-w-0 lg:min-w-[340px] lg:max-w-[440px] shrink-0 lg:h-full lg:overflow-y-auto lg:pr-1 pb-20 lg:pb-8 [scrollbar-width:thin] [overscroll-behavior:contain]">
+          <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100 overflow-hidden min-w-0">
             {/* a) Top Row: Mode Toggle + Template & Product Row */}
-            <div className="p-4 space-y-3 bg-gray-50/60">
+            <div className="p-4 space-y-3 bg-gray-50/60 min-w-0">
               {/* Barcode | QR Code Toggle */}
-              <div className="grid grid-cols-2 p-0.5 bg-gray-200/70 rounded-lg border border-gray-300">
+              <div className="grid grid-cols-2 p-0.5 bg-gray-200/70 rounded-lg border border-gray-300 min-w-0">
                 <button
                   type="button"
                   onClick={() => handleTypeChange('barcode')}
-                  className={`h-8 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                  className={`h-8 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 truncate ${
                     type === 'barcode'
                       ? 'bg-white text-indigo-700 font-semibold shadow-xs'
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  <Barcode className="w-3.5 h-3.5 stroke-[1.5]" />
-                  <span>Barcode</span>
+                  <Barcode className="w-3.5 h-3.5 stroke-[1.5] shrink-0" />
+                  <span className="truncate">Barcode</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleTypeChange('qr')}
-                  className={`h-8 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                  className={`h-8 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 truncate ${
                     type === 'qr'
                       ? 'bg-white text-indigo-700 font-semibold shadow-xs'
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  <QrCode className="w-3.5 h-3.5 stroke-[1.5]" />
-                  <span>QR Code</span>
+                  <QrCode className="w-3.5 h-3.5 stroke-[1.5] shrink-0" />
+                  <span className="truncate">QR Code</span>
                 </button>
               </div>
 
               {/* Template & Product Picker on One Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[11px] font-medium text-gray-700 mb-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
+                <div className="min-w-0">
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1 truncate">
                     Template
                   </label>
                   <CompactTemplatePicker
@@ -983,8 +983,8 @@ export default function DesignerPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-medium text-gray-700 mb-1">
+                <div className="min-w-0">
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1 truncate">
                     Product
                   </label>
                   <ProductPicker

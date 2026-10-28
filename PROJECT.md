@@ -69,35 +69,40 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
   - **Right Pane (~30-35% width, clamped 340–440px)**: Independent vertical scrolling (`overscroll-behavior: contain`), displaying concise essential controls by default.
 - **Editor Structure (Right Pane)**:
   - **Top Row**: Mode switch (**Barcode | QR Code**), followed by a single row containing a **Template** dropdown and a **Product** picker.
-  - **"Design" Group (Always Visible, ~5 Essential Everyday Controls)**:
+  - **"Design" Group (Always Visible, Everyday Controls)**:
     - **Value**: Text input. When a product is picked, auto-fills the product value or product page URL in QR mode (with a compact "Link to product page" switch beside it).
     - **Format**: (Barcode mode only) Compact format selector (`CODE128`, `EAN13`, `EAN8`, `UPC`, `CODE39`, `ITF14`).
-    - **Label Text**: Single-line input or compact textarea with a small **Insert** button that opens a menu of placeholders (`{name}`, `{price}`, `{sku}`, supplier fields, and the `{supplier} • {supplier_mobile}` preset) instead of cluttered permanent chips.
-    - **Size**: Quick preset chips: `Auto` (fit to code), `Small` (50 x 25 mm), `Medium` (60 x 40 mm), `Large` (100 x 50 mm), and `Custom`. Only when `Custom` is selected are manual Width, Height, and Unit (`mm`, `cm`, `inch`, `px`) displayed.
+    - **Label Text**: Single-line input or compact textarea with a small **Insert** button that opens a scrollable, viewport-aware popover menu.
+      - **Insert Menu**: Header note *"Fills in automatically from the selected product"*. Each placeholder shows live sample values (e.g., `Name  Wireless Headphones`). Grouped into Product and Supplier sections, with a `Supplier & Mobile` preset button at the bottom. Inserts at cursor position.
+      - **Live Label Preview**: Subtle *"Preview:"* line directly under the field resolving placeholders with the picked or sample product.
+      - **Quick Size & Gap Row**: Directly below label text, compact row with **Size** (pt with `-` and `+` buttons, keyboard arrow navigation, Shift+arrow step 10) and **Gap** (selected unit with `-` and `+` buttons, step 1px equivalent, min 0). Kept in live two-way sync with Advanced > Text style.
+    - **Size**: Quick preset chips: `Auto` (fit to code), `Small` (50 x 25 mm), `Medium` (60 x 40 mm), `Large` (100 x 50 mm), and `Custom`.
+      - Selecting `Custom` displays manual Width, Height, an aspect-ratio lock, and a unit switch (`mm`, `cm`, `inch`, `px`), pre-filled with current dimensions. Typing updates the live preview with validation. Editing values while another preset is active automatically switches to `Custom`. Custom dimensions persist across saves and templates.
     - **Colors**: Two small color swatches (Code color and Background) with compact pickers and a **Swap** icon button.
   - **"Advanced" Accordion (Collapsed by Default, Remembers Open/Closed State)**:
-    - Only ONE child group open at a time for focus and calm scanning:
+    - Replaced horizontal tabs with a **vertical accordion list** of full-width rows (icon, title, and chevron) with only ONE group open at a time to prevent horizontal clipping:
       1. **Artboard**: Extended presets (Shipping 100x150, A6, A5, A4, Square, Business Card), orientation toggle, background color, border (toggle, color, width), corner radius.
       2. **Placement**: 3x3 alignment grid, padding, fit mode (`original`, `fit`, `fill-width`), fine X/Y offsets, reset position.
-      3. **Code Style**: Barcode width, height, margin, show-number toggle; QR size, error correction (L/M/Q/H), dot style, corner style, logo upload.
-      4. **Text Style**: Font size (`pt` or `px`), gap between code and text, font weight (`Regular` / `Bold`), text alignment (`Left`, `Center`, `Right`).
+      3. **Code Style**: Precision sizing with number inputs and `-`/`+` buttons alongside sliders. Barcode width, height, margin, and show-number toggle. QR size with `-`/`+` buttons, slider, "Fit to artboard" button, "% of artboard" badge, scannability indicator, error correction (L/M/Q/H), dot style, corner style, and logo upload.
+      4. **Text Style**: Font size (with `-`/`+` buttons and unit toggle), gap (with `-`/`+` buttons), font weight (`Regular` / `Bold`), text alignment (`Left`, `Center`, `Right`).
       5. **Units & Export**: Default unit, export DPI (`72`, `150`, `300`, `600`), lock aspect ratio, "Export code only" checkbox.
     - **"Reset advanced settings"** link to restore default styling options.
+    - Adequate bottom padding on editor pane so all controls and links remain fully visible and reachable inside the window without clipping.
 - **Canvas & Preview Enhancements**:
   - **Direct Canvas Interactions**:
-    - Click label text directly in the preview to edit it.
+    - Click label text directly in the preview to edit or focus the field.
     - Click & drag code to position it on artboard; double-click code to reset position.
     - Thin selection outline on hover.
   - **Floating Indicators**:
     - Artboard size chip on the canvas (e.g. "60 x 40 mm").
-    - Compact floating zoom control in the corner of the canvas.
+    - **Full-featured Floating Zoom Control**: `-` and `+` buttons with fixed steps (`25%`, `50%`, `75%`, `100%`, `150%`, `200%`, `300%`, `400%`), clickable percentage dropdown, and `Fit` button with auto re-fit on pane/window resize. Supports `Ctrl` + mouse wheel zoom, touchscreen pinch zoom, and keyboard shortcuts (`+`, `-`, `0` for Fit). Canvas drag-to-pan when zoomed in beyond viewport with no page scroll. Zoom is purely display-only.
     - Friendly sample code preview with a gentle hint when fields are empty: "Pick a template or a product to begin".
   - **Single Status Line**:
-    - Replaces scattered warnings with one concise line under the preview: green dot + "Ready to scan" when valid, or a single amber message with an auto-action "Fix" button when an automated remedy exists (e.g. GS1 check digit calculation or barcode sizing).
+    - Replaces scattered warnings with one concise line under the preview: green dot + "Ready to scan" when valid, or a single amber message with an auto-action "Fix" button when an automated remedy exists.
 - **Clean Action Footer**:
   - Primary **Save** button with subtle status text ("Saved" / "Unsaved changes").
   - **Download** button with a compact popover menu: **PNG** and **SVG** with embedded DPI selector (defaults to 300).
-  - More actions (**...**) menu: Reset, Duplicate as new, and Export code only toggle.
+  - More actions (**...**) menu: Reset, Duplicate as new, and Export code only toggle. All footer buttons fully fit without clipping.
 - **Smart Defaults & Persistent Memory**:
   - New designs default unit to `mm` and start with the default template (or Medium 60x40 mm). Existing saved designs preserve their saved parameters.
   - Remembers last used template, colors, and Advanced accordion state in `localStorage`.

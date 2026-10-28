@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import JsBarcode from 'jsbarcode';
 import QRCodeStyling from 'qr-code-styling';
 import {
@@ -13,10 +13,12 @@ import {
   ZoomOut,
   Sparkles,
   Move,
-  Wand2,
+  ChevronDown,
 } from 'lucide-react';
 import Button from '../../components/Button';
-import { DPIS, toPx, fromPx, formatOutputDimensions } from '../../utils/units';
+import { DPIS, toPx, fromPx } from '../../utils/units';
+
+const ZOOM_STEPS = [0.25, 0.50, 0.75, 1.00, 1.50, 2.00, 3.00, 4.00];
 
 export default function PreviewPanel({
   type = 'barcode',
@@ -57,17 +59,22 @@ export default function PreviewPanel({
   const [renderError, setRenderError] = useState(null);
   const [workspaceSize, setWorkspaceSize] = useState({ width: 400, height: 350 });
 
-  // Zoom controls: 'fit' | '50' | '100' | '200' | 'manual'
+  // Zoom state: 'fit' | 'manual'
   const [zoomMode, setZoomMode] = useState('fit');
   const [manualZoom, setManualZoom] = useState(1.0);
+  const [isZoomDropdownOpen, setIsZoomDropdownOpen] = useState(false);
+  const zoomDropdownRef = useRef(null);
 
   // Drag state for interactive code placement inside artboard
-  const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef({ x: 0, y: 0, startOffsetX: 0, startOffsetY: 0 });
+  const [isDraggingCode, setIsDraggingCode] = useState(false);
+  const codeDragStartRef = useRef({ x: 0, y: 0, startOffsetX: 0, startOffsetY: 0 });
 
   // Panning state for dragging canvas when zoomed
-  const isPanningRef = useRef(false);
+  const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+
+  // Touch pinch-to-zoom tracking
+  const touchDistanceRef = useRef(null);
 
   // Popover menus state
   const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false);
@@ -84,12 +91,15 @@ export default function PreviewPanel({
       if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
         setIsMoreMenuOpen(false);
       }
+      if (zoomDropdownRef.current && !zoomDropdownRef.current.contains(e.target)) {
+        setIsZoomDropdownOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  // Measure workspace size
+  // Measure workspace size with ResizeObserver
   useEffect(() => {
     if (!workspaceRef.current) return;
     const observer = new ResizeObserver((entries) => {
@@ -107,16 +117,16 @@ export default function PreviewPanel({
   // Compute Raw Code Pixel Dimensions
   const codeUnit = settings.unit || 'px';
   const codeRawPxWidth = type === 'barcode'
-    ? toPx(settings.width || 260, codeUnit)
-    : toPx(settings.size || 220, codeUnit);
+    ? toPx(settings.width || 60, codeUnit)
+    : toPx(settings.size || 35, codeUnit);
   const codeRawPxHeight = type === 'barcode'
-    ? toPx(settings.height || 100, codeUnit)
-    : toPx(settings.size || 220, codeUnit);
+    ? toPx(settings.height || 25, codeUnit)
+    : toPx(settings.size || 35, codeUnit);
 
   // Label Text & Unified Object Dimensions
   const hasLabel = Boolean(settings.label && settings.label.trim());
   const labelFontUnit = settings.labelFontUnit || 'pt';
-  const labelFontSize = Number(settings.labelFontSize || (labelFontUnit === 'pt' ? 12 : 16));
+  const labelFontSize = Number(settings.labelFontSize || (labelFontUnit === 'pt' ? 11 : 14));
   const labelFontSizePx = labelFontUnit === 'pt' ? (labelFontSize * 96) / 72 : labelFontSize;
   const labelGapPx = hasLabel ? Math.max(0, Number(settings.labelGap !== undefined ? settings.labelGap : 4)) : 0;
   const labelWeight = settings.labelWeight || 'normal';
@@ -153,7 +163,7 @@ export default function PreviewPanel({
   const availWidth = Math.max(10, artboardPxWidth - (2 * paddingPx));
   const availHeight = Math.max(10, artboardPxHeight - (2 * paddingPx));
 
-  // Fit Scale Calculation
+  // Fit Scale Calculation inside Artboard
   const fitMode = artboardSettings?.fit || 'original';
   const fitScale = useMemo(() => {
     if (isAuto || fitMode === 'original') return 1;
@@ -187,22 +197,134 @@ export default function PreviewPanel({
   const codeX = Math.round(basePos.x + (artboardSettings?.xOffset || 0));
   const codeY = Math.round(basePos.y + (artboardSettings?.yOffset || 0));
 
-  // Canvas Zoom
-  const effectiveZoom = useMemo(() => {
-    if (zoomMode === 'fit') {
-      const padding = 28;
-      const availW = Math.max(20, workspaceSize.width - padding);
-      const availH = Math.max(20, workspaceSize.height - padding);
-      const scaleX = availW / Math.max(20, artboardPxWidth);
-      const scaleY = availH / Math.max(20, artboardPxHeight);
-      const fit = Math.min(scaleX, scaleY);
-      return Math.max(0.1, parseFloat(fit.toFixed(3)));
+  // Dynamic Fit Zoom Calculation
+  const fitZoom = useMemo(() => {
+    const margin = 32;
+    const availW = Math.max(20, workspaceSize.width - margin);
+    const availH = Math.max(20, workspaceSize.height - margin);
+    const scaleX = availW / Math.max(20, artboardPxWidth);
+    const scaleY = availH / Math.max(20, artboardPxHeight);
+    const fit = Math.min(scaleX, scaleY);
+    return Math.max(0.15, Math.min(2.5, parseFloat(fit.toFixed(3))));
+  }, [workspaceSize, artboardPxWidth, artboardPxHeight]);
+
+  // Current Effective Zoom
+  const effectiveZoom = zoomMode === 'fit' ? fitZoom : manualZoom;
+
+  // Zoom Stepping Controls: - and + switch from Fit to manual steps
+  const handleZoomIn = useCallback(() => {
+    const current = effectiveZoom;
+    const nextStep = ZOOM_STEPS.find((s) => s > current + 0.02) || 4.0;
+    setZoomMode('manual');
+    setManualZoom(nextStep);
+  }, [effectiveZoom]);
+
+  const handleZoomOut = useCallback(() => {
+    const current = effectiveZoom;
+    const prevStep = [...ZOOM_STEPS].reverse().find((s) => s < current - 0.02) || 0.25;
+    setZoomMode('manual');
+    setManualZoom(prevStep);
+  }, [effectiveZoom]);
+
+  const handleSelectZoomStep = (step) => {
+    setZoomMode('manual');
+    setManualZoom(step);
+    setIsZoomDropdownOpen(false);
+  };
+
+  const handleResetFit = () => {
+    setZoomMode('fit');
+    setIsZoomDropdownOpen(false);
+  };
+
+  // Keyboard navigation on workspace focus: +, -, 0
+  const handleKeyDown = (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === '+' || e.key === '=') {
+      e.preventDefault();
+      handleZoomIn();
+    } else if (e.key === '-' || e.key === '_') {
+      e.preventDefault();
+      handleZoomOut();
+    } else if (e.key === '0') {
+      e.preventDefault();
+      handleResetFit();
     }
-    if (zoomMode === '50') return 0.5;
-    if (zoomMode === '100') return 1.0;
-    if (zoomMode === '200') return 2.0;
-    return manualZoom;
-  }, [zoomMode, manualZoom, artboardPxWidth, artboardPxHeight, workspaceSize]);
+  };
+
+  // Ctrl + Wheel Zoom
+  const handleWheel = (e) => {
+    if (e.ctrlKey) {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        handleZoomIn();
+      } else {
+        handleZoomOut();
+      }
+    }
+  };
+
+  // Touch Pinch-to-zoom
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchDistanceRef.current = dist;
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.touches.length === 2 && touchDistanceRef.current) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const ratio = dist / touchDistanceRef.current;
+      if (Math.abs(ratio - 1) > 0.05) {
+        setZoomMode('manual');
+        setManualZoom((prev) => Math.min(4.0, Math.max(0.25, parseFloat((prev * ratio).toFixed(2)))));
+        touchDistanceRef.current = dist;
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchDistanceRef.current = null;
+  };
+
+  // Canvas Drag to Pan (when zoomed in)
+  const isOverflowingCanvas =
+    artboardPxWidth * effectiveZoom > workspaceSize.width ||
+    artboardPxHeight * effectiveZoom > workspaceSize.height;
+
+  const handleCanvasPointerDown = (e) => {
+    if (e.target.closest('#artboard-code-object')) return;
+    if (!workspaceRef.current) return;
+    setIsPanning(true);
+    panStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      scrollLeft: workspaceRef.current.scrollLeft,
+      scrollTop: workspaceRef.current.scrollTop,
+    };
+    workspaceRef.current.setPointerCapture?.(e.pointerId);
+  };
+
+  const handleCanvasPointerMove = (e) => {
+    if (!isPanning || !workspaceRef.current) return;
+    const dx = e.clientX - panStartRef.current.x;
+    const dy = e.clientY - panStartRef.current.y;
+    workspaceRef.current.scrollLeft = panStartRef.current.scrollLeft - dx;
+    workspaceRef.current.scrollTop = panStartRef.current.scrollTop - dy;
+  };
+
+  const handleCanvasPointerUp = (e) => {
+    if (!isPanning) return;
+    workspaceRef.current?.releasePointerCapture?.(e.pointerId);
+    setIsPanning(false);
+  };
 
   const isEmpty = !value.trim();
 
@@ -223,9 +345,9 @@ export default function PreviewPanel({
           height: Math.max(20, Math.round(codeRawPxHeight * 0.7)),
           displayValue: settings.displayValue ?? true,
           font: 'monospace',
-          fontSize: settings.fontSize || 16,
+          fontSize: settings.fontSize || 14,
           textMargin: 4,
-          margin: settings.margin ?? 10,
+          margin: settings.margin ?? 6,
           background: settings.background || '#ffffff',
           lineColor: settings.lineColor || '#000000',
         });
@@ -273,7 +395,7 @@ export default function PreviewPanel({
         });
       }
     } catch (e) {
-      // ignore sample error
+      // ignore
     }
   }, [type, isEmpty]);
 
@@ -369,13 +491,13 @@ export default function PreviewPanel({
     }
   }, [isAuto, isEmpty, codeX, codeY, scaledCodeW, scaledCodeH, artboardPxWidth, artboardPxHeight, onWarningsUpdate]);
 
-  // Drag Handlers
-  const handlePointerDown = (e) => {
+  // Drag Code Handlers
+  const handleCodePointerDown = (e) => {
     if (isAuto || !onArtboardChange) return;
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
-    dragStartRef.current = {
+    setIsDraggingCode(true);
+    codeDragStartRef.current = {
       x: e.clientX,
       y: e.clientY,
       startOffsetX: artboardSettings?.xOffset || 0,
@@ -384,25 +506,25 @@ export default function PreviewPanel({
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
 
-  const handlePointerMove = (e) => {
-    if (!isDragging || isAuto || !onArtboardChange) return;
-    const dx = (e.clientX - dragStartRef.current.x) / effectiveZoom;
-    const dy = (e.clientY - dragStartRef.current.y) / effectiveZoom;
+  const handleCodePointerMove = (e) => {
+    if (!isDraggingCode || isAuto || !onArtboardChange) return;
+    const dx = (e.clientX - codeDragStartRef.current.x) / effectiveZoom;
+    const dy = (e.clientY - codeDragStartRef.current.y) / effectiveZoom;
 
     onArtboardChange({
       ...artboardSettings,
-      xOffset: Math.round(dragStartRef.current.startOffsetX + dx),
-      yOffset: Math.round(dragStartRef.current.startOffsetY + dy),
+      xOffset: Math.round(codeDragStartRef.current.startOffsetX + dx),
+      yOffset: Math.round(codeDragStartRef.current.startOffsetY + dy),
     });
   };
 
-  const handlePointerUp = (e) => {
-    if (!isDragging) return;
+  const handleCodePointerUp = (e) => {
+    if (!isDraggingCode) return;
     e.currentTarget.releasePointerCapture?.(e.pointerId);
-    setIsDragging(false);
+    setIsDraggingCode(false);
   };
 
-  // Double click code to reset position
+  // Double click to reset position
   const handleCodeDoubleClick = (e) => {
     e.stopPropagation();
     if (!isAuto && onArtboardChange) {
@@ -412,34 +534,6 @@ export default function PreviewPanel({
         yOffset: 0,
       });
     }
-  };
-
-  // Canvas Panning
-  const handleCanvasPointerDown = (e) => {
-    if (e.target.closest('#artboard-code-object')) return;
-    if (!workspaceRef.current) return;
-    isPanningRef.current = true;
-    panStartRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-      scrollLeft: workspaceRef.current.scrollLeft,
-      scrollTop: workspaceRef.current.scrollTop,
-    };
-    workspaceRef.current.setPointerCapture?.(e.pointerId);
-  };
-
-  const handleCanvasPointerMove = (e) => {
-    if (!isPanningRef.current || !workspaceRef.current) return;
-    const dx = e.clientX - panStartRef.current.x;
-    const dy = e.clientY - panStartRef.current.y;
-    workspaceRef.current.scrollLeft = panStartRef.current.scrollLeft - dx;
-    workspaceRef.current.scrollTop = panStartRef.current.scrollTop - dy;
-  };
-
-  const handleCanvasPointerUp = (e) => {
-    if (!isPanningRef.current) return;
-    workspaceRef.current?.releasePointerCapture?.(e.pointerId);
-    isPanningRef.current = false;
   };
 
   // Single Status Line Problem & Fix Resolver
@@ -473,66 +567,98 @@ export default function PreviewPanel({
     : `${artboardSettings.width || 60} × ${artboardSettings.height || 40} ${artboardUnit}`;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 flex flex-col w-full h-full min-w-0 overflow-hidden relative">
+    <div
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      className="bg-white rounded-lg border border-gray-200 flex flex-col w-full h-full min-w-0 overflow-hidden relative focus:outline-none"
+    >
       {/* 1. Preview Canvas Area with Floating Indicators */}
       <div
         ref={workspaceRef}
+        onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         onPointerDown={handleCanvasPointerDown}
         onPointerMove={handleCanvasPointerMove}
         onPointerUp={handleCanvasPointerUp}
         onPointerCancel={handleCanvasPointerUp}
-        className="flex-1 min-h-0 w-full bg-[#FAFAFA] relative overflow-auto p-4 select-none flex items-center justify-center [scrollbar-width:thin]"
-        onWheel={(e) => {
-          if (e.ctrlKey) {
-            e.preventDefault();
-            const delta = e.deltaY < 0 ? 0.1 : -0.1;
-            setZoomMode('manual');
-            setManualZoom((prev) => Math.min(3.0, Math.max(0.2, parseFloat((prev + delta).toFixed(2)))));
-          }
-        }}
+        className={`flex-1 min-h-0 w-full bg-[#FAFAFA] relative overflow-auto p-4 select-none flex items-center justify-center [scrollbar-width:thin] ${
+          isPanning ? 'cursor-grabbing' : isOverflowingCanvas ? 'cursor-grab' : 'cursor-default'
+        }`}
       >
         {/* Floating Artboard Size Chip (Top Left) */}
         <div className="absolute top-3 left-3 z-10 pointer-events-none">
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono font-medium bg-white/90 backdrop-blur border border-gray-200 shadow-xs text-gray-700">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono font-medium bg-white/95 backdrop-blur border border-gray-200 shadow-xs text-gray-700">
             {sizeChipText}
           </span>
         </div>
 
-        {/* Floating Zoom Controls Pill (Top Right) */}
-        <div className="absolute top-3 right-3 z-10 flex items-center gap-0.5 bg-white/90 backdrop-blur p-0.5 rounded-lg border border-gray-200 shadow-xs">
+        {/* Floating Zoom Controls (Top Right) */}
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-0.5 bg-white/95 backdrop-blur p-0.5 rounded-lg border border-gray-200 shadow-xs">
+          {/* Fit Button */}
           <button
             type="button"
-            onClick={() => setZoomMode('fit')}
-            className={`px-1.5 py-0.5 text-[11px] font-medium rounded transition-colors cursor-pointer ${
-              zoomMode === 'fit' ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-600 hover:text-gray-900'
+            onClick={handleResetFit}
+            className={`px-2 py-1 text-[11px] font-medium rounded transition-colors cursor-pointer ${
+              zoomMode === 'fit'
+                ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
             }`}
+            title="Recalculate best fit (Shortcut: 0)"
           >
             Fit
           </button>
+
+          {/* Minus Button */}
           <button
             type="button"
-            onClick={() => {
-              setZoomMode('manual');
-              setManualZoom((prev) => Math.max(0.2, parseFloat((prev - 0.1).toFixed(1))));
-            }}
-            className="p-1 text-gray-500 hover:text-gray-800 rounded cursor-pointer"
-            title="Zoom out"
+            onClick={handleZoomOut}
+            className="p-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded cursor-pointer transition-colors"
+            title="Zoom out (Shortcut: -)"
           >
-            <ZoomOut className="w-3 h-3 stroke-[1.5]" />
+            <ZoomOut className="w-3.5 h-3.5 stroke-[1.5]" />
           </button>
-          <span className="text-[10px] font-mono text-gray-600 px-0.5 min-w-[28px] text-center">
-            {Math.round(effectiveZoom * 100)}%
-          </span>
+
+          {/* Percentage Dropdown Trigger */}
+          <div className="relative" ref={zoomDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsZoomDropdownOpen((prev) => !prev)}
+              className="text-[11px] font-mono font-medium text-gray-700 hover:text-gray-900 px-1 py-0.5 rounded flex items-center gap-0.5 hover:bg-gray-100 cursor-pointer transition-colors min-w-[42px] justify-center"
+            >
+              <span>{Math.round(effectiveZoom * 100)}%</span>
+              <ChevronDown className="w-2.5 h-2.5 text-gray-400 stroke-[1.5]" />
+            </button>
+
+            {isZoomDropdownOpen && (
+              <div className="absolute right-0 top-full mt-1 w-24 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30 text-xs animate-in fade-in zoom-in-95 duration-100">
+                {ZOOM_STEPS.map((step) => (
+                  <button
+                    key={step}
+                    type="button"
+                    onClick={() => handleSelectZoomStep(step)}
+                    className={`w-full px-2.5 py-1 text-left text-[11px] font-mono flex items-center justify-between cursor-pointer ${
+                      Math.round(effectiveZoom * 100) === Math.round(step * 100) && zoomMode !== 'fit'
+                        ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span>{Math.round(step * 100)}%</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Plus Button */}
           <button
             type="button"
-            onClick={() => {
-              setZoomMode('manual');
-              setManualZoom((prev) => Math.min(3.0, parseFloat((prev + 0.1).toFixed(1))));
-            }}
-            className="p-1 text-gray-500 hover:text-gray-800 rounded cursor-pointer"
-            title="Zoom in"
+            onClick={handleZoomIn}
+            className="p-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded cursor-pointer transition-colors"
+            title="Zoom in (Shortcut: +)"
           >
-            <ZoomIn className="w-3 h-3 stroke-[1.5]" />
+            <ZoomIn className="w-3.5 h-3.5 stroke-[1.5]" />
           </button>
         </div>
 
@@ -552,7 +678,7 @@ export default function PreviewPanel({
             </div>
           </div>
         ) : (
-          /* Scaled Artboard Container */
+          /* Scaled Artboard Stage Container */
           <div
             style={{
               width: `${Math.round(artboardPxWidth * effectiveZoom)}px`,
@@ -560,7 +686,7 @@ export default function PreviewPanel({
             }}
             className="relative shrink-0 select-none m-auto"
           >
-            {/* The Artboard Canvas Element */}
+            {/* The Physical Artboard Canvas Element */}
             <div
               ref={captureRef}
               style={{
@@ -583,10 +709,10 @@ export default function PreviewPanel({
               <div
                 id="artboard-code-object"
                 ref={codeCaptureRef}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerUp}
+                onPointerDown={handleCodePointerDown}
+                onPointerMove={handleCodePointerMove}
+                onPointerUp={handleCodePointerUp}
+                onPointerCancel={handleCodePointerUp}
                 onDoubleClick={handleCodeDoubleClick}
                 style={{
                   position: isAuto ? 'static' : 'absolute',
@@ -596,7 +722,7 @@ export default function PreviewPanel({
                   height: `${Math.round(totalRawPxHeight)}px`,
                   transform: isAuto || fitScale === 1 ? 'none' : `scale(${fitScale})`,
                   transformOrigin: 'top left',
-                  cursor: isAuto ? 'default' : isDragging ? 'grabbing' : 'grab',
+                  cursor: isAuto ? 'default' : isDraggingCode ? 'grabbing' : 'grab',
                   touchAction: 'none',
                 }}
                 className={`flex flex-col items-center justify-center group ${
@@ -670,16 +796,16 @@ export default function PreviewPanel({
       </div>
 
       {/* 2. Single Status Line Under Preview */}
-      <div className="px-3 py-1.5 bg-gray-50/90 border-t border-gray-100 flex items-center justify-between text-xs shrink-0 min-h-[32px]">
+      <div className="px-3 py-1.5 bg-gray-50/90 border-t border-gray-100 flex items-center justify-between text-xs shrink-0 min-h-[32px] min-w-0">
         {statusProblem ? (
-          <div className="flex items-center gap-1.5 text-amber-700 min-w-0">
+          <div className="flex items-center gap-1.5 text-amber-700 min-w-0 truncate">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
             <span className="truncate font-medium">{statusProblem}</span>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 text-emerald-700 min-w-0">
+          <div className="flex items-center gap-1.5 text-emerald-700 min-w-0 truncate">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-            <span className="font-medium">Ready to scan</span>
+            <span className="font-medium truncate">Ready to scan</span>
           </div>
         )}
 
@@ -694,28 +820,28 @@ export default function PreviewPanel({
         )}
       </div>
 
-      {/* 3. Cleaner Action Footer */}
-      <div className="shrink-0 border-t border-gray-200 bg-white p-3 flex items-center justify-between gap-2">
+      {/* 3. Action Footer: Never Clipped, Responsive */}
+      <div className="shrink-0 border-t border-gray-200 bg-white p-2.5 sm:p-3 flex items-center justify-between gap-2 min-w-0">
         {/* Left: Saved Status Indicator */}
-        <div className="flex items-center gap-1.5 text-xs">
+        <div className="flex items-center gap-1.5 text-xs shrink-0">
           {isModified ? (
             <span className="text-gray-400 font-medium">Unsaved changes</span>
           ) : (
             <span className="text-emerald-700 font-medium flex items-center gap-1">
               <Check className="w-3.5 h-3.5 stroke-[2]" />
-              <span>Saved</span>
+              <span className="hidden sm:inline">Saved</span>
             </span>
           )}
         </div>
 
         {/* Right: Save + Download Menu + More Menu */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Primary Save Button (36px h-9) */}
           <Button
             id="save-to-gallery-btn"
             variant="primary"
             size="md"
-            className="h-9 px-4 text-xs font-semibold"
+            className="h-9 px-3.5 sm:px-4 text-xs font-semibold"
             icon={Save}
             disabled={!isValid || Boolean(validationError) || Boolean(renderError)}
             isLoading={isSaving}
@@ -731,14 +857,14 @@ export default function PreviewPanel({
               type="button"
               onClick={() => setIsDownloadMenuOpen((prev) => !prev)}
               disabled={!isValid || Boolean(validationError) || Boolean(renderError)}
-              className="h-9 px-3 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors"
+              className="h-9 px-2.5 sm:px-3 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors"
             >
               <Download className="w-3.5 h-3.5 stroke-[1.5]" />
-              <span>Download</span>
+              <span className="hidden sm:inline">Download</span>
             </button>
 
             {isDownloadMenuOpen && (
-              <div className="absolute right-0 bottom-full mb-1.5 w-48 bg-white rounded-lg shadow-lg border border-gray-200 p-2 z-40 text-xs animate-in fade-in zoom-in-95 duration-100 space-y-2">
+              <div className="absolute right-0 bottom-full mb-1.5 w-48 bg-white rounded-lg shadow-xl border border-gray-200 p-2 z-40 text-xs animate-in fade-in zoom-in-95 duration-100 space-y-2">
                 <div className="space-y-1">
                   <button
                     type="button"
@@ -798,7 +924,7 @@ export default function PreviewPanel({
             </button>
 
             {isMoreMenuOpen && (
-              <div className="absolute right-0 bottom-full mb-1.5 w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1.5 z-40 text-xs animate-in fade-in zoom-in-95 duration-100">
+              <div className="absolute right-0 bottom-full mb-1.5 w-44 bg-white rounded-lg shadow-xl border border-gray-200 py-1.5 z-40 text-xs animate-in fade-in zoom-in-95 duration-100">
                 <button
                   type="button"
                   onClick={() => {

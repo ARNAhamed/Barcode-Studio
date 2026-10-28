@@ -1,593 +1,719 @@
-# Barcode Designer — Project Context for the Antigravity Agent
+# Barcode & QR Code Studio — Technical Specification & Project Documentation
 
-> Read this file fully before writing any code. Follow it as the source of truth. If something is unclear, make the simplest reasonable choice and note it in `docs/DECISIONS.md`.
+> Read this file fully before writing any code. Follow it as the single source of truth. If something is unclear, make the simplest reasonable choice and note it in `docs/DECISIONS.md`. When the documentation and the real code disagree, the code wins.
 
-## 0. Existing Setup (IMPORTANT — read first)
+---
 
-Laravel and React (Vite) are **already installed** in this directory.
+## Table of Contents
+1. [Existing Setup & Tech Stack](#1-existing-setup--tech-stack)
+2. [Status and Roadmap](#2-status-and-roadmap)
+   - [2.1 Implemented Features](#21-implemented-features)
+   - [2.2 Planned — Not Built Yet (Roadmap)](#22-planned--not-built-yet-roadmap)
+   - [2.3 Described but NOT in the Code](#23-described-but-not-in-the-code)
+   - [2.4 Known Limitations](#24-known-limitations)
+   - [2.5 Customer UX Principles](#25-customer-ux-principles)
+3. [Architecture: How Things Connect & Glossary](#3-architecture-how-things-connect--glossary)
+   - [3.1 Entity Relationship Flow](#31-entity-relationship-flow)
+   - [3.2 Glossary](#32-glossary)
+4. [Detailed Feature Specifications](#4-detailed-feature-specifications)
+   - [4.1 Gallery (`/`)](#41-gallery-)
+   - [4.2 Designer (`/designer` and `/designer/:id`)](#42-designer-designer-and-designerid)
+   - [4.3 Inventory Management](#43-inventory-management)
+     - [4.3.1 Items (`/products/items`)](#431-items-productsitems)
+     - [4.3.2 Bulk Generate Codes (`POST /api/codes/bulk`)](#432-bulk-generate-codes-post-apicodesbulk)
+     - [4.3.3 Suppliers (`/products/suppliers`)](#433-suppliers-productssuppliers)
+   - [4.4 Print Labels (`/print`)](#44-print-labels-print)
+   - [4.5 Recycle Bin (`/bin`)](#45-recycle-bin-bin)
+   - [4.6 Design Templates (Template Manager)](#46-design-templates-template-manager)
+   - [4.7 Public Product Page (`/p/:token`)](#47-public-product-page-ptoken)
+5. [Barcode Generator & Storage Matrix](#5-barcode-generator--storage-matrix)
+   - [5.1 Sequential Barcode Number Generator](#51-sequential-barcode-number-generator)
+   - [5.2 Storage Matrix: Where Settings Live](#52-storage-matrix-where-settings-live)
+6. [Complete Route Map](#6-complete-route-map)
+   - [6.1 Frontend SPA Routes & Legacy Redirects](#61-frontend-spa-routes--legacy-redirects)
+   - [6.2 Backend API Routes (57 Endpoints)](#62-backend-api-routes-57-endpoints)
+7. [Database Schema](#7-database-schema)
+8. [UI / UX Design System](#8-ui--ux-design-system)
+9. [Frontend Folder Structure](#9-frontend-folder-structure)
+10. [Definition of Done](#10-definition-of-done)
+11. [Working Rules for the Agent](#11-working-rules-for-the-agent)
+
+---
+
+## 1. Existing Setup & Tech Stack
+
+Laravel and React (Vite) are **already installed** in this directory as a single unified project.
 - Do **NOT** re-create the Laravel project or re-scaffold React/Vite. Do not run `composer create-project` or `npm create vite`.
-- First **inspect** the project: check `composer.json`, `package.json`, `vite.config.js`, `routes/`, `resources/` and how React is currently wired (plain React SPA, or Inertia starter kit).
-- **Adapt to what exists.** Keep the current setup and only install missing packages. If React is not yet mounted through Laravel's Vite setup, connect it as described in section 1.
-- If the existing React setup is a separate folder, tell me before moving anything, and propose the simplest way to end up with one directory.
-- Report what you found and what you plan to change before editing files.
+- One Blade view (`resources/views/app.blade.php`) mounts the React SPA; a catch-all web route in `routes/web.php` serves it for every non-API URL.
+- React calls the API at the relative path `/api` (same origin, no CORS setup needed).
 
-## 1. What We Are Building
+### Stack & Packages
+- **Backend:** Laravel 11 (PHP 8.2+), REST JSON API (`routes/api.php`).
+- **Database:** MySQL configured in `.env` (`DB_CONNECTION=mysql`, `DB_DATABASE=barcode_designer`), SQLite in `.env.example`.
+- **Frontend SPA:** React 19 (`react: ^19.3.1`, `react-dom: ^19.3.1`), React Router v7 (`react-router-dom: ^7.18.4`).
+- **Asset Bundler:** Vite 8 (`vite: ^8.0.0`) with `@vitejs/plugin-react: ^6.1.2` and `laravel-vite-plugin: ^3.1`.
+- **Styling:** Tailwind CSS v4 (`tailwindcss: ^4.0.0`, `@tailwindcss/vite: ^4.0.0`).
+- **Icons:** Lucide React (`lucide-react: ^1.61.0`).
+- **Barcode & QR Libraries:**
+  - `jsbarcode` (`^3.12.3`) — SVG-based 1D barcode rendering.
+  - `qr-code-styling` (`^1.9.2`) — Canvas and SVG 2D QR rendering with custom dot styles, corner shapes, error correction, and logo embedding.
+  - `html-to-image` (`^1.11.13`) — DOM-to-PNG image snapshot capture for thumbnails and downloads.
+  - `jspdf` (`^4.2.1`) — Vectorized sheet PDF export for label sheets.
+- **Data Fetching:** `axios` (`^1.20.0`) + `@tanstack/react-query` (`^5.104.5`).
+- **Notifications:** `react-hot-toast` (`^2.6.1`).
 
-A web application to **design and create barcodes and QR codes**, linked to a **stock (product) list**.
+### Local Development Commands
+Run locally with two background processes:
+- Terminal 1: `php artisan serve` (serves at `http://localhost:8000`)
+- Terminal 2: `npm run dev` (Vite dev server)
 
-**Stack (single project, one directory)**
-- Backend: Laravel 11 (PHP 8.2+), REST JSON API (`routes/api.php`), MySQL
-- Frontend: React 18 inside the same Laravel project (Vite + `laravel-vite-plugin`), React Router, Tailwind CSS, `lucide-react` icons
-- One Blade view (`resources/views/app.blade.php`) mounts the React SPA; a catch-all web route serves it for every non-API URL
-- Barcode/QR libs (frontend): `jsbarcode`, `qr-code-styling`, `html-to-image`
-- Data fetching: `axios` + `@tanstack/react-query`
-- Notifications: `react-hot-toast`
+---
 
-**Structure (single directory — do NOT create separate backend/frontend folders)**
+## 2. Status and Roadmap
+
+### 2.1 Implemented Features
+- [x] **Label Designer:** Split-pane studio with independent scrolling, real-time SVG preview, floating zoom widget (25%–400%, fit, pan), interactive code dragging and repositioning, code-vs-artboard sizing with unit switch (`mm`, `cm`, `inch`, `px`), multi-line customizable label text with placeholder insertion (`{name}`, `{sku}`, `{price}`, etc.), and collapsed Advanced accordion groups.
+- [x] **1D & 2D Symbologies:** CODE128, EAN-13, EAN-8, UPC-A, CODE39, ITF-14, Pharmacode, and QR Code (with dot styles, corner styles, error correction L/M/Q/H, and logo uploads).
+- [x] **Product Association & Autocomplete:** Link designs to inventory products; dynamically preview item data (`{name}`, `{sku}`, `{price}`, `{category}`, `{supplier}`).
+- [x] **Design Gallery:** Filterable grid/list view of saved designs with search, format filtering, batch filtering, direct download, duplication, editing, and soft-delete.
+- [x] **Inventory Items Management:** `table-fixed` responsive data table displaying product name and Item Code merged in the primary column, category, supplier, price, stock status, selected-only CSV export, CSV import with field mapping and validation dry run, and Add/Edit modals with inline sequential barcode generation.
+- [x] **Bulk Code Generation:** 3-step modal wizard generating up to 500 codes in a run, with template selection, pattern configuration, live preview, in-browser SVG rendering, and batch saving to `POST /api/codes/bulk`.
+- [x] **Suppliers Directory:** Full CRUD supplier directory with contact details (mobile, phone, email, address, city, country, website, payment terms), view drawer with linked products list, and selected-only CSV export.
+- [x] **Sequential Barcode Generator:** Collision-free sequential barcode generation with checksum computation for EAN-13, EAN-8, UPC-A, and CODE-128 using database-locked sequence counters (`barcode_sequences`).
+- [x] **Sheet Print Studio:** Multi-item grid layout generator with paper size configuration (A4, Letter, A3, A5, A6, Legal, 4x6, Custom), label sheet presets, custom margins and gaps, fit modes, PDF export via `jspdf`, custom reusable presets (`print_presets`), and `@media print` browser output.
+- [x] **Unified Recycle Bin:** Centralized soft-delete recovery hub at `/bin` for Items, Suppliers, and Saved Designs with 30-day retention countdown, individual restore, permanent delete, restore-all, and empty bin actions.
+- [x] **Design Templates:** System and user design templates managed via a full-featured Template Manager modal (create, apply, rename, duplicate, set default, delete).
+- [x] **Public Product Landing Page:** Mobile-friendly public product verification page at `/p/{token}` generated from QR code links.
+
+### 2.2 Planned — Not Built Yet (Roadmap)
+> [!IMPORTANT]
+> The following features are planned for future iterations. Do NOT assume they exist in the code:
+
+1. **Quick Print Wizard (NOT BUILT):**
+   - Customer-facing 4-step wizard designed for quick, non-technical label printing:
+     - **Step 1 (Choose items):** Quick search and selection from inventory with quantity multipliers.
+     - **Step 2 (Label style):** Pick from visual starter styles (Shelf tag, Small label, Box label, Simple QR).
+     - **Step 3 (Paper setup):** Select paper (A4, Letter, 4x6 thermal roll, or Custom) and sheet grid.
+     - **Step 4 (Print):** Instant sheet preview with copies calculation and one-click print or PDF download.
+   - Will serve as the root landing page (`/`), with the current Gallery moved to "My designs" (`/designs`) and simplified sidebar navigation.
+2. **User Authentication & Roles (NOT BUILT):** User registration, login, password recovery, session/token guards, and roles (`admin` vs `customer`). All current `/api/*` routes are unauthenticated.
+3. **Dedicated Settings Page (NOT BUILT):** System configuration UI for default currency, default measurement units, default paper size, barcode prefix, and recycle bin retention periods.
+4. **Theme / Dark Mode (NOT BUILT):** System, light, and dark mode theme switching with user preference persistence. Currently, light theme only.
+5. **Bulk Update QR Links Tool (NOT BUILT):** Batch migration tool to rewrite existing QR code URLs when changing domain or moving from local testing (`localhost`) to production `APP_URL`.
+6. **Automated Testing & QA Suite (NOT BUILT):** End-to-end browser testing (Playwright or Cypress) and comprehensive frontend unit tests.
+7. **Production Deployment Packaging (NOT BUILT):** Dockerfiles, CI/CD automated deployment pipelines, and production asset optimization.
+
+### 2.3 Described but NOT in the Code
+The following items were mentioned in previous documents or requests, but inspection of the codebase confirms they do **not** exist in the code:
+
+| Feature / Detail | Old Document Claim | Real Code Reality |
+| :--- | :--- | :--- |
+| **Recycle Bin Button in Headers** | Claimed Gallery, Items, and Suppliers headers have a "Recycle Bin" button with count badge. | **NOT in code.** The Recycle Bin button was removed from all page headers; it is accessible exclusively via the sidebar navigation (`/bin`). |
+| **Active `settings` Table Keys** | Claimed `public_page_enabled` and `public_page_show_supplier` in the `settings` table toggle public product page visibility and supplier info. | **NOT in code.** The `settings` table was seeded by migration, but no controller (`PublicProductController`, `ProductController`) reads it, no `/api/settings` route exists, and the public page is unconditionally active with supplier details always visible. |
+| **Dark Mode on Public Page** | Claimed public product page supports light and dark modes according to system/app theme. | **NOT in code.** No dark mode styles, theme tokens, or toggle switches exist. Standard light theme is rendered. |
+| **Auto-Purge for Trashed Suppliers** | Claimed automatic 30-day purge exists for all entities. | **NOT in code.** In `routes/console.php`, only `products:purge-trash` (`PurgeTrashProducts.php`) and `codes:purge-trash` (`PurgeTrashCodes.php`) are scheduled. There is no `PurgeTrashSuppliers` command or supplier purge schedule. |
+
+### 2.4 Known Limitations
+- **QR Links Require Publicly Accessible `APP_URL`:** QR codes embedding product links encode `{APP_URL}/p/{token}`. If `APP_URL` is set to `localhost`, external mobile phones scanning the printed label cannot resolve the URL unless on the same local network or mapped to a public domain/tunnel.
+- **Public Product Page Exposure:** Supplier details and basic item attributes are directly visible on `/p/{token}`. Granular field visibility toggles were removed from active controllers.
+- **Single-User / Local Context:** Currently operates in single-tenant mode without authentication barriers.
+- **Light Theme Only:** Dark mode color tokens are planned; do not display broken dark toggle switches.
+
+### 2.5 Customer UX Principles
+The target users are store owners, inventory clerks, and small business operators:
+- Maintain plain, human-friendly terminology: use **Item Code** instead of raw developer terms like `sku`.
+- Primary actions (Print, Save, Download) must be visible without scrolling or hunting through nested menus.
+- Avoid cluttered interfaces: default view exposes essential controls; advanced styling lives in collapsible accordions.
+
+---
+
+## 3. Architecture: How Things Connect & Glossary
+
+### 3.1 Entity Relationship Flow
+```mermaid
+graph TD
+    S[Supplier] -->|supplies 1:N| P[Product / Item]
+    P -->|associated with 0:N| C[Saved Code / Design]
+    T[Design Template] -->|styles 0:N| C
+    P -->|generates public_token| Q[Public Landing URL: /p/token]
+    C -->|selected for printing| PR[Print Labels Layout]
+    P -->|selected for printing| PR
+    B[Barcode Sequence] -->|allocates next number| P
+    B -->|allocates next number| C
 ```
-barcode-designer/
-├── app/                 # Laravel models, controllers, requests, resources
-├── database/            # migrations, seeders
-├── routes/
-│   ├── api.php          # /api/* endpoints
-│   └── web.php          # catch-all -> app.blade.php (React SPA)
-├── resources/
-│   ├── views/app.blade.php
-│   ├── css/app.css      # Tailwind
-│   └── js/              # React app (see section 6)
-├── vite.config.js
-├── package.json
-├── composer.json
-└── PROJECT.md
-```
 
-**Run locally:** `php artisan serve` + `npm run dev` (two terminals), open http://localhost:8000. Same origin, so no CORS setup is needed.
+1. **Supplier → Product:** Each product optionally belongs to a Supplier (`products.supplier_id` foreign key referencing `suppliers.id`).
+2. **Product → Codes:** A saved label design in the `codes` table can reference a product (`codes.product_id`). When linked, code values and labels can dynamically bind to product data.
+3. **Template → Codes:** Reusable label styling templates in `templates` seed design parameters for new or existing records in `codes` (`codes.template_id`).
+4. **Codes / Products → Print Studio:** Users send individual designs or inventory items to `/print?code_ids=...` or `/print?product_ids=...` to compile batches onto printable sheets.
+5. **Public Token → QR Code:** Every product has a unique `public_token`. When creating a QR code, setting the value to `{public_url}` encodes `APP_URL/p/{public_token}`.
 
-## 2. Pages (4)
+### 3.2 Glossary
+- **Item Code:** The customer-facing identifier for an inventory product. In the database schema and API payloads, the field is named `sku`, with `{sku}` retained as an alias for `{item_code}`.
+- **Artboard:** The physical label canvas (dimensions, borders, corner radius, padding, background color) on which the code and text sit.
+- **Code Size:** The physical width and height of the raw barcode or QR matrix itself, independent of the surrounding artboard canvas.
+- **Template:** A reusable styling configuration (dimensions, color palette, font sizing, alignment, barcode format) that can be applied to any label without an encoded value.
+- **Placeholder:** A dynamic token in label text (e.g., `{name}`, `{item_code}`, `{price}`, `{public_url}`) replaced at render time with the corresponding product attribute.
+- **Batch:** A bulk generation run grouping multiple generated codes under a single `batch_id` (UUID) in the `codes` table.
+- **Preset:** A saved physical sheet configuration in Print Labels (paper size, margin offsets, row/column counts, cell gaps).
 
-### 2.1 Gallery (`/`) — start page
-- Default route when the app opens.
-- Shows saved codes as a responsive card grid (1 / 2 / 3 / 4 columns).
-- Card: preview image, name, type badge (Barcode / QR), format, created date, actions (Edit, Download PNG, Delete). Shows a small "Template: <name>" line if created from a template, and a subtle batch label for codes generated in bulk.
-- Top bar: search box, filter chips (All / Barcode / QR / Last bulk run), "Recycle Bin" button (with count badge, opens `/bin?tab=designs`), "Create New" button.
-- Empty state: friendly illustration/icon + text "No codes yet" + button "Design your first code".
-- Delete asks for confirmation ("Move to Recycle Bin") and shows a toast with an Undo action after deleting.
+---
 
-### 2.2 Designer (`/designer` and `/designer/:id`)
-Two-pane layout: **live preview (left, ~65-70% width, fixed in place)** and **editor controls (right, ~30-35% width, clamped min 340px to max 440px, scrolls independently)**.
-At 1024px and above, the page body and main content area do NOT scroll: height is strictly tied to the visible window (`height: calc(100dvh - <top header height>)` with `overflow: hidden`).
-The left pane is a flex column: header bar (`shrink-0`), canvas (`flex-1 min-h-0 overflow-hidden`, centered content), and footer (`shrink-0`).
-The right pane (editor) has its own `overflow-y-auto` with a thin scrollbar and `overscroll-behavior: contain`, so scrolling the editor never scrolls the page or preview, and scrolling over the preview never scrolls the editor.
-Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and the editor underneath.
+## 4. Detailed Feature Specifications
 
-- **Preview Pane (Left)**: Built as a 3-part flex column:
-  - **Header Bar (shrink-0)**: Left: "Live Preview" on one line (`whitespace-nowrap`) with format badge (e.g. `CODE128`). Right: compact zoom controls (Fit, 50%, 100%, 200%, `-`, `+`, and real zoom % label). Flex-wrap with `gap-2` so nothing is clipped on narrow panels.
-### 2.2 Barcode & QR Designer (`/designer` and `/designer/:id`)
-- **Philosophy**: Simple by default, advanced on request. A new user should be able to create and save a code in under 30 seconds without reading instructions.
-- **Two-Pane Layout**:
-  - **Left Pane (~65-70% width)**: Real-time interactive artboard preview, fixed in place, with floating zoom controls, size chip, and clean action footer.
-  - **Right Pane (~30-35% width, clamped 340–440px)**: Independent vertical scrolling (`overscroll-behavior: contain`), displaying concise essential controls by default.
-- **Editor Structure (Right Pane)**:
-  - **Top Row**: Mode switch (**Barcode | QR Code**), followed by a single row containing a **Template** dropdown and a **Product** picker.
-  - **"Design" Group (Always Visible, Everyday Controls)**:
-    - **Value**: Text input. When a product is picked, auto-fills the product value or product page URL in QR mode (with a compact "Link to product page" switch beside it).
-    - **Format**: (Barcode mode only) Compact format selector (`CODE128`, `EAN13`, `EAN8`, `UPC`, `CODE39`, `ITF14`).
-    - **Label Text**: Single-line input or compact textarea with a small **Insert** button that opens a scrollable, viewport-aware popover menu.
-      - **Insert Menu**: Header note *"Fills in automatically from the selected product"*. Each placeholder shows live sample values (e.g., `Name  Wireless Headphones`). Grouped into Product and Supplier sections, with a `Supplier & Mobile` preset button at the bottom. Inserts at cursor position.
-      - **Product Auto-Fill & Live Preview**: When a product is picked, auto-fills the label pattern (template's pattern, last used pattern, or default `{name} • {price}`) if the field is empty, keeping any previously typed pattern intact. The preview canvas and subtle *"Preview:"* line under the field resolve the pattern against the selected product live (falling back to muted raw/sample placeholders when unlinked). Saves pattern with templates and resolved text with codes.
-      - **Quick Size & Gap Row**: Directly below label text, compact row with **Size** (pt with `-` and `+` buttons, keyboard arrow navigation, Shift+arrow step 10) and **Gap** (selected unit with `-` and `+` buttons, step 1px equivalent, min 0). Kept in live two-way sync with Advanced > Text style.
-    - **Size (Controls Code Dimensions)**:
-      - **Unit Switch**: Small segmented control (`mm`, `cm`, `inch`, `px`) positioned at the top right of the "Size" title row. Globally controls all length fields in the Designer (code dimensions, artboard dimensions, gap, and offsets).
-      - **Code Size Chips**: Sets the physical dimension of the barcode or QR code itself:
-        - Barcode presets: `Small` (30 × 10 mm), `Medium` (45 × 15 mm), `Large` (60 × 20 mm).
-        - QR presets: `Small` (15 mm), `Medium` (25 mm), `Large` (40 mm).
-        - `Auto`: Fits largest code size inside fixed artboard with padding, or defaults to Medium when artboard is "Fit to code".
-        - `Custom`: Displays code Width & Height (single Size field for QR) with number inputs, `-`/`+` buttons, aspect ratio lock (barcode), and live validation. Editing any dimension switches chip to `Custom`.
-    - **Artboard (Integrated Row within Size Block)**:
-      - Compact select dropdown directly below code sizing: `Fit to code` (default, artboard tightly wraps code + label + margin), `Small label (50 × 25 mm)`, `Shelf label (60 × 40 mm)`, `Product label (100 × 50 mm)`, `Shipping label (100 × 150 mm)`, `Square (50 × 50 mm)`, `A6`, `A5`, `A4`, `Business card (90 × 55 mm)`, and `Custom`.
-      - Selecting a preset displays dimensions and orientation swap button. Selecting `Custom` displays Width and Height inputs with swap button.
-      - Warning banner appears if code + label exceed artboard with quick "Shrink code to fit" or "Enlarge artboard" actions.
-    - **Colors**: Two small color swatches (Code color and Background) with compact pickers and a **Swap** icon button.
-  - **"Advanced" Accordion (Collapsed by Default, Remembers Open/Closed State)**:
-    - Vertical accordion list of full-width rows with only ONE group open at a time:
-      1. **Artboard Style**: Card border (toggle, color, width), corner radius, and background color palette (size & presets moved to main Size block).
-      2. **Placement**: 3x3 alignment grid, padding, fit mode (`original`, `fit`, `fill-width`), fine X/Y offsets, reset position.
-      3. **Code Style**: Margin, show-number toggle; QR error correction (L/M/Q/H), dot style, corner style, and logo upload.
-      4. **Text Style**: Font size (with `-`/`+` buttons and unit toggle), gap (with `-`/`+` buttons), font weight (`Regular` / `Bold`), text alignment (`Left`, `Center`, `Right`).
-      5. **Export**: Export DPI (`72`, `150`, `300`, `600`), lock aspect ratio, "Export code only" checkbox.
-    - **"Reset advanced settings"** link to restore default styling options.
-    - Bottom padding on editor pane so all controls and links remain fully visible and reachable inside the window without clipping.
-- **Canvas & Preview Enhancements**:
-  - **Direct Canvas Interactions**:
-    - Click label text directly in the preview to edit or focus the field.
-    - Click & drag code to position it on artboard; double-click code to reset position.
+### 4.1 Gallery (`/`)
+- **Default Route:** Serves as the start page cataloging all saved designs.
+- **Card Grid:** Responsive card grid (1 / 2 / 3 / 4 columns) with centered preview on neutral light gray canvas (`bg-zinc-100`).
+- **Card Details:** Name, type badge (Barcode / QR), format, created date, and actions (Edit, Download PNG, Print, Delete). Displays a small `"Template: <name>"` line if created from a template, and a subtle batch label for codes generated in bulk.
+- **Toolbar:** Search box, format filters (All / Barcode / QR / Last bulk run), and `+ New Design` primary button. *(Note: Header does NOT have a Recycle Bin button; accessed via sidebar).*
+- **Delete Confirmation:** Soft-deletes code to the Recycle Bin with undo toast notification.
+
+### 4.2 Designer (`/designer` and `/designer/:id`)
+- **Two-Pane Independent Layout:**
+  - **Left Pane (~65–70% width):** Real-time interactive artboard preview fixed in place.
+  - **Right Pane (~30–35% width, clamped 340–440px):** Independent vertical scrolling (`overscroll-behavior: contain`), displaying essential controls by default.
+  - At 1024px and above, the outer page body does not scroll (`height: calc(100dvh - <header>)` with `overflow: hidden`). Below 1024px, preview is sticky at top (max 40vh) with controls underneath.
+- **Preview Pane (Left):**
+  - **Artboard Canvas:** Centered live SVG rendering reflecting exact dimensions, colors, margins, and typography.
+  - **Interactive Canvas Direct Manipulation:**
+    - Click & drag code on the artboard to position it freely; double-click code to reset offsets.
+    - Click label text directly in the preview to focus and edit the field.
     - Thin selection outline on hover.
-  - **Floating Indicators**:
-    - Artboard size chip on the canvas (e.g. "60 x 40 mm").
-    - **Full-featured Floating Zoom Control**: `-` and `+` buttons with fixed steps (`25%`, `50%`, `75%`, `100%`, `150%`, `200%`, `300%`, `400%`), clickable percentage dropdown, and `Fit` button with auto re-fit on pane/window resize. Supports `Ctrl` + mouse wheel zoom, touchscreen pinch zoom, and keyboard shortcuts (`+`, `-`, `0` for Fit). Canvas drag-to-pan when zoomed in beyond viewport with no page scroll. Zoom is purely display-only.
-    - Friendly sample code preview with a gentle hint when fields are empty: "Pick a template or a product to begin".
-  - **Single Status Line**:
-    - Replaces scattered warnings with one concise line under the preview: green dot + "Ready to scan" when valid, or a single amber message with an auto-action "Fix" button when an automated remedy exists.
-- **Clean Action Footer**:
-  - Primary **Save** button with subtle status text ("Saved" / "Unsaved changes").
-  - **Download** button with a compact popover menu: **PNG** and **SVG** with embedded DPI selector (defaults to 300).
-  - More actions (**...**) menu: Reset, Duplicate as new, and Export code only toggle. All footer buttons fully fit without clipping.
-- **Smart Defaults & Persistent Memory**:
-  - New designs default unit to `mm` and start with the default template (or Medium 60x40 mm). Existing saved designs preserve their saved parameters.
-  - Remembers last used template, colors, and Advanced accordion state in `localStorage`.
-  - Hides units and raw pixels in default view unless Custom or Advanced is opened.
-- **Full Backward Compatibility**:
-  - Preserves all saved code data formats, template schemas, multi-line label rendering, supplier placeholders, product links, and print label compatibility.
+  - **Floating Zoom Widget:** Fixed zoom steps (`25%`, `50%`, `75%`, `100%`, `150%`, `200%`, `300%`, `400%`), clickable percentage dropdown, and `Fit` button with auto re-fit on resize. Supports `Ctrl` + mouse wheel zoom, touchscreen pinch zoom, and keyboard shortcuts (`+`, `-`, `0` for Fit). Canvas drag-to-pan when zoomed in beyond viewport.
+  - **Floating Artboard Size Chip:** Displays physical dimensions (e.g. `50 × 25 mm`).
+  - **Single Status Line:** Replaces scattered warnings with one concise line under preview: green dot + `"Ready to scan"` when valid, or single amber message with an auto-action `"Fix"` button (e.g., auto-fix check digit).
+  - **Action Footer:**
+    - Primary `Save` button with status text ("Saved" / "Unsaved changes").
+    - `Download` button with popover: **PNG** and **SVG** with embedded DPI selector (72, 150, 300; defaults to 300).
+    - More actions (`...`) menu: Reset, Duplicate as new, and Export code only toggle.
+- **Editor Controls (Right Pane):**
+  - **Top Row:** Mode switch (**Barcode | QR Code**), followed by a row containing a **Template** dropdown and a **Product** picker.
+  - **Design Group (Always Visible):**
+    - **Value:** Text input with inline **Generate** wand button (sequential barcode number generator) and "Link to product page" toggle in QR mode.
+    - **Format:** Barcode format selector (`CODE128`, `EAN13`, `EAN8`, `UPC`, `CODE39`, `ITF14`) or QR error correction level.
+    - **Label Text:** Text input with an **Insert** placeholder popover menu (`{name}`, `{item_code}`, `{price}`, `{category}`, `{supplier}`, `{public_url}`) with live sample values. Auto-fills from selected product if empty.
+    - **Quick Size & Gap Row:** Directly beneath label text: font size (pt with `-`/`+` buttons) and gap (with `-`/`+` buttons), synced with Advanced text settings.
+    - **Size (Code Dimensions):**
+      - **Unit Switch:** Segmented control (`mm`, `cm`, `inch`, `px`) on the right of the Size title row. Globally controls all spatial input fields.
+      - **Code Size Chips:** Barcode presets (`Small 30×10 mm`, `Medium 45×15 mm`, `Large 60×20 mm`), QR presets (`Small 15 mm`, `Medium 25 mm`, `Large 40 mm`), `Auto`, and `Custom`.
+    - **Artboard Sizing:** Select dropdown: `Fit to code`, `Small label (50 × 25 mm)`, `Shelf label (60 × 40 mm)`, `Product label (100 × 50 mm)`, `Shipping label (100 × 150 mm)`, `Square (50 × 50 mm)`, `A6`, `A5`, `A4`, `Business card (90 × 55 mm)`, and `Custom`.
+    - **Colors:** Code foreground and background color swatches with hex pickers and a **Swap** icon button.
+  - **Advanced Settings (Vertical Accordion):**
+    - Single-open accordion containing collapsible panels with chevron indicators:
+      1. **Artboard Style:** Card border (toggle, color, width), corner radius, and background color.
+      2. **Placement:** 3x3 alignment grid, padding, fit mode (`original`, `fit`, `fill-width`), fine X/Y offsets, reset position.
+      3. **Code Style:** Bar width multiplier, margin, show-number toggle; QR error correction (L/M/Q/H), dot style (`square`, `dots`, `rounded`, `extra-rounded`, `classy`), corner style (`square`, `dot`, `extra-rounded`), and logo file upload.
+      4. **Text Style:** Font size, font family, gap, font weight (Regular/Bold), text alignment (Left/Center/Right).
+      5. **Export:** Export DPI (`72`, `150`, `300`, `600`), lock aspect ratio, "Export code only" checkbox.
+    - "Reset advanced settings" button to restore defaults.
 
-### 2.3 Products (`/products`)
-- **Navigation & Routing**:
-  - Sidebar: "Products" is an expandable group with two sub-items: **Items** (`/products/items`) and **Suppliers** (`/products/suppliers`). Expanded automatically when any products route is active, with sensible compact behavior on narrow sidebars, and sub-navigation on mobile.
-  - Route `/products` redirects to `/products/items`.
-  - Legacy redirects: old `/stock` and `/stock/*` redirect to `/products/items` and `/bin?tab=products` so previous bookmarks keep working seamlessly.
-  - **Shared Tab Switcher**: Small tab switcher (`Items` | `Suppliers`) rendered directly under the page header on both pages so they feel like one cohesive section.
+### 4.3 Inventory Management
 
-#### 2.3.1 Items (`/products/items`)
-- Current products inventory page (formerly Stock Management). One-line description: "Manage items and suppliers."
-- **Row & Table Density**: Compact rows (40-44px height, `py-1.5` to `py-2` on cells), text 14px, secondary text 11-12px, table header 36-40px (`h-9` or `h-9.5`), 1px dividers, subtle hover. Checkbox, text, and action icon buttons centered vertically. Zero horizontal scrollbar at all screen sizes.
-- **Table Structure & Columns (`table-fixed`)**:
-  - `table-fixed` layout with explicit column widths. Product column minimum 220px, largest share (28-30%).
-  - **Sort by Name**: Product header sorts by Product Name cleanly without distracting subheadings.
-  - **Remaining Columns**:
-    - Checkbox: `36px` (`w-[36px] min-w-[36px]`)
-    - Product: `min-w-[220px]` (28-30% share)
-    - Barcode: `120px` (`w-[120px]`)
-    - Category: `110px` (`w-[110px]`, truncated with tooltip)
-    - Supplier: `130px` (`w-[130px]`, truncated with tooltip)
-    - Price: `88px` (`w-[88px] min-w-[88px]`)
-    - Qty: `56px` (`w-[56px] min-w-[56px]`)
-    - Status: `100px` (`w-[100px] min-w-[100px]`)
-    - Actions: `108px` (`w-[108px] min-w-[108px]`)
-  - **Responsive Priority**:
-    - When width is tight, columns hide in this order: Category first (`hidden xl:table-cell`), then Supplier second (`hidden lg:table-cell`), then Barcode third (`hidden lg:table-cell`). Product, Price, Qty, Status, and Actions ALWAYS stay visible.
-    - Below 768px: Stacked cards view where the Product Name is the title.
-- Actions: Edit, Delete (moves to Recycle Bin with Undo toast), **Generate Code** (opens Designer with product pre-selected).
-- **Supplier Filter**: Filter dropdown placed next to search box (All suppliers, each supplier, No supplier). Search placeholder: "Search by name, item code, barcode...".
-- **Add / Edit Product Modal**:
-  - Centered modal fitting window (`max-h-[calc(100dvh-2rem)]`, width ~560-640px `max-w-xl`, full-screen on mobile, 16-20px padding).
-  - Fixed header (title + close icon), scrollable body, fixed footer with Cancel (secondary) and Save (primary). Touch targets >= 36px.
-  - Clean two-column grid on desktop: Name full width, Item Code and Barcode with "Generate" Wand button side by side, **Supplier** searchable dropdown (with "+ New supplier" shortcut) and Category side by side, Price and Quantity side by side, Low stock threshold, Description full width. One column on mobile.
-  - Inline validation messages ("Item Code is required."), autofocus first field, close on Escape, confirm before closing if unsaved changes.
-- **Header Actions on ONE Row**:
-  - Order: **Import** (secondary), **Export** (secondary), **Generate codes** (secondary, active when items selected), **Add Product** (primary, last). "Public Page" button and modal settings removed.
-  - Placed on one row, right-aligned, `gap-2`, 36px height (`h-9`), `whitespace-nowrap`, never wrapping.
-  - Below 768px: Import and Export display as icon-only buttons with tooltips while Add Product keeps its label.
-- **Row Selection & Bulk Actions**:
-  - Row checkboxes, "Select all on this page" in table header, and live selected count in toolbar (`3 selected`) with a "Clear selection" link.
-  - When the current page is fully selected, offer a "Select all {N} products across all pages" link.
-  - Selection persists across page changes and searches until cleared or an action succeeds.
-  - "Generate missing barcodes" applies to selected products (or all with empty barcodes if none selected).
-  - **Generate Codes (Bulk Generation)**:
-    - Button in the selection toolbar next to Export: "Generate codes". Disabled when nothing is selected.
-    - Limits single run to 500 products (with clear alert message if > 500 selected).
-    - Opens **Bulk Generate Modal** (3 steps, fits window `max-h-[calc(100dvh-2rem)]`, fixed header, scrollable body, fixed footer, responsive, full screen on mobile, 16-20px padding):
-      - Step 1: Settings (template selection, value source including Item Code, label text pattern override, missing barcode resolution, invalid format auto-fix, existing code resolution, naming pattern).
-      - Step 2: Preview (compact table, live thumbnails of first 3 items, summary counters, filter for problems only, generate disabled if 0 ready items).
-      - Step 3: Generate (in-browser rendering matching Designer, batch upload to `POST /codes/bulk`, progress bar, cancel, retry failed, results screen with View in Gallery, Print labels, and Close).
-- **CSV Export & Import**:
-  - **Export (`POST /api/products/export`)**: Exports only selected products (or all matching). Disabled when 0 selected. Output CSV has UTF-8 BOM, standard headers (`name, item_code, barcode_number, category, supplier, price, quantity, low_stock_threshold, description`), and date-based filename (e.g. `products-selected-3-YYYY-MM-DD.csv`). Shows success toast upon completion.
-  - **Sample Template (`GET /api/products/import/template`)**: Downloads `products_import_template.csv` with standard headers using `item_code` and example rows.
-  - **Import 3-Step Modal**:
-    - Accepts both new `item_code` header and legacy `sku` header.
-    - Matches supplier name to existing suppliers (case-insensitive); flags unknown supplier names as a warning; includes toggle "Create missing suppliers".
-    - Structured 3-part flex column: fixed header, scrollable body, fixed bottom footer.
-    - Validation preview with color-coded badges (`New`, `Update`, `Error`), mode toggle ("Skip existing" / "Update existing"), and auto-generate missing barcodes toggle.
-- Low stock rule: quantity <= `low_stock_threshold` (default 10) shows amber badge; 0 shows red badge.
-- Summary cards on top: Total products, Low stock, Out of stock (compact padding 12-14px, 12px gap, one short helper line).
-- Header includes "Recycle Bin" button with count badge (opens `/bin?tab=products`).
-
-#### 2.3.2 Suppliers (`/products/suppliers`)
-- Dedicated Suppliers management page matching Items visual style and layout.
-- **Page Header**: Title "Suppliers", one-line description, and actions: "Export" (for selected suppliers), "Add Supplier" (primary).
-- **Summary Cards**: Total Suppliers, Active Suppliers, Products without a Supplier (compact padding 12-14px, 12px gap).
-- **Compact Table**:
-  - Search input, status filter (All, Active, Inactive), sorting, pagination, row selection.
-  - Columns: Name (with contact person under it), Mobile, Email, City, Products (count badge linking to `/products/items?supplier_id={id}`), Status (Active / Inactive dot + text), Actions.
-  - Responsive column visibility: Hide Email and City below 1280px; keep only Name, Mobile, Products, and Actions below 1024px; stacked cards below 768px. Zero horizontal scroll.
-- **Add / Edit Supplier Modal**:
-  - Centered modal fitting window (`max-h-[calc(100dvh-2rem)]`, `max-w-xl`, full-screen on mobile, 16-20px padding).
-  - Two-column grid on desktop, one column on mobile. Fixed header, scrollable body, fixed footer. Touch targets >= 36px.
-  - Fields: Supplier name (required, unique), Contact person, Mobile number (required, Sri Lankan formats accepted, e.g. `0771234567` or `+94771234567`), Phone number, Email, Address line 1, Address line 2, City, Postal code, Country (default "Sri Lanka"), Website, Payment terms (e.g. "30 days"), Notes, Status (`Active` / `Inactive`, default `Active`).
+#### 4.3.1 Items (`/products/items`)
+- **Table Density & Layout:** Compact rows (40–44px height), 1px dividers, subtle hover, zero horizontal scrollbar.
+- **Fixed Column Widths (`table-fixed`):**
+  - Checkbox: `36px`
+  - **Product (`min-w-[220px]`, 28–30% share):** Displays Product Name in `font-medium` (wrapped up to 2 lines with tooltip) and **Item Code** immediately underneath in muted monospace text. Sorts by Name.
+  - Barcode: `120px` (`hidden lg:table-cell`)
+  - Category: `110px` (`hidden xl:table-cell`, truncated with tooltip)
+  - Supplier: `130px` (`hidden lg:table-cell`, truncated with tooltip)
+  - Price: `88px`
+  - Qty: `56px`
+  - Status: `100px` (semantic status dot + plain text: In Stock, Low Stock, Out of Stock)
+  - Actions: `108px` (Generate Code, Edit, Delete)
+- **Selection & Bulk Actions:**
+  - Row checkboxes, "Select all on page", and "Select all {N} products across all pages" banner.
+  - Selection toolbar: Selected count, "Clear selection", **Generate codes** (opens 3-step bulk wizard), and **Export** (exports selected items only).
+- **Header Actions on ONE Row:**
+  - Order: **Import** (secondary), **Export** (secondary), **Generate codes** (active when items selected), **+ Add Item** (primary). *(Note: No Recycle Bin button in header).*
+- **Add / Edit Item Modal:**
+  - Two-column grid on desktop, single column on mobile. Fixed header, scrollable body, fixed footer.
+  - Fields: Product Name, Item Code (with inline "Generate" Wand button), Barcode Number (with inline "Generate" button), Category, Supplier searchable dropdown, Price, Quantity, Low stock threshold, Description.
   - Inline validation, Escape to close, unsaved changes confirmation.
-- **View Supplier Drawer / Modal**:
-  - Clean card layout with quick contact links: tap-to-call (`tel:`), email (`mailto:`), and map link generated from address.
-  - Payment terms, website link, and notes.
-  - Compact list of linked products: Product Name with Item Code underneath (table-fixed, Product name wraps up to 2 lines, price, quantity) with link to view each in Items.
-- **Delete & Recycle Bin**:
-  - Delete soft-deletes supplier to Recycle Bin with undo toast.
-  - Products linked to trashed supplier keep link and display "Supplier (deleted)" in muted text.
-  - Permanent delete sets `supplier_id` to null on those products.
-  - Empty states, loading skeletons, and toasts.
+- **CSV Export & Import:**
+  - **Export (`POST /api/products/export`):** Exports selected products as CSV with UTF-8 BOM, standard headers (`name, item_code, barcode_number, category, supplier, price, quantity, low_stock_threshold, description`), and date-based filename.
+  - **Import 3-Step Modal:** File upload (drag & drop), column mapping (accepts `item_code` or legacy `sku`), validation dry run with color badges (`New`, `Update`, `Error`), and commit modes ("Skip existing" / "Update existing", "Create missing suppliers", "Auto-generate missing barcodes").
 
-### 2.4 Print Labels (`/print`)
-- **Layout**: Swapped two-pane layout on desktop — **live paper sheet preview on the LEFT (~65-70% width, fixed in place)** and **settings on the RIGHT (~30-35% width, clamped min 340px to max 440px, scrolls independently)**.
-  - At 1024px and above, the page body and main content area do NOT scroll: height is strictly tied to the visible window (`height: calc(100dvh - <top header height>)` with `overflow: hidden`).
-  - Three-part preview structure: header bar (`shrink-0`), canvas (`flex-1 min-h-0 overflow-hidden`, paper auto-scaled to fit via ResizeObserver in width and height), and fixed footer with sheet size info and page navigation.
-  - Right pane (editor/settings) has independent `overflow-y-auto` with thin scrollbar and `overscroll-behavior: contain`. Scrolling settings never scrolls preview or page.
-  - Stacked on mobile/tablet below 1024px with paper preview sticky at the top (compact, max 40vh) and settings underneath.
-  - Zero horizontal scrollbar at all window sizes.
-- **Choose what to print**:
-  - Multi-select list of saved designs from Gallery with live search, preview thumbnails, and format/type filter (All / Barcode / QR). Excludes trashed codes.
+#### 4.3.2 Bulk Generate Codes (`POST /api/codes/bulk`)
+- Opened from Items page selection toolbar when items are selected (supports up to 500 items).
+- **Step 1 (Settings):** Template selection, value source (`barcode_number` or Item Code `sku`), label text pattern override, missing barcode action (generate, use Item Code, skip), invalid format auto-fix, existing code resolution (create another, replace, skip), and naming pattern.
+- **Step 2 (Preview):** Compact table, live SVG thumbnails of first 3 items, summary counters, filter for problems only, validation gate.
+- **Step 3 (Generate):** In-browser rendering matching Designer canvas, batch upload in chunks of 25 to `POST /api/codes/bulk`, progress bar, cancel, retry failed, and results screen with shortcuts to View in Gallery or Print Labels. Grouped under a generated `batch_id`.
+
+#### 4.3.3 Suppliers (`/products/suppliers`)
+- **Summary Cards:** Total Suppliers, Active Suppliers, Products without a Supplier (compact padding 12–14px, 12px gap).
+- **Table Columns:** Name (with contact person under it), Mobile, Email, City, Products (count badge linking to `/products/items?supplier_id={id}`), Status (Active / Inactive dot + text), Actions.
+- **Add / Edit Supplier Modal:** Name (required, unique), Contact person, Mobile number (required), Phone number, Email, Address line 1, Address line 2, City, Postal code, Country (default "Sri Lanka"), Website, Payment terms, Notes, Status (`active` / `inactive`).
+- **View Supplier Drawer / Modal:** Clean modal with tap-to-call (`tel:`), email (`mailto:`), Google Maps address link, payment terms, website, notes, and a compact list of linked products with Item Codes.
+- **Actions:** Selected-only CSV export (`POST /api/suppliers/export`), Add Supplier, Edit, and Delete (soft-deletes to Recycle Bin with linked products safety note).
+
+### 4.4 Print Labels (`/print`)
+- **Two-Pane Layout:** Live paper sheet preview on the LEFT (~65–70% width, fixed in place) and settings on the RIGHT (~30–35% width, clamped 340–440px, scrolls independently). Zero horizontal scroll.
+- **Choose What to Print:**
+  - Multi-select list of saved designs from Gallery with search, preview thumbnails, and format filter.
   - Copies per code selector (default 1) with "Set all to N" batch shortcut.
-  - "Add all codes for selected products" quick action; pre-selection via URL query (`/print?code_ids=1,2,3` or `/print?product_ids=4,5`).
-- **Sheet settings**:
-  - **Paper size options**:
-    - `A4` (210 x 297 mm, default)
-    - `Letter` (215.9 x 279.4 mm / 8.5 x 11 in)
-    - `A3` (297 x 420 mm)
-    - `A5` (148 x 210 mm)
-    - `A6` (105 x 148 mm)
-    - `Legal` (215.9 x 355.6 mm / 8.5 x 14 in)
-    - `4 x 6 inch` (101.6 x 152.4 mm, shipping label roll)
-    - `Custom`: Displays manual Width and Height inputs in selected unit (`mm`, `cm`, `inch`) supporting decimals.
-  - Orientation toggle (Portrait / Landscape) that swaps width and height.
-  - **Validation for Custom Paper**: Minimum 20 mm, maximum 1000 mm (or unit equivalent) on each side; no empty, zero, or negative numbers; inline validation error. Displays final calculated size beneath input, e.g. "Paper: 210 x 297 mm".
-  - **Custom Size Integration**:
-    - Live preview paper auto-scales to fit canvas in both width and height via ResizeObserver.
-    - Grid calculation ("Match my design size" and label-per-page count), margins, and page counts respect the exact custom paper dimensions.
-    - Browser print stylesheet sets exact `@page { size: <w>mm <h>mm; margin: 0; }`.
-    - PDF export creates pages with exact custom dimensions in mm.
-    - Note under Print button when custom paper is used: "Choose the same paper size in the print dialog and set the scale to 100%."
-    - Warning alert if grid and margins do not fit on the custom paper size.
-    - Saved in `print_presets` table and restored when preset is loaded.
-  - Standard label sheet presets (columns x rows, label size in mm):
-    - `3x8` (63.5 x 33.9 mm)
-    - `2x7` (99.1 x 38.1 mm)
-    - `4x12` (48.5 x 25.4 mm)
-    - `5x13` (38.1 x 21.2 mm)
-    - `Custom`
-  - "Match my design size" auto-grid: when all selected designs share identical artboard dimensions, automatically calculates fitting columns and rows for the selected paper size, margins, and gaps.
-  - Custom dimension inputs in chosen unit (`mm`, `cm`, `inch`): label width/height, columns, rows, top/left margin, horizontal/vertical gap, and corner radius.
-  - Start position: Select which cell on the sheet to start printing from (skips used slots on partly used sheets).
-- **Placement & Fitting inside Label Cell**:
+  - Query parameter integration: pre-fills queue via `/print?code_ids=1,2,3` or `/print?product_ids=4,5`.
+- **Sheet Configuration:**
+  - **Paper Sizes:** `A4` (210×297 mm, default), `Letter` (215.9×279.4 mm), `A3`, `A5`, `A6`, `Legal`, `4x6` (shipping label roll), and `Custom` (width & height with orientation toggle).
+  - **Standard Sheet Presets:** `3x8` (63.5×33.9 mm), `2x7` (99.1×38.1 mm), `4x12` (48.5×25.4 mm), `5x13` (38.1×21.2 mm), and `Custom`.
+  - **"Match my design size" Auto-Grid:** When selected designs share identical dimensions, automatically calculates fitting columns and rows for the paper size, margins, and gaps.
+  - **Custom Dimensions:** Label width/height, columns, rows, margins (top/left), gaps (horizontal/vertical), and corner radius.
+  - **Start Position:** Select which cell on the sheet to start printing from (skips used labels on partly used sheets).
+- **Placement & Fitting inside Label Cell:**
   - Fit modes: `Original size`, `Fit to label` (scales down preserving aspect ratio), `Fill label`.
-  - Alignment (top-left, center, etc.) and cell padding.
-  - Option to toggle artboard background color and border on/off during print.
-  - Warning indicators if a design exceeds cell bounds or if downscaling reduces barcode readability below scan thresholds.
-- **Live Preview & Controls**:
-  - Accurate scaled representation of paper sheets with individual label boundaries and cutting outlines.
-  - Toggle: "Show label borders".
-  - Zoom controls: `Fit`, `50%`, `100%`.
-  - Multi-page pagination navigation when total labels exceed one sheet (e.g. "48 labels, 2 pages").
-- **Output & Presets**:
-  - **Browser Print**: Print button using `@media print` with exact `@page` paper size and 0 margins, hiding sidebar and controls. Note: "In the print dialog, set Scale to 100% (turn off 'Fit to page') and Margins to None."
-  - **Download PDF**: Vectorized PDF generation using `jspdf` at 300 DPI with precise mm coordinates and dimensions matching the sheet layout.
-  - **Presets**: Save and manage custom sheet configurations in `print_presets` table (`GET /api/print-presets`, `POST /api/print-presets`, `DELETE /api/print-presets/{id}`).
-- **Shortcuts & Integration**:
-  - Gallery cards feature a "Print" button opening `/print?code_ids={id}`.
-  - Stock page bulk toolbar features "Print labels" for selected products (`/print?product_ids={ids}`).
-- **Empty & Error States**:
-  - Friendly alerts for empty selection, sheet overflow, or invalid custom dimensions exceeding paper limits.
+  - Toggle artboard background color and border on/off during print.
+- **Output Engines:**
+  - **Browser Print:** `@media print` with exact `@page` paper size, 0 margins, and browser UI suppression.
+  - **Download PDF:** Vectorized PDF generation via `jspdf` at 300 DPI matching the exact sheet layout.
+  - **Presets:** Save and manage custom sheet configurations in `print_presets` table (`GET`, `POST`, `DELETE /api/print-presets`).
 
-### 2.5 Recycle Bin (`/bin`)
-- Unified Recycle Bin with three tabs: **Items** (`?tab=products` / `?tab=items`), **Suppliers** (`?tab=suppliers`), and **Designs** (`?tab=designs`), each with a live count badge.
-- Old `/stock/bin` redirects to `/bin?tab=products`.
-- Sidebar navigation includes a "Recycle Bin" item with total trashed count badge (`products + suppliers + codes`).
-- Products, Suppliers, and Gallery headers include a "Recycle Bin" button (`Trash2` icon, count badge) opening `/bin` on their respective tab.
-- **Items tab**: Product Name (up to 2 lines) with Item Code under it in muted monospace text, Category, Price, Quantity, Deleted date, "days left" (30-day retention). Table-fixed layout with responsive priority matching Items page. Row actions: Restore, Delete permanently (with confirmation modal). Top actions: Restore all, Empty bin.
-- **Suppliers tab**: Name, Contact person, Mobile, City, Deleted date, "days left" (30-day retention). Row actions: Restore, Delete permanently (with confirmation modal). Top actions: Restore all, Empty bin.
-- **Designs tab**: Preview thumbnail, Name, Type badge (Barcode / QR), Format, Deleted date, "days left" (30-day retention). Row actions: Restore, Delete permanently (with confirmation modal that it cannot be undone). Top actions: Restore all, Empty bin (scoped to active tab).
-- Empty states with friendly illustrations & loading skeletons for each tab.
-- ### 2.6 Design Templates
-- Concept: A template stores the **DESIGN** of a code (dimensions, unit, DPI, artboard styles, alignment, padding, fit mode, offsets, colors, QR styles, label typography and label text pattern) — everything except the encoded value itself.
-- New codes can start from a template in one click.
-- **Starter Templates** (seeded on install):
-  - "Shelf label" (CODE128, 60 x 40 mm)
-  - "Small product label" (EAN13, 50 x 25 mm)
-  - "Box label" (CODE128, 100 x 50 mm)
-  - "Simple QR" (square, 50 x 50 mm)
-- **Template Manager Modal**:
-  - Fits the window (`max-h-[calc(100dvh-2rem)]`), structured flex column with fixed header, scrollable body, and fixed footer.
-  - Search box and type filter chips (`All`, `Barcode`, `QR`).
-  - List / grid items display: thumbnail image, name, type badge, dimensions/format, default star indicator, last updated date.
-  - Actions per template: Apply (loads design into designer), Rename, Duplicate, Set as default (only one default per type), Delete (with confirmation modal).
-- **Non-destructive Deletion**: Soft deleting or permanently deleting a template must never alter or break existing codes created from it.
-- **Gallery Integration**: Codes created from a template store `template_id` as a foreign key (`nullOnDelete`) plus the template name in settings, displaying "Template: <name>" on their gallery card.
+### 4.5 Recycle Bin (`/bin`)
+- **Navigation:** Accessible solely via the sidebar navigation link (with a live total badge).
+- **Tabs:** **Items** (`?tab=products`), **Suppliers** (`?tab=suppliers`), and **Designs** (`?tab=designs`), each with a live count badge.
+- **Retention & Days Left:** Displays deleted date and a "days left" indicator based on a 30-day retention window.
+- **Tab Actions:**
+  - Individual **Restore** and **Delete permanently** (with confirmation dialog).
+  - Top actions: **Restore all** and **Empty bin** (scoped to active tab).
+- **Background Purge:** Daily auto-cleanup for products and codes trashed > 30 days (`Schedule::command('products:purge-trash')->daily()` and `codes:purge-trash`).
 
-### 2.7 Public Product Page (`/p/:token`)
-- **Concept**: Public mobile-first product page accessible via QR code scan or direct link. Always enabled; always returns complete item and supplier details.
-- **Layout & Aesthetic**:
-  - Served on route `/p/:token` with a minimal layout: no sidebar or app navigation, only a sleek top header with the app brand.
-  - Mobile-first, clean whitespace, large readable typography, zero clutter, no horizontal scroll.
-  - Supports light and dark modes according to system/app theme.
-  - Open Graph title and description meta tags for rich link previews in messaging apps and browsers.
-- **Content Cards**:
-  - **Item Card**: Product name as title, category as small muted label, followed by clear label/value rows for Barcode Number, Item Code, Price (formatted consistently), and Availability with a semantic status dot (`In stock`, `Low stock`, `Out of stock`).
-  - **Supplier Card**: Supplier name, contact person, mobile (tap-to-call `tel:`), landline, email (tap-to-email `mailto:`), address (tap to open in Google Maps), and payment terms if present.
-    - If the product has no supplier assigned: shows a muted "No supplier information".
-    - If the supplier is soft-deleted: shows "Supplier unavailable".
-- **Security & Privacy**:
-  - Rate-limited endpoint (`throttle:60,1`).
-  - Never exposes internal database IDs, cost prices, or internal notes.
-  - Trashed products return 404.
+### 4.6 Design Templates (Template Manager)
+- A template stores the **DESIGN** of a code (dimensions, unit, DPI, artboard styles, alignment, padding, fit mode, offsets, colors, QR styles, label typography, and label text pattern) — everything except the encoded value.
+- **Starter Templates (Seeded):**
+  - "Shelf label" (CODE128, 60 × 40 mm)
+  - "Small product label" (EAN13, 50 × 25 mm)
+  - "Box label" (CODE128, 100 × 50 mm)
+  - "Simple QR" (square, 50 × 50 mm)
+- **Template Manager Modal:**
+  - Filter by type (`All`, `Barcode`, `QR`) and search.
+  - Displays thumbnail, name, type, dimensions/format, default star indicator, and last updated date.
+  - Actions per template: Apply, Rename, Duplicate (`POST /api/templates/{id}/duplicate`), Set as default (`POST /api/templates/{id}/set-default`), and Delete.
+- **Non-Destructive Deletion:** Deleting a template leaves codes created from it intact (`codes.template_id` set to `null`).
 
-## 3. Database Schema
+### 4.7 Public Product Page (`/p/:token`)
+- **Public Route:** Served at `/p/:token` (calls `GET /api/public/products/{token}`).
+- **Access & Security:** Public route (no authentication required). Rate-limited (`throttle:60,1`). Trashed products return 404. Does not expose internal database IDs, cost prices, or internal notes.
+- **Layout & Cards:**
+  - Mobile-first, clean whitespace, large readable typography, no sidebar/app shell.
+  - **Item Card:** Product name, category badge, Item Code (`sku`), Barcode Number, Price, and Stock Availability status dot.
+  - **Supplier Card:** Supplier name, contact person, mobile (tap-to-call `tel:`), phone, email (tap-to-email `mailto:`), full address (Google Maps link), and payment terms. Displays "No supplier information" if unassigned, or "Supplier unavailable" if supplier was soft-deleted.
 
-**suppliers**
-| column | type | notes |
-|---|---|---|
-| id | bigint PK | |
-| name | string | required, unique among non-deleted (case-insensitive), indexed |
-| contact_person | string nullable | contact name |
-| mobile | string | required, indexed |
-| phone | string nullable | landline or secondary phone |
-| email | string nullable | valid email format |
-| address_line1 | string nullable | street address line 1 |
-| address_line2 | string nullable | street address line 2 |
-| city | string nullable | city |
-| postal_code | string nullable | postal code |
-| country | string | default 'Sri Lanka' |
-| website | string nullable | URL format |
-| payment_terms | string nullable | e.g. "30 days" |
-| notes | text nullable | internal notes |
-| status | enum(`active`,`inactive`) | default `active` |
-| timestamps | | |
-| deleted_at | timestamp nullable | soft deletes, indexed |
+---
 
-**products**
-| column | type | notes |
-|---|---|---|
-| id | bigint PK | |
-| supplier_id | FK nullable | `nullOnDelete`, indexed |
-| public_token | string(32) | unique, indexed, random 12+ chars alphanumeric for public URL `/p/{token}` |
-| name | string | required |
-| sku | string | unique, required |
-| barcode_number | string | nullable, unique |
-| category | string | nullable |
-| price | decimal(10,2) | default 0 |
-| quantity | integer | default 0 |
-| low_stock_threshold | integer | default 10 |
-| description | text | nullable |
-| timestamps | | |
-| deleted_at | timestamp nullable | soft deletes |
+## 5. Barcode Generator & Storage Matrix
 
-**settings**
-| column | type | notes |
-|---|---|---|
-| key | string PK | unique setting key (`public_page_enabled`, `public_page_show_supplier`) |
-| value | text nullable | setting value serialized or boolean string |
-| timestamps | | |
+### 5.1 Sequential Barcode Number Generator
+Provides collision-free, standardized sequence numbering for inventory items and barcode designs.
 
-**codes**
-| column | type | notes |
-|---|---|---|
-| id | bigint PK | |
-| product_id | FK nullable | `nullOnDelete` |
-| template_id | FK nullable | `nullOnDelete` |
-| batch_id | uuid nullable | indexed, bulk run grouping |
-| name | string | required |
-| type | enum(`barcode`,`qr`) | |
-| format | string | e.g. CODE128, QR |
-| value | text | encoded content |
-| settings | json | design options (colors, styles, unit, width, height, dpi, lock_aspect_ratio, artboard: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, export_code_only; label: text, font_size, font_unit, gap, weight, alignment; template_name) |
-| preview_path | string nullable | saved PNG in `storage/app/public/previews` |
-| generated_at | timestamp nullable | bulk generation timestamp |
-| timestamps | | |
-| deleted_at | timestamp nullable | soft deletes |
+- **Supported Formats:**
+  - `EAN13`: Generates a 12-digit number (prefix + sequential zero-padded integer) and computes the standard modulo-10 check digit (total 13 digits).
+  - `EAN8`: Generates a 7-digit number and computes the check digit (total 8 digits).
+  - `UPCA`: Generates an 11-digit number and computes the check digit (total 12 digits).
+  - `CODE128`: Formats alphanumeric prefix with sequential zero-padded integer.
+- **Database Sequence Counter:**
+  - Backed by the `barcode_sequences` table (`format`, `last_number`).
+  - Uses transactional database row-locking (`lockForUpdate()`) to guarantee sequential integrity and prevent duplicate race conditions.
+- **API Endpoints:**
+  - `POST /api/barcodes/generate`: Accepts `{ format, prefix? }` and returns `{ code, format, valid }`.
+  - `POST /api/barcodes/validate`: Accepts `{ code, format }` and returns `{ valid, message }`.
+- **UI Integration:** Inline "Generate" Wand button in Add/Edit Item modal and Designer value input.
 
-**templates**
-| column | type | notes |
-|---|---|---|
-| id | bigint PK | |
-| name | string | required, unique per type |
-| type | enum(`barcode`,`qr`) | required |
-| description | text | nullable |
-| settings | json | design options (format, unit, width, height, dpi, artboard: preset, width, height, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, colors, QR options: dot style, corner style, error correction, logo reference, label text options: font size, gap, weight, alignment, label text pattern; no encoded value) |
-| thumbnail_path | string nullable | saved PNG in `storage/app/public/templates` |
-| is_default | boolean | default false, max one default per type |
-| timestamps | | |
-| deleted_at | timestamp nullable | soft deletes |
+### 5.2 Storage Matrix: Where Settings Live
 
-**barcode_sequences**
-| column | type | notes |
-|---|---|---|
-| id | bigint PK | |
-| format | string | unique (EAN13, EAN8, UPC, CODE128) |
-| last_number | bigint unsigned | sequence counter |
-| timestamps | | |
+| Setting / Preference | Storage Location | Key / Identifier | Purpose |
+| :--- | :--- | :--- | :--- |
+| Last Selected Template | `localStorage` | `designer_last_template_id` | Restores user's active template between designer visits. |
+| Last Used Colors | `localStorage` | `designer_last_colors` | Caches custom foreground/background color picks. |
+| Last Label Text Pattern | `localStorage` | `designer_last_label_pattern` | Remembers preferred placeholder string (e.g. `{name} • {price}`). |
+| Advanced Accordion Open State | `localStorage` | `designer_advanced_open` | Remembers if Advanced settings accordion was expanded (`true`/`false`). |
+| Active Advanced Tab/Group | `localStorage` | `designer_advanced_group` | Remembers last open accordion panel (e.g. `artboard`, `code`). |
+| System Configuration | Database | `settings` table | Key-value store. *(Note: Legacy seeded keys `public_page_enabled` and `public_page_show_supplier` are inactive).* |
+| Print Sheet Presets | Database | `print_presets` table | Custom user and system paper layouts for sheet printing. |
+| Saved Label Designs | Database | `codes` table | Complete design configurations, dimensions, offsets, and styles in `settings` JSON. |
+| Sequential Counters | Database | `barcode_sequences` table | Atomic counters for barcode number generation (`last_number`). |
 
-**print_presets**
-| column | type | notes |
-|---|---|---|
-| id | bigint PK | |
-| name | string | required, e.g. "Avery 3x8" |
-| paper_size | string | `a4`, `letter`, `a3`, `a5`, `a6`, `legal`, `4x6`, `custom` |
-| orientation | enum(`portrait`,`landscape`) | default `portrait` |
-| columns | integer | number of columns |
-| rows | integer | number of rows |
-| label_width | decimal(8,2) | width in mm |
-| label_height | decimal(8,2) | height in mm |
-| margin_top | decimal(8,2) | top margin in mm |
-| margin_left | decimal(8,2) | left margin in mm |
-| gap_horizontal | decimal(8,2) | horizontal gap between labels in mm |
-| gap_vertical | decimal(8,2) | vertical gap between labels in mm |
-| corner_radius | decimal(8,2) | corner radius in mm (default 0) |
-| unit | string | preferred display unit (`mm`, `cm`, `inch`) |
-| settings | json nullable | additional placement/fit defaults |
-| timestamps | | |
+---
 
-## 4. API Endpoints (prefix `/api`)
+## 6. Complete Route Map
 
-| Method | Endpoint | Purpose |
-|---|---|---|
-| GET | `/bin/summary` | recycle bin counts: `{ products, codes, suppliers, total }` |
-| GET | `/codes` | list active codes (query: `search`, `type`, `filter`, `batch_id`) |
-| POST | `/codes` | create (multipart: fields + `preview` image) |
-| POST | `/codes/bulk` | bulk create codes (up to 25 items per request, multipart or json payload with previews) |
-| GET | `/codes/{id}` | show |
-| PUT | `/codes/{id}` | update |
-| DELETE | `/codes/{id}` | soft delete (move to recycle bin) |
-| GET | `/codes/trash` | list trashed codes (query: `search`, `type`, `page`) |
-| POST | `/codes/{id}/restore` | restore single trashed code |
-| DELETE | `/codes/{id}/force` | permanently delete single code & unlink preview |
-| POST | `/codes/trash/restore-all` | restore all trashed codes |
-| DELETE | `/codes/trash/empty` | permanently delete all trashed codes & preview files |
-| GET | `/templates` | list active templates (query: `search`, `type`) |
-| POST | `/templates` | create template (multipart: fields + `thumbnail` image) |
-| GET | `/templates/{id}` | show template |
-| PUT | `/templates/{id}` | update template |
-| DELETE | `/templates/{id}` | soft delete template |
-| POST | `/templates/{id}/duplicate` | duplicate template |
-| POST | `/templates/{id}/set-default` | set default template for type |
-| GET | `/products` | list active products (query: `search`, `supplier_id`, `no_supplier`, `sort`, `page`) |
-| GET | `/products/summary` | totals (total, low, out, trash) excluding trashed |
-| GET | `/products/lookup?q=` | autocomplete (max 10) excluding trashed |
-| GET | `/products/trash` | list trashed products (query: `search`, `sort`, `page`) |
-| POST | `/products` | create product (supports `supplier_id`) |
-| PUT | `/products/{id}` | update product (supports `supplier_id`) |
-| DELETE | `/products/{id}` | soft delete (move to recycle bin) |
-| POST | `/products/{id}/restore` | restore single trashed product |
-| DELETE | `/products/{id}/force` | permanently delete single product |
-| POST | `/products/trash/restore-all` | restore all trashed products |
-| DELETE | `/products/trash/empty` | permanently delete all trashed products |
-| POST | `/products/bulk-generate-barcodes` | bulk auto-generate barcodes for products with empty numbers |
-| POST | `/products/export` | export selected products as CSV with UTF-8 BOM (`{ ids: [], all_matching: boolean, search, category, status, supplier_id }`) |
-| GET | `/products/import/template` | download sample CSV template with standard headers (`supplier` included) & example rows |
-| POST | `/products/import/preview` | parse and validate CSV file (checks duplicates, trashed items, formats, supplier matches) |
-| POST | `/products/import/commit` | commit import `{ mode: skip_existing|update_existing, auto_generate_barcodes, create_missing_suppliers }` |
-| GET | `/suppliers` | list active suppliers (query: `search`, `status`, `sort`, `page`) |
-| GET | `/suppliers/summary` | supplier summary counts `{ total, active, no_supplier_products }` |
-| GET | `/suppliers/lookup?q=` | active suppliers lookup (max 10) for dropdown |
-| GET | `/suppliers/{id}` | show supplier with linked products list |
-| POST | `/suppliers` | create supplier |
-| PUT | `/suppliers/{id}` | update supplier |
-| DELETE | `/suppliers/{id}` | soft delete (move to recycle bin) |
-| GET | `/suppliers/trash` | list trashed suppliers (query: `search`, `sort`, `page`) |
-| POST | `/suppliers/{id}/restore` | restore single trashed supplier |
-| DELETE | `/suppliers/{id}/force` | permanently delete supplier (sets `supplier_id` null on products) |
-| POST | `/suppliers/trash/restore-all` | restore all trashed suppliers |
-| DELETE | `/suppliers/trash/empty` | permanently delete all trashed suppliers |
-| POST | `/suppliers/export` | export selected suppliers as CSV with UTF-8 BOM (`{ ids: [], all_matching: boolean, search, status }`) |
-| POST | `/barcodes/generate` | generate unique valid barcode number `{ format }` |
-| POST | `/barcodes/validate` | validate format and check digit `{ format, number }` |
-| GET | `/print-presets` | list saved sheet print presets |
-| POST | `/print-presets` | save new sheet print preset |
-| DELETE | `/print-presets/{id}` | delete saved sheet print preset |
-| GET | `/public/products/{token}` | public rate-limited view endpoint: always returns sanitized product & supplier details |
+### 6.1 Frontend SPA Routes & Legacy Redirects
 
-Backend rules: use Form Requests for validation, API Resources for responses, consistent JSON errors, run `php artisan storage:link`. React calls the API at the relative path `/api` (same origin, no CORS needed).
+| Route Path | Page Component | Purpose |
+| :--- | :--- | :--- |
+| `/` | `GalleryPage` | Catalog of saved barcode and QR code designs. |
+| `/designer` | `DesignerPage` | Designer studio for creating a new barcode or QR label. |
+| `/designer/:id` | `DesignerPage` | Designer studio for editing an existing saved design. |
+| `/products/items` | `ItemsPage` | Inventory items table, search, stock levels, CSV import/export. |
+| `/products/suppliers` | `SuppliersPage` | Supplier directory, contact information, view drawer, export. |
+| `/print` | `PrintLabelsPage` | Batch label print studio, sheet grid setup, presets, and browser print / PDF. |
+| `/bin` | `RecycleBinPage` | Centralized recycle bin for restoring or purging items, suppliers, and designs. |
+| `/p/:token` | `PublicProductPage` | Customer-facing public product verification page. |
 
-## 5. UI / UX Design System
+#### Legacy URL Redirects
+- `/products` $\rightarrow$ redirected to `/products/items`
+- `/stock` $\rightarrow$ redirected to `/products/items`
+- `/stock/items` $\rightarrow$ redirected to `/products/items`
+- `/stock/suppliers` $\rightarrow$ redirected to `/products/suppliers`
+- `/stock/bin` $\rightarrow$ redirected to `/bin?tab=products`
+- `/stock/*` $\rightarrow$ redirected to `/products/items`
+
+### 6.2 Backend API Routes (57 Endpoints)
+All API endpoints are defined in `routes/api.php` and prefixed with `/api`.
+
+| Method | URI | Controller Action | Purpose |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/barcodes/generate` | `BarcodeController@generate` | Generate the next sequential barcode number with check digit |
+| `POST` | `/api/barcodes/validate` | `BarcodeController@validateCode` | Validate syntax and check digit of a barcode value |
+| `GET` | `/api/bin/summary` | `BinController@summary` | Return recycle bin counts: `{ products, codes, suppliers, total }` |
+| `GET` | `/api/codes` | `CodeController@index` | List active codes (filters: `search`, `type`, `filter`, `batch_id`) |
+| `POST` | `/api/codes` | `CodeController@store` | Create code (multipart: fields + `preview` image) |
+| `POST` | `/api/codes/bulk` | `CodeController@bulkStore` | Bulk create up to 500 codes (multipart or JSON payload with previews) |
+| `GET` | `/api/codes/trash` | `CodeController@trash` | List trashed codes (filters: `search`, `type`, `page`) |
+| `DELETE` | `/api/codes/trash/empty` | `CodeController@emptyTrash` | Permanently delete all trashed codes and unlink preview files |
+| `POST` | `/api/codes/trash/restore-all` | `CodeController@restoreAll` | Restore all trashed codes |
+| `GET` | `/api/codes/{code}` | `CodeController@show` | Show single code |
+| `PUT\|PATCH` | `/api/codes/{code}` | `CodeController@update` | Update single code |
+| `DELETE` | `/api/codes/{code}` | `CodeController@destroy` | Soft-delete code (move to recycle bin) |
+| `POST` | `/api/codes/{code}` | `CodeController@update` | Update single code (multipart fallback for image uploads) |
+| `DELETE` | `/api/codes/{id}/force` | `CodeController@forceDelete` | Permanently delete single code and unlink preview file |
+| `POST` | `/api/codes/{id}/restore` | `CodeController@restore` | Restore single trashed code |
+| `GET` | `/api/print-presets` | `PrintPresetController@index` | List saved sheet print presets |
+| `POST` | `/api/print-presets` | `PrintPresetController@store` | Save new sheet print preset |
+| `DELETE` | `/api/print-presets/{id}` | `PrintPresetController@destroy` | Delete saved sheet print preset |
+| `GET` | `/api/products` | `ProductController@index` | List active products (filters: `search`, `supplier_id`, `no_supplier`, `sort`, `page`) |
+| `POST` | `/api/products` | `ProductController@store` | Create product (auto-generates `public_token`) |
+| `POST` | `/api/products/bulk-generate-barcodes` | `ProductController@bulkGenerateBarcodes` | Auto-generate barcodes for products with empty numbers |
+| `GET\|POST` | `/api/products/export` | `ProductController@export` | Export selected products as CSV with UTF-8 BOM |
+| `POST` | `/api/products/import/commit` | `ProductController@importCommit` | Commit CSV import with selected mode & flags |
+| `POST` | `/api/products/import/preview` | `ProductController@importPreview` | Parse and validate CSV import file (returns dry run preview) |
+| `GET` | `/api/products/import/template` | `ProductController@importTemplate` | Download sample CSV template with standard headers |
+| `GET` | `/api/products/lookup` | `ProductController@lookup` | Autocomplete lookup (max 10 items) excluding trashed |
+| `GET` | `/api/products/summary` | `ProductController@summary` | Inventory summary counts: `{ total, low, out, trash }` |
+| `GET` | `/api/products/trash` | `ProductController@trash` | List trashed products (filters: `search`, `sort`, `page`) |
+| `DELETE` | `/api/products/trash/empty` | `ProductController@emptyTrash` | Permanently delete all trashed products |
+| `POST` | `/api/products/trash/restore-all` | `ProductController@restoreAll` | Restore all trashed products |
+| `DELETE` | `/api/products/{id}/force` | `ProductController@forceDelete` | Permanently delete single product |
+| `POST` | `/api/products/{id}/restore` | `ProductController@restore` | Restore single trashed product |
+| `GET` | `/api/products/{product}` | `ProductController@show` | Show single product |
+| `PUT\|PATCH` | `/api/products/{product}` | `ProductController@update` | Update single product |
+| `DELETE` | `/api/products/{product}` | `ProductController@destroy` | Soft-delete product (move to recycle bin) |
+| `GET` | `/api/public/products/{token}` | `PublicProductController@show` | Public rate-limited endpoint returning item and supplier details |
+| `GET` | `/api/suppliers` | `SupplierController@index` | List active suppliers (filters: `search`, `status`, `sort`, `page`) |
+| `POST` | `/api/suppliers` | `SupplierController@store` | Create supplier |
+| `POST` | `/api/suppliers/export` | `SupplierController@export` | Export selected suppliers as CSV with UTF-8 BOM |
+| `GET` | `/api/suppliers/lookup` | `SupplierController@lookup` | Active suppliers lookup (max 10) for dropdown |
+| `GET` | `/api/suppliers/summary` | `SupplierController@summary` | Supplier summary counts: `{ total, active, no_supplier_products }` |
+| `GET` | `/api/suppliers/trash` | `SupplierController@trash` | List trashed suppliers (filters: `search`, `sort`, `page`) |
+| `DELETE` | `/api/suppliers/trash/empty` | `SupplierController@emptyTrash` | Permanently delete all trashed suppliers |
+| `POST` | `/api/suppliers/trash/restore-all` | `SupplierController@restoreAll` | Restore all trashed suppliers |
+| `DELETE` | `/api/suppliers/{id}/force` | `SupplierController@forceDelete` | Permanently delete supplier (sets `supplier_id` null on products) |
+| `POST` | `/api/suppliers/{id}/restore` | `SupplierController@restore` | Restore single trashed supplier |
+| `GET` | `/api/suppliers/{supplier}` | `SupplierController@show` | Show supplier with linked products list |
+| `PUT\|PATCH` | `/api/suppliers/{supplier}` | `SupplierController@update` | Update supplier |
+| `DELETE` | `/api/suppliers/{supplier}` | `SupplierController@destroy` | Soft-delete supplier (move to recycle bin) |
+| `GET` | `/api/templates` | `TemplateController@index` | List active design templates (filters: `search`, `type`) |
+| `POST` | `/api/templates` | `TemplateController@store` | Create template (multipart: fields + `thumbnail` image) |
+| `GET` | `/api/templates/{template}` | `TemplateController@show` | Show template |
+| `PUT` | `/api/templates/{template}` | `TemplateController@update` | Update template |
+| `POST` | `/api/templates/{template}` | `TemplateController@update` | Update template (multipart fallback) |
+| `DELETE` | `/api/templates/{template}` | `TemplateController@destroy` | Soft-delete template |
+| `POST` | `/api/templates/{template}/duplicate` | `TemplateController@duplicate` | Duplicate template |
+| `POST` | `/api/templates/{template}/set-default` | `TemplateController@setDefault` | Set default template for type (`barcode` or `qr`) |
+
+---
+
+## 7. Database Schema
+
+All table schemas directly reflect the real Laravel migrations and Eloquent models:
+
+### 7.1 `suppliers`
+Stores distributor and manufacturer contact details.
+- `id` (bigint unsigned, PK, auto-increment)
+- `name` (string, indexed)
+- `contact_person` (string, nullable)
+- `mobile` (string, indexed)
+- `phone` (string, nullable)
+- `email` (string, nullable)
+- `address_line1` (string, nullable)
+- `address_line2` (string, nullable)
+- `city` (string, nullable)
+- `postal_code` (string, nullable)
+- `country` (string, default `'Sri Lanka'`)
+- `website` (string, nullable)
+- `payment_terms` (string, nullable — e.g. `"30 days"`)
+- `notes` (text, nullable)
+- `status` (enum: `'active'`, `'inactive'`, default `'active'`)
+- `created_at`, `updated_at` (timestamps)
+- `deleted_at` (timestamp, nullable, indexed — Eloquent `SoftDeletes`)
+
+### 7.2 `products`
+Stores inventory items linked to barcodes.
+- `id` (bigint unsigned, PK, auto-increment)
+- `supplier_id` (bigint unsigned, nullable, FK $\rightarrow$ `suppliers.id`, `nullOnDelete`, indexed)
+- `public_token` (string 32, unique, indexed, nullable — random 16-char token for `/p/{token}`)
+- `name` (string, required)
+- `sku` (string, unique, required — **shown as "Item Code" in all user-facing UI and CSV files**)
+- `barcode_number` (string, nullable, unique)
+- `category` (string, nullable)
+- `price` (decimal 10,2, default `0.00`)
+- `quantity` (integer, default `0` — **database column name is `quantity`, shown as Qty / Stock in UI**)
+- `low_stock_threshold` (integer, default `10` — **database column name is `low_stock_threshold`**)
+- `description` (text, nullable)
+- `created_at`, `updated_at` (timestamps)
+- `deleted_at` (timestamp, nullable — Eloquent `SoftDeletes`)
+
+### 7.3 `codes`
+Stores saved barcode and QR code designs.
+- `id` (bigint unsigned, PK, auto-increment)
+- `product_id` (bigint unsigned, nullable, FK $\rightarrow$ `products.id`, `nullOnDelete`)
+- `template_id` (bigint unsigned, nullable, FK $\rightarrow$ `templates.id`, `nullOnDelete`)
+- `batch_id` (uuid, nullable, indexed — groups codes created in a bulk generation run)
+- `name` (string, required)
+- `type` (enum: `'barcode'`, `'qr'`)
+- `format` (string — e.g. `'CODE128'`, `'EAN13'`, `'QR'`)
+- `value` (text — encoded content)
+- `settings` (json — design options: colors, styles, unit, width, height, dpi, lock_aspect_ratio, artboard: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, export_code_only; label: text, font_size, font_unit, gap, weight, alignment; template_name)
+- `preview_path` (string, nullable — saved PNG snapshot in `storage/app/public/previews`)
+- `generated_at` (timestamp, nullable — bulk generation timestamp)
+- `created_at`, `updated_at` (timestamps)
+- `deleted_at` (timestamp, nullable — Eloquent `SoftDeletes`)
+
+### 7.4 `templates`
+Reusable styling blueprints for the designer.
+- `id` (bigint unsigned, PK, auto-increment)
+- `name` (string, required)
+- `type` (enum: `'barcode'`, `'qr'`)
+- `description` (text, nullable)
+- `settings` (json — design options: format, unit, width, height, dpi, artboard: preset, width, height, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, colors, QR options: dot style, corner style, error correction, logo reference, label text options: font size, gap, weight, alignment, label text pattern; no encoded value)
+- `thumbnail_path` (string, nullable — saved PNG in `storage/app/public/templates`)
+- `is_default` (boolean, default `false` — max one default per type)
+- `created_at`, `updated_at` (timestamps)
+- `deleted_at` (timestamp, nullable — Eloquent `SoftDeletes`)
+- Unique index on `['type', 'name']`
+
+### 7.5 `print_presets`
+Saved physical paper layouts for batch sheet printing.
+- `id` (bigint unsigned, PK, auto-increment)
+- `name` (string, required — e.g. `"Avery 3x8"`)
+- `paper_size` (string, default `'a4'` — `'a4'`, `'letter'`, `'a3'`, `'a5'`, `'a6'`, `'legal'`, `'4x6'`, `'custom'`)
+- `orientation` (enum: `'portrait'`, `'landscape'`, default `'portrait'`)
+- `columns` (integer)
+- `rows` (integer)
+- `label_width` (decimal 8,2 in mm)
+- `label_height` (decimal 8,2 in mm)
+- `margin_top` (decimal 8,2, default `0.00`)
+- `margin_left` (decimal 8,2, default `0.00`)
+- `gap_horizontal` (decimal 8,2, default `0.00`)
+- `gap_vertical` (decimal 8,2, default `0.00`)
+- `corner_radius` (decimal 8,2, default `0.00`)
+- `unit` (string, default `'mm'`)
+- `settings` (json, nullable — additional placement/fit defaults)
+- `created_at`, `updated_at` (timestamps)
+
+### 7.6 `barcode_sequences`
+Atomic sequential counter state for barcode generation.
+- `id` (bigint unsigned, PK, auto-increment)
+- `format` (string, unique — `'EAN13'`, `'EAN8'`, `'UPCA'`, `'CODE128'`)
+- `last_number` (unsignedBigInteger, default `0` — sequence counter)
+- `created_at`, `updated_at` (timestamps)
+
+### 7.7 `settings`
+Key-value store for application configuration.
+- `key` (string 64, PK)
+- `value` (text, nullable)
+- `created_at`, `updated_at` (timestamps)
+*(Note: Initial migration seeded `public_page_enabled` and `public_page_show_supplier`. These keys are unused by active controllers).*
+
+### 7.8 `users`
+Standard Laravel user table.
+- `id` (bigint unsigned, PK, auto-increment)
+- `name` (string)
+- `email` (string, unique)
+- `email_verified_at` (timestamp, nullable)
+- `password` (string)
+- `remember_token` (string, nullable)
+- `created_at`, `updated_at` (timestamps)
+*(Note: Auth is currently inactive in the UI; retained for planned roadmap).*
+
+---
+
+## 8. UI / UX Design System
 
 **Aesthetic:** Calm, minimalistic, flat interface. Fewer colors, zero decorations, generous whitespace, clear hierarchy. No gradients, glows, colored shadows, decorative blobs, heavy borders, or unnecessary animations. 150ms transitions on color and background only.
 
-**Spacing System & Tokens:**
-- **Page Padding**: 16–20px (`p-4 sm:p-5`), at most 24px on large desktop (`lg:p-6`).
-- **Page Header**: Bottom margin 12px (`pb-3 mb-3 border-b border-gray-200`).
-- **Section Gaps**: 12px gap (`space-y-3` / `gap-3`) between tab switcher, summary cards, toolbar, and table.
-- **Summary Cards**: Smaller padding 12–14px (`p-3 sm:p-3.5`), 12px gap between cards (`gap-3`), one short helper line.
-- **Table Card**: Toolbar padding 10–12px (`p-2.5 sm:p-3`), zero extra margin between toolbar and table header, table header height 36–40px (`h-9` or `h-9.5`), row height 40–44px, pagination padding 8–12px (`p-2 sm:p-2.5`).
-- **Modals & Drawers**: 16–20px padding (`p-4 sm:p-5`), touch targets at least 36px (`h-9`).
+### Design Tokens
+| Token | Value / Class | Usage |
+| :--- | :--- | :--- |
+| **Page Background** | `#FAFAFA` (`bg-neutral-50`) | App backdrop |
+| **Workspace / Canvas** | `#F4F4F5` (`bg-zinc-100`) | Preview panels for Designer & Print |
+| **Surface (Cards, Sheets)** | `#FFFFFF` (`bg-white`) | Cards, tables, sheets, modals |
+| **Border** | `#E5E7EB` (`border-gray-200`) | 1px hairline dividers and cards |
+| **Strong Border** | `#D1D5DB` (`border-gray-300`) | Input fields and interactive controls |
+| **Text Primary** | `#111827` (`text-gray-900`) | Headings, body text, data values |
+| **Text Secondary** | `#6B7280` (`text-gray-500`) | Labels, descriptions, secondary metadata |
+| **Text Disabled / Placeholder** | `#9CA3AF` (`text-gray-400`) | Placeholders, inactive hints |
+| **Accent (Single Color)** | `#4F46E5` (`bg-indigo-600 hover:bg-indigo-700`) | Primary buttons, active nav, focus rings, links |
+| **Status: Success** | `#16A34A` (`text-emerald-700 bg-emerald-50`) | Small indicator dot + plain text |
+| **Status: Warning** | `#D97706` (`text-amber-700 bg-amber-50`) | Small indicator dot + plain text |
+| **Status: Danger** | `#DC2626` (`text-red-700 bg-red-50`) | Destructive confirm, error text, dot + text |
 
-**Design Tokens**
-| Token | Value | Usage |
-|---|---|---|
-| Page Background | `#FAFAFA` (`bg-neutral-50` / `var(--color-background)`) | App backdrop |
-| Workspace / Canvas | `#F4F4F5` (`bg-zinc-100`) | Preview panels for Designer & Print |
-| Surface (Cards, Sheets) | `#FFFFFF` (`bg-white`) | Cards, tables, sheets, modals |
-| Border | `#E5E7EB` (`border-gray-200`) | 1px hairline dividers and cards |
-| Strong Border | `#D1D5DB` (`border-gray-300`) | Input fields and interactive controls |
-| Text Primary | `#111827` (`text-gray-900`) | Headings, body text, data values |
-| Text Secondary | `#6B7280` (`text-gray-500`) | Labels, descriptions, secondary metadata |
-| Text Disabled / Placeholder | `#9CA3AF` (`text-gray-400`) | Placeholders, inactive hints |
-| Accent (Single Color) | `#4F46E5` (hover `#4338CA`) | Primary buttons, active nav, focus rings, links |
-| Status: Success | `#16A34A` | Small indicator dot + plain text |
-| Status: Warning | `#D97706` | Small indicator dot + plain text |
-| Status: Danger | `#DC2626` | Destructive confirm, error text, dot + text |
+### Spacing System & Tokens
+- **Page Padding:** 16–20px (`p-4 sm:p-5`), at most 24px on desktop (`lg:p-6`).
+- **Page Header:** Bottom margin 12px (`pb-3 mb-3 border-b border-gray-200`).
+- **Section Gaps:** 12px gap (`space-y-3` / `gap-3`) between tab switcher, summary cards, toolbar, and table.
+- **Summary Cards:** Padding 12–14px (`p-3.5`), 12px gap between cards (`gap-3`), one short helper line.
+- **Table Card:** Toolbar padding 10–12px (`p-2.5 sm:p-3`), zero extra margin between toolbar and table header, table header height 36–40px (`h-9`), row height 40–44px, pagination padding 8–12px (`p-2 sm:p-2.5`).
+- **Modals & Drawers:** 16–20px padding (`p-4 sm:p-5`), touch targets at least 36px (`h-9`).
 
-**Typography:**
-- Font: Inter (`var(--font-sans)`).
-- Page titles: 20px semibold (`text-xl font-semibold text-gray-900`).
-- Section titles: 14px semibold (`text-sm font-semibold text-gray-900`).
-- Body text: 14px regular (`text-sm text-gray-700`).
-- Small & helper text: 12–13px (`text-xs text-gray-500`).
-- No all-caps tracking-wide labels, except small table header labels (`text-xs font-medium text-gray-500`).
+### Typography
+- **UI Font:** Modern sans-serif stack (`Inter`, system-ui, -apple-system, sans-serif).
+- **Code & Barcode Values:** Monospace font stack (`JetBrains Mono`, `Fira Code`, monospace).
+- **Page Titles:** 20px semibold (`text-xl font-semibold text-gray-900`).
+- **Section Titles:** 14px semibold (`text-sm font-semibold text-gray-900`).
+- **Body Text:** 14px regular (`text-sm text-gray-700`).
+- **Small & Helper Text:** 12–13px (`text-xs text-gray-500`).
 
-**Shape & Elevation:**
-- Radius: `rounded-lg` (8px) for buttons, inputs, cards, and modals. No pill shapes except small count badges.
-- Shadows: None on cards and tables (`shadow-none`). Soft shadow only on modals, drawers, dropdowns, and toasts (`shadow-md` / `shadow-lg`).
+### Shape & Elevation
+- **Radius:** `rounded-lg` (8px) for buttons, inputs, cards, and modals. No pill shapes except small count badges.
+- **Shadows:** None on cards and tables (`shadow-none`). Soft shadow only on modals, drawers, dropdowns, and toasts (`shadow-md` / `shadow-lg`).
 
-**Icons:**
-- `lucide-react`, standard size 16px (18px max), stroke width 1.5, neutral gray by default (`text-gray-400` / `text-gray-500`).
-- No colored icon tiles, colored boxes, or decorative backgrounds behind icons.
+### Component Guidelines
+1. **Buttons (3 variants):**
+   - **Primary:** Solid indigo accent (`bg-indigo-600 hover:bg-indigo-700 text-white`), height 32–36px (`h-8` / `h-9`), text 14px, rounded-lg, no shadows.
+   - **Secondary:** White with 1px border (`bg-white border border-gray-300 text-gray-700 hover:bg-gray-50`), height 32–36px, rounded-lg.
+   - **Ghost:** Borderless (`text-gray-600 hover:text-gray-900 hover:bg-gray-100`), height 32–36px, rounded-lg.
+   - **Danger:** Secondary button with red text (`border-gray-300 text-red-600 hover:bg-red-50`), solid red (`bg-red-600 text-white`) only in the final confirmation step of destructive actions.
+2. **Inputs, Selects, Textareas:** White surface, 1px border (`border-gray-300`), 8px radius (`rounded-lg`), 36px height (`h-9`), accent focus ring (`focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600`).
+3. **Cards:** White surface, 1px border (`border-gray-200`), no shadow, no colored left borders, no gradients, compact padding (`p-4` or `p-5`).
+4. **Tables:** Compact rows (40–44px height, `py-1.5` to `py-2` on cells), text 14px, secondary text 11–12px, header 36–40px without heavy background. 1px row dividers (`divide-y divide-gray-100`), subtle row hover (`hover:bg-gray-50/75`), no zebra striping. The Product column and its checkbox are left-aligned (`text-left`). All other columns (Barcode, Category, Price, Qty, Status, Actions) have centered header labels and centered cell contents (`text-center`).
+5. **Sidebar Navigation:** White surface, 1px right border (`border-gray-200`), width `w-56`. Nav items are 36px high (`h-9`) with 16px icons. Active item: light gray background (`bg-gray-100 text-gray-900 font-medium`), inactive item: `text-gray-600 hover:text-gray-900 hover:bg-gray-50`. Recycle Bin count is small, plain gray text (`text-xs text-gray-400`).
 
-**Component Guidelines:**
-1. **Buttons (3 variants only):**
-   - **Primary:** solid accent (`bg-indigo-600 hover:bg-indigo-700 text-white`), height 32–36px (`h-8` / `h-9`), text 14px, rounded-lg, no shadows.
-   - **Secondary:** white with 1px border (`bg-white border border-gray-300 text-gray-700 hover:bg-gray-50`), height 32–36px, rounded-lg.
-   - **Ghost:** borderless (`text-gray-600 hover:text-gray-900 hover:bg-gray-100`), height 32–36px, rounded-lg.
-   - **Danger:** secondary button with red text (`border-gray-300 text-red-600 hover:bg-red-50`), solid red (`bg-red-600 text-white`) only in the final confirmation step of destructive actions.
-2. **Inputs, Selects, Textareas:**
-   - White surface, 1px border (`border-gray-300`), 8px radius (`rounded-lg`), 36px height (`h-9`), accent focus ring (`focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600`).
-   - Plain labels above fields, helper and error text under them.
-3. **Cards:**
-   - White surface, 1px border (`border-gray-200`), no shadow, no colored left borders, no gradients, compact padding (`p-4` or `p-5`).
-4. **Tables:**
-   - Compact rows (40–44px height, `py-1.5` to `py-2` on cells), text 14px, secondary text 11–12px, header 36–40px without heavy background. 1px row dividers (`divide-y divide-gray-100`), subtle row hover (`hover:bg-gray-50/75`), no zebra striping. Checkbox, text, and action icons (28–32px) vertically centered. Tight two-line cells with reduced gap.
-   - **Column Alignment**: The Product column and its checkbox are left-aligned (`text-left`). All other columns (Barcode / EAN, Category, Price, Qty, Status, and Actions) have **center-aligned header labels and center-aligned cell contents** (`text-center`). Sort arrows sit beside centered header labels in an inline-flex container (`inline-flex items-center justify-center gap-1`) without shifting the label text off-center.
-5. **Badges:**
-   - Neutral gray background with dark gray text (`bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded`).
-   - Semantic status badges use a small colored dot plus plain text (`text-gray-700`), not filled pills.
-6. **Navigation Sidebar:**
-   - White surface, 1px right border (`border-gray-200`), width ~224px (`w-56`).
-   - Small logo mark + app name (no oversized promo/upgrade tiles).
-   - Nav items are 36px high (`h-9`) with 16px icons. Active item: light gray background (`bg-gray-100 text-indigo-600 font-medium`), inactive item: `text-gray-600 hover:text-gray-900 hover:bg-gray-50`.
-   - Recycle Bin count is small, plain gray text (`text-xs text-gray-400`), not a red pill.
-7. **Page Headers:**
-   - Shared flex row across all pages: title (`text-xl font-semibold text-gray-900`) and one-line description (max-width ~640px, text 13-14px gray, truncated or neatly wrapped) on left.
-   - Action buttons right-aligned, vertically aligned with title's line.
-   - Uniform height, padding, and bottom margin (`mb-3 pb-3`) across all pages. On narrow screens actions wrap neatly under the title, left-aligned.
-8. **Summary Cards (Stock):**
-   - Plain bordered white cards with small gray label, large number (`text-2xl font-semibold text-gray-900`), and optional muted helper text. Compact padding 12–14px (`p-3.5`), 12px gap (`gap-3`). Low stock number amber and out-of-stock red only if > 0.
-9. **Gallery Cards:**
-   - Code preview centered on neutral light gray background (`bg-zinc-100`), name and metadata below, actions as ghost icon buttons (visible on hover on desktop, always visible on touch).
-10. **Workspaces (Designer & Print):**
-    - Neutral light gray canvas (`bg-zinc-100`), white artboard/paper sheet with hairline border (`border-gray-200`) and subtle boundary, without heavy drop shadows.
-    - Two-pane independent scrolling at 1024px and above: Page body and root container do NOT scroll (`overflow: hidden`, `height: calc(100dvh - <header height>)`). Left pane (preview) is fixed with auto-fit content; right pane (editor/settings) has independent `overflow-y-auto` with thin scrollbar and `overscroll-behavior: contain`. Scrolling over one pane never moves the other pane or the outer window. Below 1024px, preview is sticky at top with controls scrolling underneath. List pages (Gallery, Stock, Bin) retain standard vertical document scrolling.
-11. **Modals & Drawers:**
-    - White surface, 12px radius (`rounded-xl`), dim blurred overlay (`bg-gray-900/40 backdrop-blur-xs`), clean header with title and close icon, compact padding (16–20px), fixed footer with secondary and primary buttons aligned right. Touch targets at least 36px.
-    - Fits window (`max-h-[calc(100dvh-2rem)]`), scrollable body, full-screen on mobile (`390px`).
-    - Form layouts use clean 2-column grid on desktop, single column on mobile, inline validation, autofocus first field, close on Escape, unsaved changes confirmation.
-12. **Toasts:**
-    - Small white surface, 1px border (`border-gray-200`), soft shadow, small colored icon, clean text.
-13. **Empty States:**
-    - One simple outline icon in gray (stroke 1.5), short title, one-line gray description, single action button. No colored illustrations or graphic blobs.
-14. **Skeletons:**
-    - Flat light gray blocks (`bg-gray-200/75 animate-pulse rounded-lg`).
+---
 
-## 6. Frontend Folder Structure (inside `resources/js/`)
+## 9. Frontend Folder Structure
+
+The frontend is an integrated Single Page Application in `resources/js/`:
+
 ```
 resources/js/
-├── api/            # axios instance + endpoint helpers
-├── components/     # Sidebar, Button, Modal, Drawer, Badge, EmptyState, Skeleton
-├── features/
-│   ├── gallery/    # CodeCard, CodeGrid, Filters
-│   ├── designer/   # BarcodeControls, QrControls, PreviewPanel, ProductPicker
-│   └── stock/      # ProductTable, ProductForm, SummaryCards
-├── pages/          # GalleryPage, DesignerPage, StockPage
-├── hooks/
-├── utils/          # validators, download helpers
-├── App.jsx         # routes
-└── app.jsx         # entry point (createRoot, QueryClientProvider, BrowserRouter)
+├── app.jsx                                  # Entry point (createRoot, QueryClientProvider, BrowserRouter)
+├── MainApp.jsx                              # Root router shell, layout, toaster, and legacy redirects
+├── api/                                     # Axios API clients
+│   ├── barcodes.js                          # Barcode sequence generation and validation API
+│   ├── bin.js                               # Recycle bin counts summary API
+│   ├── client.js                            # Configured Axios instance with CSRF handling
+│   ├── codes.js                             # Label design CRUD and bulk upload API
+│   ├── printPresets.js                      # Print sheet presets CRUD API
+│   ├── products.js                          # Product CRUD, lookup, summary, and CSV import/export API
+│   ├── publicProduct.js                     # Public rate-limited product view API
+│   ├── suppliers.js                         # Supplier CRUD, lookup, summary, and export API
+│   └── templates.js                         # Design template CRUD, duplicate, and set-default API
+├── components/                              # Reusable UI primitives
+│   ├── Badge.jsx                            # Neutral and semantic status badge chips
+│   ├── Button.jsx                           # Primary, secondary, ghost, and danger buttons
+│   ├── Card.jsx                             # Standard bordered card container
+│   ├── Drawer.jsx                           # Slide-over drawer container
+│   ├── EmptyState.jsx                       # Standard empty state icon, title, and action
+│   ├── Input.jsx                            # Styled text, number, and search inputs
+│   ├── Modal.jsx                            # Modal dialog with fixed header, scrollable body, and fixed footer
+│   ├── PageHeader.jsx                       # Consistent page header with title, description, and action row
+│   ├── Pagination.jsx                       # Standard table pagination controls
+│   ├── ProductsTabNav.jsx                   # Shared Items | Suppliers tab switcher
+│   ├── Select.jsx                           # Custom dropdown select component
+│   ├── Sidebar.jsx                          # Main desktop sidebar and mobile slide-out menu
+│   └── Skeleton.jsx                         # Loading skeleton placeholders
+├── features/                                # Feature-specific components
+│   ├── designer/                            # Label designer studio subcomponents
+│   │   ├── AdvancedAccordion.jsx            # Single-open accordion (Artboard, Placement, Code, Text, Export)
+│   │   ├── ArtboardControls.jsx             # Artboard preset dropdown, custom width/height, and orientation
+│   │   ├── BarcodeControls.jsx              # 1D symbologies, bar width, margin, and show-number toggle
+│   │   ├── DesignGroupControls.jsx          # Top-level right-pane editor container
+│   │   ├── LabelTextControls.jsx            # Multi-line label input, Insert popover, quick size/gap row
+│   │   ├── PreviewPanel.jsx                 # Live SVG canvas, zoom widget, canvas dragging, and action footer
+│   │   ├── ProductPicker.jsx                # Searchable dropdown linking inventory products
+│   │   └── QrControls.jsx                   # QR error correction, dot/corner styles, and logo upload
+│   ├── gallery/                             # Saved designs gallery subcomponents
+│   │   ├── CodeCard.jsx                     # Individual design preview card with action menu
+│   │   ├── CodeGrid.jsx                     # Responsive grid of design cards
+│   │   └── Filters.jsx                      # Search input and format filter tabs
+│   ├── print/                               # Batch printing subcomponents
+│   │   ├── DesignSelector.jsx               # Multi-select list of saved designs with quantity counters
+│   │   ├── DesignSelectorModal.jsx          # Modal for picking designs to add to print queue
+│   │   ├── PaperPreview.jsx                 # Live scaled sheet preview with grid cells and page navigation
+│   │   ├── PlacementSettings.jsx            # Fit modes (Original, Fit, Fill) and cell alignment
+│   │   ├── ProductPickerModal.jsx           # Modal for selecting inventory items to print
+│   │   ├── SavePresetModal.jsx              # Save sheet layout as preset modal
+│   │   └── SheetSettings.jsx                # Paper size, grid rows/cols, margins, gaps, and presets form
+│   ├── stock/                               # Inventory items subcomponents
+│   │   ├── BulkCodeRenderer.jsx             # Headless SVG renderer for bulk code generation
+│   │   ├── BulkGenerateModal.jsx            # 3-step bulk code generation wizard (Settings, Preview, Generate)
+│   │   ├── ImportModal.jsx                  # 3-step CSV import wizard with mapping and validation preview
+│   │   ├── ProductForm.jsx                  # Add / Edit item form fields with barcode generator
+│   │   ├── ProductTable.jsx                 # Fixed-layout responsive items table with merged Product column
+│   │   └── SummaryCards.jsx                 # Inventory summary cards (Total, Low Stock, Out of Stock)
+│   ├── suppliers/                           # Supplier directory subcomponents
+│   │   ├── SupplierDetailModal.jsx          # View supplier drawer with contact details and linked items
+│   │   ├── SupplierFormModal.jsx            # Add / Edit supplier modal form
+│   │   └── SupplierTable.jsx                # Suppliers listing table
+│   └── templates/                           # Design templates subcomponents
+│       ├── CompactTemplatePicker.jsx        # Inline template dropdown for Designer top row
+│       ├── SaveTemplateModal.jsx            # Save current designer settings as new template modal
+│       ├── TemplateBar.jsx                  # Template selector bar
+│       └── TemplateManagerModal.jsx         # Full template manager (apply, rename, duplicate, default, delete)
+├── pages/                                   # Route page views
+│   ├── DesignerPage.jsx                     # Interactive label designer studio (`/designer`, `/designer/:id`)
+│   ├── GalleryPage.jsx                      # Catalog of saved designs (`/`)
+│   ├── ItemsPage.jsx                        # Inventory items management page (`/products/items`)
+│   ├── PrintLabelsPage.jsx                  # Sheet printing studio page (`/print`)
+│   ├── PublicProductPage.jsx                # Customer-facing public product view (`/p/:token`)
+│   ├── RecycleBinPage.jsx                   # Centralized soft-delete recovery hub (`/bin`)
+│   ├── StockBinPage.jsx                     # Legacy stock bin page
+│   ├── StockPage.jsx                        # Legacy stock root page
+│   └── SuppliersPage.jsx                    # Supplier directory page (`/products/suppliers`)
+└── utils/                                   # Formatting, calculation, and validation utilities
+    ├── downloadHelpers.js                   # PNG and SVG high-res export helpers
+    ├── placeholders.js                      # Placeholder regex parser and resolver for label text
+    ├── printHelpers.js                      # Sheet grid layout calculations and jsPDF export generator
+    ├── units.js                             # Conversion math between mm, cm, inch, and px
+    └── validators.js                        # Checksum and syntax validation for 1D barcodes and QR codes
 ```
 
-## 7. Definition of Done
-- [ ] App opens on Gallery and shows saved codes or the empty state
-- [ ] Barcode and QR can be designed with live preview and saved
-- [ ] Product picked from stock auto-fills the designer
-- [ ] Stock CRUD works with search, sort, pagination, status badges
-- [ ] PNG (and SVG for barcodes) download works
-- [ ] Format validation errors are clear
-- [ ] Responsive on mobile and desktop
-- [ ] README with setup steps (single-project run instructions); seeders create ~15 sample products
+---
 
-## 8. Working Rules for the Agent
-1. Build in small steps; run and verify after each step.
-2. Do not add features outside this document without asking.
-3. Keep code clean and commented only where needed.
-4. After each phase, summarize what was done and what is next.
-5. Never commit `.env` or secrets.
+## 10. Definition of Done
+
+Features are considered complete only when matching this implemented checklist:
+
+- [x] **Single Laravel Project:** Single repository, no decoupled frontend repo or second package.json.
+- [x] **Backend API:** All 57 routes in `routes/api.php` return consistent JSON responses (`{ data, message? }`).
+- [x] **Database Migrations:** Tables created cleanly with exact column types, foreign keys, soft deletes, and indexes.
+- [x] **Customer Naming:** "Item Code" used exclusively across user-facing text, tables, modals, and CSV files (with `sku` preserved in schema).
+- [x] **Label Designer:**
+  - [x] Two-pane split layout with independent scrolling and zero horizontal page overflow.
+  - [x] Live SVG preview with floating zoom widget (25%–400%, fit, pan) and interactive canvas drag positioning.
+  - [x] Independent Code Size and Artboard Size controls with global unit switch (`mm`, `cm`, `inch`, `px`).
+  - [x] Multi-line label text with placeholder insertion popover (`{name}`, `{item_code}`, `{price}`, etc.) and live preview.
+  - [x] Single-open collapsible Advanced accordion for fine-tuning styles, placement, and export.
+  - [x] High-resolution PNG and SVG export with configurable DPI (72, 150, 300).
+- [x] **Inventory Items:**
+  - [x] Responsive `table-fixed` table with product name and muted item code combined in primary column.
+  - [x] Selected-only CSV export and 3-step CSV import modal with column mapping and validation dry run.
+  - [x] Inline barcode number generation during item creation.
+- [x] **Bulk Code Generation:** 3-step wizard generating up to 500 codes in a run, with batch upload to `POST /api/codes/bulk`.
+- [x] **Suppliers Directory:** Full CRUD table linking suppliers to products, view drawer, and CSV export.
+- [x] **Print Studio:** Multi-item sheet layout with configurable paper dimensions, presets, fit modes, browser print, and PDF export.
+- [x] **Unified Recycle Bin:** Centralized `/bin` route with tabbed view for Items, Suppliers, and Designs, restore-all, and empty bin.
+- [x] **Public Landing Page:** Functional, mobile-responsive `/p/{token}` page displaying item and supplier details.
+
+---
+
+## 11. Working Rules for the Agent
+
+When assisting with code or documentation tasks on this repository, you must strictly follow these rules:
+
+1. **Small, Verifiable Steps:** Build or modify features in small, logical steps. Summarize clearly after each phase.
+2. **Strict Scope Control:** Do not introduce features outside this document or the user's explicit request without asking first.
+3. **Clean Code & Non-Destructive Edits:** Keep code clean, readable, and properly formatted. Never alter or remove unrelated features, comments, or data structures.
+4. **Backward Compatibility:** All existing saved data formats (saved code schemas, `settings` JSON, template properties, print presets) must remain backward-compatible.
+5. **No Blind Browser / E2E Testing:** Do not open the browser or run end-to-end tests unless explicitly asked by the user. If needed, run the build once (`npm run build`) to catch compilation errors, then provide a concise summary.
+6. **Documentation Currency:** Keep `PROJECT.md` updated whenever you add or alter a feature, and maintain absolute accuracy in the **Status and Roadmap** section.
+7. **Security:** Never commit `.env`, API credentials, tokens, or secret keys to version control.

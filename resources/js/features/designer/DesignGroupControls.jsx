@@ -505,7 +505,7 @@ export default function DesignGroupControls({
           type="text"
           value={value}
           onChange={(e) => onChangeValue(e.target.value)}
-          placeholder={type === 'barcode' ? 'Enter barcode digits or SKU' : 'https://... or text'}
+          placeholder={type === 'barcode' ? 'Enter barcode digits or item code' : 'https://... or text'}
           className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-xs font-mono text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors"
         />
       </div>

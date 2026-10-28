@@ -400,7 +400,7 @@ export default function ImportModal({ isOpen, onClose, onSuccess }) {
           <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2 text-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
               <span className="font-medium text-gray-700">
-                Existing Products (Matching SKU):
+                Existing Products (Matching Item Code):
               </span>
               <div className="inline-flex rounded-lg border border-gray-300 bg-white p-0.5">
                 <button
@@ -461,7 +461,7 @@ export default function ImportModal({ isOpen, onClose, onSuccess }) {
                   <tr>
                     <th className="w-9 px-2 py-2 text-center">#</th>
                     <th className="w-20 px-2 py-2 text-center">Status</th>
-                    <th className="w-40 px-2 py-2 text-left">Product / SKU</th>
+                    <th className="w-40 px-2 py-2 text-left">Product / Item Code</th>
                     <th className="w-24 px-2 py-2 text-center">Price / Qty</th>
                     <th className="w-28 px-2 py-2 text-center">Barcode</th>
                     <th className="px-2 py-2 text-left">Details / Warnings</th>
@@ -517,10 +517,10 @@ export default function ImportModal({ isOpen, onClose, onSuccess }) {
                             </p>
                             <p
                               className="text-[11px] font-mono text-gray-500 truncate"
-                              title={`SKU: ${r.data.sku}`}
+                              title={`Item Code: ${r.data.sku}`}
                             >
                               {r.data.sku || (
-                                <span className="text-red-500 italic">Missing SKU</span>
+                                <span className="text-red-500 italic">Missing Item Code</span>
                               )}
                             </p>
                             {r.data.supplier && (

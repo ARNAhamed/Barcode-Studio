@@ -275,11 +275,10 @@ export default function PrintLabelsPage() {
   return (
     <div className="flex flex-col flex-1 min-h-0 w-full h-full lg:overflow-hidden">
       {/* Page Header (Hidden on print) */}
-      <div className="no-print shrink-0 pb-2.5 mb-3 border-b border-gray-200">
+      <div className="no-print shrink-0">
         <PageHeader
           title="Print Labels"
           description="Generate label sheets on A4 or US Letter paper with precise Avery & custom grids."
-          className="pb-0 border-0"
           action={
             <div className="flex flex-col items-end gap-1">
               <div className="flex items-center gap-2">

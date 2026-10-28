@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Package, Trash2, RotateCcw, Upload, Download, Sparkles, Globe } from 'lucide-react';
+import { Plus, Package, Trash2, RotateCcw, Upload, Download, Sparkles } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
@@ -12,7 +12,6 @@ import ProductTable from '../features/stock/ProductTable';
 import ProductForm from '../features/stock/ProductForm';
 import ImportModal from '../features/stock/ImportModal';
 import BulkGenerateModal from '../features/stock/BulkGenerateModal';
-import PublicPageSettingsModal from '../features/stock/PublicPageSettingsModal';
 import {
   getProducts,
   getProductSummary,
@@ -69,7 +68,6 @@ export default function ItemsPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [isSelectAllMatching, setIsSelectAllMatching] = useState(false);
-  const [isPublicSettingsModalOpen, setIsPublicSettingsModalOpen] = useState(false);
 
   // Debounce search input
   useEffect(() => {
@@ -352,11 +350,11 @@ export default function ItemsPage() {
   const isFormSubmitting = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Header */}
       <PageHeader
         title="Products"
-        description="Track product inventory, manage SKU data, and instantly generate linked barcodes."
+        description="Manage items and suppliers."
         action={
           <div className="flex items-center gap-2 flex-nowrap shrink-0">
             <Button
@@ -407,16 +405,6 @@ export default function ItemsPage() {
                 {selectedCount === 0 && <span className="md:hidden text-xs">Codes</span>}
               </Button>
             </span>
-            <Button
-              onClick={() => setIsPublicSettingsModalOpen(true)}
-              icon={Globe}
-              variant="secondary"
-              size="md"
-              title="Public product page settings"
-              className="h-9 whitespace-nowrap"
-            >
-              <span className="hidden md:inline">Public Page</span>
-            </Button>
             <Button
               onClick={handleOpenAdd}
               icon={Plus}
@@ -472,7 +460,7 @@ export default function ItemsPage() {
         title={editingProduct ? 'Edit Product' : 'Add Product'}
         description={
           editingProduct
-            ? `Update product details and stock thresholds for SKU ${editingProduct.sku}`
+            ? `Update product details and stock thresholds for Item Code ${editingProduct.sku}`
             : 'Fill in the information below to add a new inventory item.'
         }
         maxWidth="max-w-xl"
@@ -576,12 +564,6 @@ export default function ItemsPage() {
           invalidateQueries();
           queryClient.invalidateQueries({ queryKey: ['codes'] });
         }}
-      />
-
-      {/* Public Product Page Settings Modal */}
-      <PublicPageSettingsModal
-        isOpen={isPublicSettingsModalOpen}
-        onClose={() => setIsPublicSettingsModalOpen(false)}
       />
     </div>
   );

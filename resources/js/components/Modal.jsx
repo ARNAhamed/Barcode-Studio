@@ -55,7 +55,7 @@ export default function Modal({
       >
         {/* Fixed Header (shrink-0) */}
         {(title || onClose || headerExtra) && (
-          <div className="shrink-0 p-5 pb-4 border-b border-gray-100 bg-white">
+          <div className="shrink-0 p-4 sm:p-5 pb-3 border-b border-gray-100 bg-white">
             <div className="flex items-start justify-between gap-3">
               <div>
                 {title && (
@@ -81,13 +81,13 @@ export default function Modal({
         )}
 
         {/* Scrollable Body (flex-1 min-h-0 overflow-y-auto) */}
-        <div className={`flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 ${bodyClassName}`}>
+        <div className={`flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 ${bodyClassName}`}>
           {children}
         </div>
 
         {/* Fixed Footer (shrink-0): secondary and primary buttons aligned to right */}
         {footer && (
-          <div className="shrink-0 flex items-center justify-end gap-2.5 px-5 py-3.5 bg-white border-t border-gray-100">
+          <div className="shrink-0 flex items-center justify-end gap-2.5 px-4 sm:px-5 py-3 bg-white border-t border-gray-100">
             {footer}
           </div>
         )}

@@ -71,7 +71,7 @@ export default function SupplierTable({
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden w-full">
       {/* Table Toolbar & Filters */}
-      <div className="p-3.5 sm:p-4 border-b border-gray-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      <div className="p-2.5 sm:p-3 border-b border-gray-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
         <div className="flex items-center gap-2 flex-1 max-w-md">
           {/* Search Input */}
           <div className="relative flex-1">
@@ -141,10 +141,10 @@ export default function SupplierTable({
       </div>
 
       {/* Desktop / Tablet Table (768px and above) - table-fixed without horizontal scroll */}
-      <div className="hidden md:block w-full">
+      <div className="hidden md:block w-full overflow-hidden">
         <table className="w-full table-fixed text-left border-collapse">
           <thead>
-            <tr className="h-10 border-b border-gray-200 text-xs font-medium text-gray-500 bg-white">
+            <tr className="h-9 sm:h-10 border-b border-gray-200 text-xs font-medium text-gray-500 bg-white">
               <th className="py-2 pl-3 sm:pl-4 pr-1 w-[36px] min-w-[36px] text-center align-middle">
                 <input
                   type="checkbox"

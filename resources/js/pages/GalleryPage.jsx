@@ -176,7 +176,7 @@ export default function GalleryPage() {
   const codes = codesResponse?.data || [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Header */}
       <PageHeader
         title="Code Gallery"

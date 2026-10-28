@@ -44,7 +44,7 @@ export default function PublicProductPage() {
       setMetaTag('og:title', data.product.name);
       setMetaTag(
         'og:description',
-        `SKU: ${data.product.sku} • Price: $${parseFloat(data.product.price || 0).toFixed(2)} • ${data.product.availability}`
+        `Item Code: ${data.product.sku} • Price: $${parseFloat(data.product.price || 0).toFixed(2)} • ${data.product.availability}`
       );
       setMetaTag('og:type', 'product');
     }
@@ -147,9 +147,9 @@ export default function PublicProductPage() {
                   </span>
                 </div>
 
-                {/* SKU */}
+                {/* Item Code */}
                 <div className="py-2.5 flex items-center justify-between">
-                  <span className="text-xs text-gray-500 dark:text-zinc-400 font-medium">SKU</span>
+                  <span className="text-xs text-gray-500 dark:text-zinc-400 font-medium">Item Code</span>
                   <span className="font-mono text-xs font-semibold text-gray-800 dark:text-zinc-200">
                     {data.product.sku}
                   </span>

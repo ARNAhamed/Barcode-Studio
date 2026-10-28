@@ -793,8 +793,8 @@ export default function BulkGenerateModal({
                     className="text-indigo-600 focus:ring-indigo-500"
                   />
                   <div>
-                    <div className="text-xs font-medium text-gray-900">SKU</div>
-                    <div className="text-[11px] text-gray-500">Use product SKU directly</div>
+                    <div className="text-xs font-medium text-gray-900">Item Code</div>
+                    <div className="text-[11px] text-gray-500">Use product item code directly</div>
                   </div>
                 </label>
 
@@ -935,7 +935,7 @@ export default function BulkGenerateModal({
                 className="w-full h-8 text-xs bg-white border border-gray-300 rounded-lg px-2 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
               >
                 <option value="generate">Generate automatically</option>
-                <option value="sku">Use SKU instead</option>
+                <option value="sku">Use Item Code instead</option>
                 <option value="skip">Skip these products</option>
               </select>
               <p className="text-[10px] text-gray-400 mt-1">
@@ -1143,7 +1143,7 @@ export default function BulkGenerateModal({
                               {item.product.name}
                             </div>
                             <div className="text-[11px] text-gray-400 font-mono">
-                              SKU: {item.product.sku}
+                              Item Code: {item.product.sku}
                             </div>
                           </td>
 

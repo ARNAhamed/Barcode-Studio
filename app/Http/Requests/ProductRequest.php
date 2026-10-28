@@ -64,7 +64,7 @@ class ProductRequest extends FormRequest
                     ->exists();
 
                 if ($trashedSkuExists) {
-                    $validator->errors()->add('sku', 'This SKU exists in the Recycle Bin. Restore it instead.');
+                    $validator->errors()->add('sku', 'This Item Code exists in the Recycle Bin. Restore it instead.');
                 }
             }
 
@@ -79,5 +79,15 @@ class ProductRequest extends FormRequest
                 }
             }
         });
+    }
+
+    /**
+     * Get custom attribute names for validator errors.
+     */
+    public function attributes(): array
+    {
+        return [
+            'sku' => 'item code',
+        ];
     }
 }

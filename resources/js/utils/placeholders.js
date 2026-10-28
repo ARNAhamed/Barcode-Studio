@@ -1,6 +1,6 @@
 export const AVAILABLE_PLACEHOLDERS = [
   { tag: '{name}', label: 'Name' },
-  { tag: '{sku}', label: 'SKU' },
+  { tag: '{item_code}', label: 'Item code' },
   { tag: '{price}', label: 'Price' },
   { tag: '{category}', label: 'Category' },
   { tag: '{barcode}', label: 'Barcode' },
@@ -70,6 +70,7 @@ export function fillPlaceholders(pattern, product) {
 
   const replacements = {
     '{name}': product.name ?? '',
+    '{item_code}': product.sku ?? '',
     '{sku}': product.sku ?? '',
     '{category}': product.category ?? '',
     '{barcode}': product.barcode_number ?? product.barcode ?? '',
@@ -98,7 +99,7 @@ export function fillPlaceholders(pattern, product) {
  */
 export function hasPlaceholders(text) {
   if (!text || typeof text !== 'string') return false;
-  return /\{(name|sku|price|category|barcode|quantity|supplier|supplier_contact|supplier_mobile|supplier_phone|supplier_email|supplier_city)\}/.test(
+  return /\{(name|item_code|sku|price|category|barcode|quantity|supplier|supplier_contact|supplier_mobile|supplier_phone|supplier_email|supplier_city)\}/.test(
     text
   );
 }

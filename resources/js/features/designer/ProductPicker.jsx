@@ -126,7 +126,7 @@ export default function ProductPicker({
                   {p.name}
                 </p>
                 <p className="text-xs text-gray-500 font-mono mt-0.5">
-                  SKU: {p.sku} {p.barcode_number ? `• Barcode: ${p.barcode_number}` : ''} • ${parseFloat(p.price || 0).toFixed(2)}
+                  Item Code: {p.sku} {p.barcode_number ? `• Barcode: ${p.barcode_number}` : ''} • ${parseFloat(p.price || 0).toFixed(2)}
                 </p>
               </div>
               <span className="text-xs font-semibold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">

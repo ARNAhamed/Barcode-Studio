@@ -246,8 +246,7 @@ export default function SupplierDetailModal({
             <table className="w-full table-fixed text-xs divide-y divide-gray-100">
               <thead className="bg-gray-50 sticky top-0 z-10 text-gray-600 font-medium border-b border-gray-200">
                 <tr>
-                  <th className="px-3 py-2 text-left w-auto truncate">Product Name</th>
-                  <th className="px-2 py-2 text-center w-28 truncate">SKU</th>
+                  <th className="px-3 py-2 text-left w-auto truncate">Product</th>
                   <th className="px-2 py-2 text-center w-20 truncate">Price</th>
                   <th className="px-2 py-2 text-center w-16 truncate">Qty</th>
                 </tr>
@@ -263,16 +262,18 @@ export default function SupplierDetailModal({
                     className="hover:bg-gray-50/75 transition-colors cursor-pointer"
                     title={`Click to open ${p.name} in Items`}
                   >
-                    <td className="px-3 py-2 font-medium text-gray-900 truncate">
-                      {p.name}
+                    <td className="px-3 py-1.5 align-middle text-left min-w-0">
+                      <div className="font-medium text-gray-900 leading-snug line-clamp-2" title={p.name}>
+                        {p.name}
+                      </div>
+                      <div className="text-[11px] text-gray-400 font-mono truncate mt-0.5 leading-tight" title={`Item Code: ${p.sku}`}>
+                        {p.sku}
+                      </div>
                     </td>
-                    <td className="px-2 py-2 font-mono text-gray-500 text-center truncate">
-                      {p.sku}
-                    </td>
-                    <td className="px-2 py-2 text-gray-900 text-center truncate">
+                    <td className="px-2 py-1.5 text-gray-900 text-center truncate align-middle">
                       ${parseFloat(p.price || 0).toFixed(2)}
                     </td>
-                    <td className="px-2 py-2 text-center truncate">
+                    <td className="px-2 py-1.5 text-center truncate align-middle">
                       <span
                         className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-medium ${
                           p.quantity <= 0

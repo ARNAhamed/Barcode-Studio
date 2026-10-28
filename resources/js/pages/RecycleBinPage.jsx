@@ -452,18 +452,17 @@ export default function RecycleBinPage() {
           {/* Products Table Card */}
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden w-full">
             {/* Desktop / Tablet Table (768px and up) */}
-            <div className="hidden md:block w-full">
+            <div className="hidden md:block w-full overflow-hidden">
               <table className="w-full table-fixed text-left border-collapse">
                 <thead>
-                  <tr className="h-10 border-b border-gray-200 bg-white text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <th className="py-2 px-3 sm:px-4 w-[38%] lg:w-[30%] xl:w-[24%] truncate text-left align-middle">Product</th>
-                    <th className="hidden lg:table-cell py-2 px-3 w-[16%] xl:w-[13%] truncate text-center align-middle">SKU</th>
-                    <th className="hidden xl:table-cell py-2 px-3 w-[12%] truncate text-center align-middle">Category</th>
-                    <th className="py-2 px-3 w-[14%] lg:w-[12%] xl:w-[9%] truncate text-center align-middle">Price</th>
-                    <th className="py-2 px-3 w-[10%] lg:w-[8%] xl:w-[7%] truncate text-center align-middle">Qty</th>
-                    <th className="hidden xl:table-cell py-2 px-3 w-[14%] truncate text-center align-middle">Deleted Date</th>
-                    <th className="py-2 px-3 w-[22%] lg:w-[18%] xl:w-[11%] truncate text-center align-middle">Retention</th>
-                    <th className="py-2 px-3 sm:px-4 text-center w-[16%] lg:w-[14%] xl:w-[10%] truncate align-middle">Actions</th>
+                  <tr className="h-9 sm:h-10 border-b border-gray-200 bg-white text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="py-2 px-3 sm:px-4 min-w-[220px] w-[32%] lg:w-[30%] truncate text-left align-middle">Product</th>
+                    <th className="hidden 2xl:table-cell py-2 px-2 w-[110px] truncate text-center align-middle">Category</th>
+                    <th className="py-2 px-2 w-[88px] min-w-[88px] truncate text-center align-middle">Price</th>
+                    <th className="py-2 px-1.5 w-[56px] min-w-[56px] truncate text-center align-middle">Qty</th>
+                    <th className="hidden xl:table-cell py-2 px-3 w-[120px] truncate text-center align-middle">Deleted Date</th>
+                    <th className="py-2 px-2 w-[100px] min-w-[100px] truncate text-center align-middle">Retention</th>
+                    <th className="py-2 px-2 text-center w-[108px] min-w-[108px] truncate align-middle">Actions</th>
                   </tr>
                 </thead>
 
@@ -472,7 +471,7 @@ export default function RecycleBinPage() {
                     <Skeleton type="table-row" count={5} />
                   ) : trashedProducts.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-16 px-4 text-center">
+                      <td colSpan={7} className="py-16 px-4 text-center">
                         <EmptyState
                           icon={Trash2}
                           title="No products in Recycle Bin"
@@ -482,7 +481,7 @@ export default function RecycleBinPage() {
                               : 'Products moved to the bin will appear here for 30 days before permanent removal.'
                           }
                           actionText={productSearch ? 'Clear search' : 'Back to Stock'}
-                          onAction={() => (productSearch ? setProductSearch('') : navigate('/stock'))}
+                          onAction={() => (productSearch ? setProductSearch('') : navigate('/products/items'))}
                           actionIcon={Package}
                           className="border-0 shadow-none bg-transparent"
                         />
@@ -501,53 +500,40 @@ export default function RecycleBinPage() {
                       const daysLeft = product.days_left !== undefined ? product.days_left : 30;
 
                       return (
-                        <tr key={product.id} className="hover:bg-gray-50/75 transition-colors">
-                          <td className="py-2 px-3 sm:px-4 min-w-0 text-left align-middle">
+                        <tr key={product.id} className="h-10 sm:h-11 hover:bg-gray-50/75 transition-colors">
+                          <td className="py-1.5 px-3 sm:px-4 min-w-[220px] text-left align-middle">
                             <div
-                              className="font-medium text-gray-900 truncate leading-tight text-sm"
+                              className="font-medium text-gray-900 text-sm leading-snug line-clamp-2"
                               title={product.name}
                             >
                               {product.name}
                             </div>
                             <div
-                              className="text-xs text-gray-500 font-mono truncate mt-0.5 lg:hidden leading-none"
-                              title={product.sku}
+                              className="text-[11px] text-gray-400 font-mono truncate mt-0.5 leading-tight"
+                              title={`Item Code: ${product.sku}`}
                             >
-                              SKU: {product.sku}
-                            </div>
-                            {product.description && (
-                              <div
-                                className="text-xs text-gray-500 truncate mt-0.5 hidden xl:block leading-none"
-                                title={product.description}
-                              >
-                                {product.description}
-                              </div>
-                            )}
-                          </td>
-                          <td className="hidden lg:table-cell py-2 px-3 font-mono text-[13px] text-gray-600 text-center min-w-0 align-middle">
-                            <div className="truncate" title={product.sku}>
                               {product.sku}
                             </div>
                           </td>
-                          <td className="hidden xl:table-cell py-2 px-3 text-center min-w-0 align-middle">
+                          <td className="hidden 2xl:table-cell py-1.5 px-2 text-center min-w-0 align-middle">
                             {product.category ? (
-                              <span className="inline-block max-w-full truncate px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700" title={product.category}>
+                              <span className="inline-block max-w-[100px] truncate px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700" title={product.category}>
                                 {product.category}
                               </span>
                             ) : (
                               <span className="text-gray-400 text-xs">—</span>
                             )}
                           </td>
-                          <td className="py-2 px-3 font-medium text-gray-900 min-w-0 truncate text-center align-middle text-sm">
+                          <td className="py-1.5 px-2 font-medium text-gray-900 min-w-0 truncate text-center align-middle text-sm">
                             ${parseFloat(product.price).toFixed(2)}
                           </td>
-                          <td className="py-2 px-3 text-gray-600 min-w-0 truncate text-center align-middle text-sm">
+                          <td className="py-1.5 px-1.5 text-gray-600 min-w-0 truncate text-center align-middle text-sm">
                             {product.quantity}
                           </td>
-                          <td className="hidden xl:table-cell py-2 px-3 text-gray-500 text-xs min-w-0 truncate text-center align-middle">
+                          <td className="hidden xl:table-cell py-1.5 px-3 text-gray-500 text-xs min-w-0 truncate text-center align-middle">
                             {deletedDate}
                           </td>
-                          <td className="py-2 px-3 min-w-0 text-center align-middle">
+                          <td className="py-1.5 px-2 min-w-0 text-center align-middle">
                             <span className="inline-flex items-center justify-center gap-1.5 text-xs text-gray-700 font-medium whitespace-nowrap shrink-0">
                               <span
                                 className={`w-1.5 h-1.5 rounded-full ${
@@ -561,7 +547,7 @@ export default function RecycleBinPage() {
                               {daysLeft}d left
                             </span>
                           </td>
-                          <td className="py-2 px-3 sm:px-4 text-center min-w-0 align-middle">
+                          <td className="py-1.5 px-2 text-center min-w-0 align-middle">
                             <div className="inline-flex items-center justify-center gap-1 shrink-0">
                               <button
                                 type="button"
@@ -609,7 +595,7 @@ export default function RecycleBinPage() {
                         : 'Products moved to the bin will appear here for 30 days.'
                     }
                     actionText={productSearch ? 'Clear search' : 'Back to Stock'}
-                    onAction={() => (productSearch ? setProductSearch('') : navigate('/stock'))}
+                    onAction={() => (productSearch ? setProductSearch('') : navigate('/products/items'))}
                     actionIcon={Package}
                     className="border-0 shadow-none bg-transparent"
                   />
@@ -625,7 +611,7 @@ export default function RecycleBinPage() {
                             {product.name}
                           </h3>
                           <p className="font-mono text-xs text-gray-500 mt-0.5 truncate">
-                            SKU: {product.sku}
+                            Item Code: {product.sku}
                           </p>
                         </div>
                         <span className="inline-flex items-center gap-1.5 text-xs text-gray-700 font-medium shrink-0">

@@ -19,7 +19,7 @@ Built as a **single project, unified Laravel + React SPA** running on the same o
   * Two-column split layout with controls on the left and sticky real-time preview on the right.
   * **Barcode Symbologies:** `CODE128`, `EAN-13`, `EAN-8`, `UPC-A`, `CODE39`, `ITF-14` powered by `jsbarcode`.
   * **QR Code Styling:** Customizable dot styles (square, dots, rounded, extra-rounded, classy), corner styles, custom colors, error correction levels (L, M, Q, H), and center logo upload powered by `qr-code-styling`.
-  * **Stock Product Sync:** Search autocomplete (`/api/products/lookup`) that auto-fills SKU, barcode number, price, and customizable label.
+  * **Stock Product Sync:** Search autocomplete (`/api/products/lookup`) that auto-fills Item Code, barcode number, price, and customizable label.
   * **Instant Validation:** Live validation for symbology-specific rules (e.g. 12–13 digits for EAN-13).
   * **Export Options:** **Save to Gallery** (stores high-res PNG in `storage/app/public/previews` via `html-to-image`), **Download PNG**, **Download SVG** (barcodes), and **Reset Settings**.
 
@@ -32,12 +32,11 @@ Built as a **single project, unified Laravel + React SPA** running on the same o
 
 * **Public Product Page (`/p/{token}`)**:
   * Clean, mobile-first product page accessible by scanning generated QR codes or via direct link.
-  * Displays item details (name, category, barcode number, SKU, price, stock availability) and supplier information (name, contact person, tap-to-call mobile, tap-to-email, address with Google Maps link, and payment terms).
-  * Admin controls on Products > Items menu to toggle public page availability and supplier detail visibility.
+  * Displays item details (name, category, barcode number, Item Code, price, stock availability) and supplier information (name, contact person, tap-to-call mobile, tap-to-email, address with Google Maps link, and payment terms).
 
 * **Supplier Info on Barcode Labels & Multi-line Labels**:
   * Label text supports up to 3 lines under the code with font size, gap, weight, and alignment controls.
-  * Extended dynamic placeholders: `{name}`, `{sku}`, `{price}`, `{category}`, `{barcode}`, `{quantity}`, `{supplier}`, `{supplier_contact}`, `{supplier_mobile}`, `{supplier_phone}`, `{supplier_email}`, `{supplier_city}`.
+  * Extended dynamic placeholders: `{name}`, `{item_code}`, `{price}`, `{category}`, `{barcode}`, `{quantity}`, `{supplier}`, `{supplier_contact}`, `{supplier_mobile}`, `{supplier_phone}`, `{supplier_email}`, `{supplier_city}` (with `{sku}` supported as backwards-compatible alias).
   * Automatic pruning of empty lines and dangling separators (`•`, `-`, `|`).
   * Instant preset: `{supplier} • {supplier_mobile}`.
 

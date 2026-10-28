@@ -123,7 +123,7 @@ export default function ProductTable({
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden w-full">
       {/* Table Toolbar & Bulk Actions */}
-      <div className="p-3.5 sm:p-4 border-b border-gray-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      <div className="p-2.5 sm:p-3 border-b border-gray-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
         <div className="flex items-center gap-2 w-full sm:w-auto flex-1 max-w-md">
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" strokeWidth={1.5} />
@@ -131,7 +131,7 @@ export default function ProductTable({
               type="text"
               value={searchTerm}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search by name, SKU, barcode..."
+              placeholder="Search by name, item code, barcode..."
               className="w-full h-9 pl-9 pr-8 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
             />
             {searchTerm && (
@@ -233,7 +233,7 @@ export default function ProductTable({
       {products.length > 0 &&
         products.every((p) => selectedIds.includes(p.id)) &&
         (meta?.total || 0) > products.length && (
-          <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 text-xs text-gray-700 text-center">
+          <div className="bg-gray-50 border-b border-gray-200 px-3 py-1.5 text-xs text-gray-700 text-center">
             {isSelectAllMatching ? (
               <span>
                 All <strong>{meta.total}</strong> products across all pages are selected.{' '}
@@ -261,10 +261,10 @@ export default function ProductTable({
         )}
 
       {/* Desktop / Tablet Table (768px and above) - table-fixed without horizontal scroll */}
-      <div className="hidden md:block w-full">
+      <div className="hidden md:block w-full overflow-hidden">
         <table className="w-full table-fixed text-left border-collapse">
           <thead>
-            <tr className="h-10 border-b border-gray-200 text-xs font-medium text-gray-500 bg-white">
+            <tr className="h-9 sm:h-10 border-b border-gray-200 text-xs font-medium text-gray-500 bg-white">
               <th className="py-2 pl-3 sm:pl-4 pr-1 w-[36px] min-w-[36px] text-center align-middle">
                 <input
                   type="checkbox"
@@ -277,32 +277,49 @@ export default function ProductTable({
                   title="Select all on this page"
                 />
               </th>
-              <th className="py-2 px-3 sm:px-4 w-auto min-w-0 truncate text-left align-middle">Product</th>
-              <th
-                onClick={() => handleHeaderSort('sku')}
-                className="hidden lg:table-cell py-2 px-3 w-[17%] xl:w-[13%] text-center cursor-pointer select-none group hover:bg-gray-50 transition-colors align-middle"
-              >
-                <div className="inline-flex items-center justify-center gap-1 truncate">
-                  <span>SKU</span>
-                  {getSortIcon('sku')}
+              <th className="py-2 px-3 sm:px-4 min-w-[220px] w-[28%] lg:w-[30%] align-middle text-left">
+                <div className="flex items-center justify-between gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleHeaderSort('name')}
+                    className="inline-flex items-center gap-1 font-medium text-gray-500 hover:text-gray-900 select-none group cursor-pointer transition-colors"
+                    title="Sort by product name"
+                  >
+                    <span>Product</span>
+                    {getSortIcon('name')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleHeaderSort('sku')}
+                    className={`text-[11px] font-mono px-1.5 py-0.5 rounded border transition-colors cursor-pointer shrink-0 ${
+                      sortBy === 'sku'
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-600 font-semibold'
+                        : 'border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                    }`}
+                    title="Sort by Item code"
+                  >
+                    Item code {sortBy === 'sku' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
+                  </button>
                 </div>
               </th>
-              <th className="hidden xl:table-cell py-2 px-3 xl:w-[15%] text-center truncate align-middle">Barcode / EAN</th>
+              <th className="hidden lg:table-cell py-2 px-2.5 w-[120px] text-center truncate align-middle">
+                Barcode
+              </th>
               <th
                 onClick={() => handleHeaderSort('category')}
-                className="hidden xl:table-cell py-2 px-3 xl:w-[12%] text-center cursor-pointer select-none group hover:bg-gray-50 transition-colors align-middle"
+                className="hidden 2xl:table-cell py-2 px-2 w-[110px] text-center cursor-pointer select-none group hover:bg-gray-50 transition-colors align-middle"
               >
                 <div className="inline-flex items-center justify-center gap-1 truncate">
                   <span>Category</span>
                   {getSortIcon('category')}
                 </div>
               </th>
-              <th className="hidden xl:table-cell py-2 px-3 xl:w-[12%] text-center truncate align-middle">
+              <th className="hidden xl:table-cell py-2 px-2 w-[130px] text-center truncate align-middle">
                 Supplier
               </th>
               <th
                 onClick={() => handleHeaderSort('price')}
-                className="py-2 px-3 w-[80px] min-w-[80px] text-center cursor-pointer select-none group hover:bg-gray-50 transition-colors align-middle"
+                className="py-2 px-2 w-[88px] min-w-[88px] text-center cursor-pointer select-none group hover:bg-gray-50 transition-colors align-middle"
               >
                 <div className="inline-flex items-center justify-center gap-1 truncate">
                   <span>Price</span>
@@ -311,15 +328,15 @@ export default function ProductTable({
               </th>
               <th
                 onClick={() => handleHeaderSort('quantity')}
-                className="py-2 px-3 w-[60px] min-w-[60px] text-center cursor-pointer select-none group hover:bg-gray-50 transition-colors align-middle"
+                className="py-2 px-1.5 w-[56px] min-w-[56px] text-center cursor-pointer select-none group hover:bg-gray-50 transition-colors align-middle"
               >
                 <div className="inline-flex items-center justify-center gap-1 truncate">
                   <span>Qty</span>
                   {getSortIcon('quantity')}
                 </div>
               </th>
-              <th className="py-2 px-3 w-[110px] min-w-[110px] text-center truncate align-middle">Status</th>
-              <th className="py-2 px-3 text-center w-[132px] min-w-[132px] shrink-0 truncate align-middle">Actions</th>
+              <th className="py-2 px-2 w-[100px] min-w-[100px] text-center truncate align-middle">Status</th>
+              <th className="py-2 px-2 text-center w-[108px] min-w-[108px] shrink-0 truncate align-middle">Actions</th>
             </tr>
           </thead>
 
@@ -328,7 +345,7 @@ export default function ProductTable({
               <Skeleton type="table-row" count={5} />
             ) : products.length === 0 ? (
               <tr>
-                <td colSpan={10} className="py-12 px-4 text-center">
+                <td colSpan={9} className="py-12 px-4 text-center">
                   <EmptyState
                     icon={PackageOpen}
                     title="No products found"
@@ -345,12 +362,12 @@ export default function ProductTable({
               products.map((product) => (
                 <tr
                   key={product.id}
-                  className={`hover:bg-gray-50/75 transition-colors group ${
+                  className={`h-10 sm:h-11 hover:bg-gray-50/75 transition-colors group ${
                     selectedIds.includes(product.id) ? 'bg-gray-50' : ''
                   }`}
                 >
                   {/* Row Checkbox */}
-                  <td className="py-2 pl-3 sm:pl-4 pr-1 text-center min-w-0 align-middle">
+                  <td className="py-1.5 pl-3 sm:pl-4 pr-1 text-center min-w-0 align-middle">
                     <input
                       id={`product-checkbox-${product.id}`}
                       type="checkbox"
@@ -361,42 +378,34 @@ export default function ProductTable({
                     />
                   </td>
 
-                  {/* Name, SKU under name on <1024px, and Description */}
-                  <td className="py-2 px-3 sm:px-4 min-w-0 align-middle text-left">
+                  {/* Product (Name wraps up to 2 lines with tooltip, Item code underneath) */}
+                  <td className="py-1.5 px-3 sm:px-4 min-w-[220px] align-middle text-left">
                     <div
-                      className="font-medium text-gray-900 truncate text-sm leading-tight"
+                      className="font-medium text-gray-900 text-sm leading-snug line-clamp-2"
                       title={product.name}
                     >
                       {product.name}
                     </div>
-                    {/* Show SKU under product name below 1024px */}
                     <div
-                      className="text-xs text-gray-400 font-mono truncate mt-0.5 lg:hidden leading-none"
-                      title={product.sku}
+                      className="text-[11px] text-gray-400 font-mono truncate mt-0.5 leading-tight"
+                      title={`Item Code: ${product.sku}`}
                     >
-                      SKU: {product.sku}
-                    </div>
-                  </td>
-
-                  {/* SKU (visible on lg+) */}
-                  <td className="hidden lg:table-cell py-2 px-3 font-mono text-[13px] text-gray-500 text-center min-w-0 align-middle">
-                    <div className="truncate" title={product.sku}>
                       {product.sku}
                     </div>
                   </td>
 
-                  {/* Barcode / EAN (visible on xl+) */}
-                  <td className="hidden xl:table-cell py-2 px-3 font-mono text-[13px] text-gray-500 text-center min-w-0 align-middle">
-                    <div className="truncate" title={product.barcode_number || ''}>
+                  {/* Barcode (hidden on <lg) */}
+                  <td className="hidden lg:table-cell py-1.5 px-2.5 font-mono text-xs text-gray-500 text-center min-w-0 align-middle">
+                    <div className="truncate max-w-[110px] mx-auto" title={product.barcode_number || ''}>
                       {product.barcode_number || <span className="text-gray-300">—</span>}
                     </div>
                   </td>
 
-                  {/* Category (visible on xl+) */}
-                  <td className="hidden xl:table-cell py-2 px-3 text-center min-w-0 align-middle">
+                  {/* Category (hidden on <2xl) */}
+                  <td className="hidden 2xl:table-cell py-1.5 px-2 text-center min-w-0 align-middle">
                     {product.category ? (
                       <span
-                        className="inline-block max-w-full truncate px-2 py-0.5 rounded text-xs text-gray-600 bg-gray-100"
+                        className="inline-block max-w-[100px] truncate px-2 py-0.5 rounded text-xs text-gray-600 bg-gray-100"
                         title={product.category}
                       >
                         {product.category}
@@ -406,11 +415,11 @@ export default function ProductTable({
                     )}
                   </td>
 
-                  {/* Supplier (visible on xl+) */}
-                  <td className="hidden xl:table-cell py-2 px-3 text-center min-w-0 align-middle">
+                  {/* Supplier (hidden on <xl) */}
+                  <td className="hidden xl:table-cell py-1.5 px-2 text-center min-w-0 align-middle">
                     {product.supplier ? (
                       <span
-                        className={`inline-block max-w-full truncate text-xs ${
+                        className={`inline-block max-w-[120px] truncate text-xs ${
                           product.supplier.deleted_at
                             ? 'text-gray-400 italic line-through decoration-gray-300'
                             : 'text-gray-600'
@@ -430,28 +439,28 @@ export default function ProductTable({
                   </td>
 
                   {/* Price */}
-                  <td className="py-2 px-3 font-normal text-gray-900 text-center min-w-0 align-middle text-sm">
+                  <td className="py-1.5 px-2 font-normal text-gray-900 text-center min-w-0 align-middle text-sm">
                     <div className="truncate">
                       ${parseFloat(product.price).toFixed(2)}
                     </div>
                   </td>
 
                   {/* Quantity */}
-                  <td className="py-2 px-3 font-medium text-gray-800 text-center min-w-0 align-middle text-sm">
+                  <td className="py-1.5 px-1.5 font-medium text-gray-800 text-center min-w-0 align-middle text-sm">
                     <div className="truncate">
                       {product.quantity}
                     </div>
                   </td>
 
                   {/* Status Badge */}
-                  <td className="py-2 px-3 w-[115px] min-w-[115px] text-center align-middle">
+                  <td className="py-1.5 px-2 text-center align-middle">
                     <div className="flex justify-center">
                       {getStatusBadge(product)}
                     </div>
                   </td>
 
                   {/* Actions */}
-                  <td className="py-2 px-3 text-center w-[132px] min-w-[132px] shrink-0 align-middle">
+                  <td className="py-1.5 px-2 text-center w-[108px] min-w-[108px] shrink-0 align-middle">
                     <div className="inline-flex items-center justify-center gap-1 shrink-0">
                       {/* Compact button for Generate */}
                       <button
@@ -534,7 +543,7 @@ export default function ProductTable({
                     {product.name}
                   </h3>
                   <p className="font-mono text-xs text-gray-500 mt-0.5 truncate" title={product.sku}>
-                    SKU: {product.sku}
+                    Item Code: {product.sku}
                   </p>
                   {product.supplier && (
                     <p className="text-[11px] text-gray-500 mt-0.5 truncate">

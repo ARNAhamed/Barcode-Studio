@@ -6,7 +6,8 @@ class PlaceholderHelper
 {
     public const AVAILABLE_PLACEHOLDERS = [
         '{name}' => 'Product Name',
-        '{sku}' => 'SKU',
+        '{item_code}' => 'Item Code',
+        '{sku}' => 'Item Code',
         '{price}' => 'Price',
         '{category}' => 'Category',
         '{barcode}' => 'Barcode Number',
@@ -60,6 +61,7 @@ class PlaceholderHelper
 
         $replacements = [
             '{name}' => (string) ($get('name') ?? ''),
+            '{item_code}' => (string) ($get('sku') ?? ''),
             '{sku}' => (string) ($get('sku') ?? ''),
             '{category}' => (string) ($get('category') ?? ''),
             '{barcode}' => (string) ($get('barcode_number') ?? $get('barcode') ?? ''),

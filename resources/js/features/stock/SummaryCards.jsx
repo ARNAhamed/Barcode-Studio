@@ -4,8 +4,8 @@ import Skeleton from '../../components/Skeleton';
 export default function SummaryCards({ summary, isLoading }) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Skeleton count={3} className="h-24" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Skeleton count={3} className="h-20" />
       </div>
     );
   }
@@ -36,11 +36,11 @@ export default function SummaryCards({ summary, isLoading }) {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       {cards.map((card) => (
         <div
           key={card.title}
-          className="bg-white rounded-lg border border-gray-200 p-5"
+          className="bg-white rounded-lg border border-gray-200 p-3.5"
         >
           <p className="text-xs text-gray-500 font-medium">
             {card.title}

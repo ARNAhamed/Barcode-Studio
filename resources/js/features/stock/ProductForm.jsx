@@ -131,7 +131,7 @@ export default function ProductForm({
   const validate = () => {
     const errors = {};
     if (!formData.name.trim()) errors.name = 'Product name is required.';
-    if (!formData.sku.trim()) errors.sku = 'SKU is required.';
+    if (!formData.sku.trim()) errors.sku = 'Item code is required.';
     if (formData.price === '' || isNaN(Number(formData.price)) || Number(formData.price) < 0) {
       errors.price = 'Price must be a positive number.';
     }
@@ -196,10 +196,10 @@ export default function ProductForm({
         )}
       </div>
 
-      {/* SKU (Column 1) */}
+      {/* Item Code (Column 1) */}
       <div className="col-span-1">
         <label htmlFor="sku" className="block text-xs font-medium text-gray-700 mb-1">
-          SKU <span className="text-red-500">*</span>
+          Item Code <span className="text-red-500">*</span>
         </label>
         <input
           id="sku"

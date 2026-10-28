@@ -70,7 +70,7 @@ export default function MainApp() {
         }`}
       >
         <main
-          className={`flex-1 p-4 sm:p-6 lg:p-6 print:p-0 print:m-0 max-w-7xl print:max-w-none w-full mx-auto min-w-0 flex flex-col ${
+          className={`flex-1 p-4 sm:p-5 lg:p-6 print:p-0 print:m-0 max-w-7xl print:max-w-none w-full mx-auto min-w-0 flex flex-col ${
             isTwoPane ? 'lg:min-h-0 lg:h-full lg:overflow-hidden lg:pb-4' : ''
           }`}
         >

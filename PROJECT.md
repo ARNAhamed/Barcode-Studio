@@ -127,18 +127,34 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
   - **Shared Tab Switcher**: Small tab switcher (`Items` | `Suppliers`) rendered directly under the page header on both pages so they feel like one cohesive section.
 
 #### 2.3.1 Items (`/products/items`)
-- Current products inventory page (formerly Stock Management).
-- **Row & Table Density**: Compact rows (~44-48px height, `py-2` on cells), text 14px, secondary text 12-13px, header ~40px with small gray label, 1px dividers, subtle hover. Tight two-line cells with 28-32px action icon buttons. Checkbox, text, and action buttons centered vertically.
-- Columns: Checkbox, Name & SKU, Barcode Number, Supplier (truncated with tooltip, hidden below 1280px), Category, Price, Quantity, Status (In stock / Low / Out), Actions.
+- Current products inventory page (formerly Stock Management). One-line description: "Manage items and suppliers."
+- **Row & Table Density**: Compact rows (40-44px height, `py-1.5` to `py-2` on cells), text 14px, secondary text 11-12px, table header 36-40px (`h-9` or `h-9.5`), 1px dividers, subtle hover. Checkbox, text, and action icon buttons centered vertically. Zero horizontal scrollbar at all screen sizes.
+- **Table Structure & Columns (`table-fixed`)**:
+  - `table-fixed` layout with explicit column widths. Product column minimum 220px, largest share (28-30%).
+  - **Product cell**: Product name in `font-medium text-gray-900`, wraps up to 2 lines with ellipsis after that (`line-clamp-2`, full name in tooltip), and, under it, the Item Code in small muted monospace text (`text-[11px] text-gray-400 font-mono`). Separate Item Code column removed.
+  - **Sort by Item Code**: Header provides sort by Name, with an integrated "Sort by Item code" option/toggle in the header or toolbar.
+  - **Remaining Columns**:
+    - Checkbox: `36px` (`w-[36px] min-w-[36px]`)
+    - Product: `min-w-[220px]` (28-30% share)
+    - Barcode: `120px` (`w-[120px]`)
+    - Category: `110px` (`w-[110px]`, truncated with tooltip)
+    - Supplier: `130px` (`w-[130px]`, truncated with tooltip)
+    - Price: `88px` (`w-[88px] min-w-[88px]`)
+    - Qty: `56px` (`w-[56px] min-w-[56px]`)
+    - Status: `100px` (`w-[100px] min-w-[100px]`)
+    - Actions: `108px` (`w-[108px] min-w-[108px]`)
+  - **Responsive Priority**:
+    - When width is tight, columns hide in this order: Category first (`hidden xl:table-cell`), then Supplier second (`hidden lg:table-cell`), then Barcode third (`hidden lg:table-cell`). Product, Price, Qty, Status, and Actions ALWAYS stay visible.
+    - Below 768px: Stacked cards view where the Product Name is the title.
 - Actions: Edit, Delete (moves to Recycle Bin with Undo toast), **Generate Code** (opens Designer with product pre-selected).
-- **Supplier Filter**: Filter dropdown placed next to search box (All suppliers, each supplier, No supplier).
+- **Supplier Filter**: Filter dropdown placed next to search box (All suppliers, each supplier, No supplier). Search placeholder: "Search by name, item code, barcode...".
 - **Add / Edit Product Modal**:
-  - Centered modal fitting window (`max-h-[calc(100dvh-2rem)]`, width ~560-640px `max-w-xl`, full-screen on mobile).
-  - Fixed header (title + close icon), scrollable body, fixed footer with Cancel (secondary) and Save (primary).
-  - Clean two-column grid on desktop: Name full width, SKU and Barcode with "Generate" Wand button side by side, **Supplier** searchable dropdown (with "+ New supplier" shortcut that opens the supplier modal and selects the new supplier) and Category side by side, Price and Quantity side by side, Low stock threshold, Description full width. One column on mobile.
-  - Inline validation messages, autofocus first field, close on Escape, confirm before closing if unsaved changes.
+  - Centered modal fitting window (`max-h-[calc(100dvh-2rem)]`, width ~560-640px `max-w-xl`, full-screen on mobile, 16-20px padding).
+  - Fixed header (title + close icon), scrollable body, fixed footer with Cancel (secondary) and Save (primary). Touch targets >= 36px.
+  - Clean two-column grid on desktop: Name full width, Item Code and Barcode with "Generate" Wand button side by side, **Supplier** searchable dropdown (with "+ New supplier" shortcut) and Category side by side, Price and Quantity side by side, Low stock threshold, Description full width. One column on mobile.
+  - Inline validation messages ("Item Code is required."), autofocus first field, close on Escape, confirm before closing if unsaved changes.
 - **Header Actions on ONE Row**:
-  - Order: **Import** (secondary), **Export** (secondary), **Generate codes** (secondary, active when items selected), **Add Product** (primary, last).
+  - Order: **Import** (secondary), **Export** (secondary), **Generate codes** (secondary, active when items selected), **Add Product** (primary, last). "Public Page" button and modal settings removed.
   - Placed on one row, right-aligned, `gap-2`, 36px height (`h-9`), `whitespace-nowrap`, never wrapping.
   - Below 768px: Import and Export display as icon-only buttons with tooltips while Add Product keeps its label.
 - **Row Selection & Bulk Actions**:
@@ -149,41 +165,39 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
   - **Generate Codes (Bulk Generation)**:
     - Button in the selection toolbar next to Export: "Generate codes". Disabled when nothing is selected.
     - Limits single run to 500 products (with clear alert message if > 500 selected).
-    - Opens **Bulk Generate Modal** (3 steps, fits window `max-h-[calc(100dvh-2rem)]`, fixed header, scrollable body, fixed footer, responsive, full screen on mobile):
-      - Step 1: Settings (template selection, value source, label text pattern override, missing barcode resolution, invalid format auto-fix, existing code resolution, naming pattern).
+    - Opens **Bulk Generate Modal** (3 steps, fits window `max-h-[calc(100dvh-2rem)]`, fixed header, scrollable body, fixed footer, responsive, full screen on mobile, 16-20px padding):
+      - Step 1: Settings (template selection, value source including Item Code, label text pattern override, missing barcode resolution, invalid format auto-fix, existing code resolution, naming pattern).
       - Step 2: Preview (compact table, live thumbnails of first 3 items, summary counters, filter for problems only, generate disabled if 0 ready items).
       - Step 3: Generate (in-browser rendering matching Designer, batch upload to `POST /codes/bulk`, progress bar, cancel, retry failed, results screen with View in Gallery, Print labels, and Close).
 - **CSV Export & Import**:
-  - **Export (`POST /api/products/export`)**: Exports only selected products (or all matching). Disabled when 0 selected. Output CSV has UTF-8 BOM, standard columns (`name, sku, barcode_number, supplier, category, price, quantity, low_stock_threshold, description`), and date-based filename (e.g. `products-selected-3-YYYY-MM-DD.csv`). Shows success toast upon completion.
-  - **Sample Template (`GET /api/products/import/template`)**: Downloads `products_import_template.csv` with standard headers including `supplier` and example rows.
+  - **Export (`POST /api/products/export`)**: Exports only selected products (or all matching). Disabled when 0 selected. Output CSV has UTF-8 BOM, standard headers (`name, item_code, barcode_number, category, supplier, price, quantity, low_stock_threshold, description`), and date-based filename (e.g. `products-selected-3-YYYY-MM-DD.csv`). Shows success toast upon completion.
+  - **Sample Template (`GET /api/products/import/template`)**: Downloads `products_import_template.csv` with standard headers using `item_code` and example rows.
   - **Import 3-Step Modal**:
+    - Accepts both new `item_code` header and legacy `sku` header.
     - Matches supplier name to existing suppliers (case-insensitive); flags unknown supplier names as a warning; includes toggle "Create missing suppliers".
     - Structured 3-part flex column: fixed header, scrollable body, fixed bottom footer.
     - Validation preview with color-coded badges (`New`, `Update`, `Error`), mode toggle ("Skip existing" / "Update existing"), and auto-generate missing barcodes toggle.
 - Low stock rule: quantity <= `low_stock_threshold` (default 10) shows amber badge; 0 shows red badge.
-- Summary cards on top: Total products, Low stock, Out of stock.
+- Summary cards on top: Total products, Low stock, Out of stock (compact padding 12-14px, 12px gap, one short helper line).
 - Header includes "Recycle Bin" button with count badge (opens `/bin?tab=products`).
 
 #### 2.3.2 Suppliers (`/products/suppliers`)
-- New dedicated Suppliers management page matching Items visual style and layout.
+- Dedicated Suppliers management page matching Items visual style and layout.
 - **Page Header**: Title "Suppliers", one-line description, and actions: "Export" (for selected suppliers), "Add Supplier" (primary).
-- **Summary Cards**:
-  - Total Suppliers
-  - Active Suppliers
-  - Products without a Supplier
+- **Summary Cards**: Total Suppliers, Active Suppliers, Products without a Supplier (compact padding 12-14px, 12px gap).
 - **Compact Table**:
   - Search input, status filter (All, Active, Inactive), sorting, pagination, row selection.
   - Columns: Name (with contact person under it), Mobile, Email, City, Products (count badge linking to `/products/items?supplier_id={id}`), Status (Active / Inactive dot + text), Actions.
   - Responsive column visibility: Hide Email and City below 1280px; keep only Name, Mobile, Products, and Actions below 1024px; stacked cards below 768px. Zero horizontal scroll.
 - **Add / Edit Supplier Modal**:
-  - Centered modal fitting window (`max-h-[calc(100dvh-2rem)]`, `max-w-xl`, full-screen on mobile).
-  - Two-column grid on desktop, one column on mobile. Fixed header, scrollable body, fixed footer.
+  - Centered modal fitting window (`max-h-[calc(100dvh-2rem)]`, `max-w-xl`, full-screen on mobile, 16-20px padding).
+  - Two-column grid on desktop, one column on mobile. Fixed header, scrollable body, fixed footer. Touch targets >= 36px.
   - Fields: Supplier name (required, unique), Contact person, Mobile number (required, Sri Lankan formats accepted, e.g. `0771234567` or `+94771234567`), Phone number, Email, Address line 1, Address line 2, City, Postal code, Country (default "Sri Lanka"), Website, Payment terms (e.g. "30 days"), Notes, Status (`Active` / `Inactive`, default `Active`).
   - Inline validation, Escape to close, unsaved changes confirmation.
 - **View Supplier Drawer / Modal**:
   - Clean card layout with quick contact links: tap-to-call (`tel:`), email (`mailto:`), and map link generated from address.
   - Payment terms, website link, and notes.
-  - Compact list of linked products (name, SKU, price, quantity) with link to view each in Items.
+  - Compact list of linked products: Product Name with Item Code underneath (table-fixed, Product name wraps up to 2 lines, price, quantity) with link to view each in Items.
 - **Delete & Recycle Bin**:
   - Delete soft-deletes supplier to Recycle Bin with undo toast.
   - Products linked to trashed supplier keep link and display "Supplier (deleted)" in muted text.
@@ -255,7 +269,7 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 - Old `/stock/bin` redirects to `/bin?tab=products`.
 - Sidebar navigation includes a "Recycle Bin" item with total trashed count badge (`products + suppliers + codes`).
 - Products, Suppliers, and Gallery headers include a "Recycle Bin" button (`Trash2` icon, count badge) opening `/bin` on their respective tab.
-- **Items tab**: Name, SKU, Category, Price, Quantity, Deleted date, "days left" (30-day retention). Row actions: Restore, Delete permanently (with confirmation modal). Top actions: Restore all, Empty bin.
+- **Items tab**: Product Name (up to 2 lines) with Item Code under it in muted monospace text, Category, Price, Quantity, Deleted date, "days left" (30-day retention). Table-fixed layout with responsive priority matching Items page. Row actions: Restore, Delete permanently (with confirmation modal). Top actions: Restore all, Empty bin.
 - **Suppliers tab**: Name, Contact person, Mobile, City, Deleted date, "days left" (30-day retention). Row actions: Restore, Delete permanently (with confirmation modal). Top actions: Restore all, Empty bin.
 - **Designs tab**: Preview thumbnail, Name, Type badge (Barcode / QR), Format, Deleted date, "days left" (30-day retention). Row actions: Restore, Delete permanently (with confirmation modal that it cannot be undone). Top actions: Restore all, Empty bin (scoped to active tab).
 - Empty states with friendly illustrations & loading skeletons for each tab.
@@ -276,21 +290,17 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 - **Gallery Integration**: Codes created from a template store `template_id` as a foreign key (`nullOnDelete`) plus the template name in settings, displaying "Template: <name>" on their gallery card.
 
 ### 2.7 Public Product Page (`/p/:token`)
-- **Concept**: Public mobile-first product page accessible via QR code scan or direct link.
+- **Concept**: Public mobile-first product page accessible via QR code scan or direct link. Always enabled; always returns complete item and supplier details.
 - **Layout & Aesthetic**:
   - Served on route `/p/:token` with a minimal layout: no sidebar or app navigation, only a sleek top header with the app brand.
   - Mobile-first, clean whitespace, large readable typography, zero clutter, no horizontal scroll.
   - Supports light and dark modes according to system/app theme.
   - Open Graph title and description meta tags for rich link previews in messaging apps and browsers.
 - **Content Cards**:
-  - **Item Card**: Product name as title, category as small muted label, followed by clear label/value rows for Barcode Number, SKU, Price (formatted consistently), and Availability with a semantic status dot (`In stock`, `Low stock`, `Out of stock`).
+  - **Item Card**: Product name as title, category as small muted label, followed by clear label/value rows for Barcode Number, Item Code, Price (formatted consistently), and Availability with a semantic status dot (`In stock`, `Low stock`, `Out of stock`).
   - **Supplier Card**: Supplier name, contact person, mobile (tap-to-call `tel:`), landline, email (tap-to-email `mailto:`), address (tap to open in Google Maps), and payment terms if present.
     - If the product has no supplier assigned: shows a muted "No supplier information".
     - If the supplier is soft-deleted: shows "Supplier unavailable".
-- **Settings & Controls**:
-  - `public_page_enabled` (default `true`): When disabled, the page displays a neutral "This page is not available." message and the public API returns 403 / disabled payload.
-  - `public_page_show_supplier` (default `true`): When disabled, supplier details are completely omitted from the API response (not merely hidden in CSS).
-  - Toggles accessible from a dedicated "Public product page" settings menu on the Products > Items page.
 - **Security & Privacy**:
   - Rate-limited endpoint (`throttle:60,1`).
   - Never exposes internal database IDs, cost prices, or internal notes.
@@ -458,15 +468,21 @@ Below 1024px, panes stack with the preview sticky at top (compact, max 40vh) and
 | GET | `/print-presets` | list saved sheet print presets |
 | POST | `/print-presets` | save new sheet print preset |
 | DELETE | `/print-presets/{id}` | delete saved sheet print preset |
-| GET | `/public/products/{token}` | public rate-limited view endpoint: returns sanitized product & supplier (if enabled) |
-| GET | `/settings` | get public product page settings (`public_page_enabled`, `public_page_show_supplier`) |
-| PUT | `/settings` | update app settings (`public_page_enabled`, `public_page_show_supplier`) |
+| GET | `/public/products/{token}` | public rate-limited view endpoint: always returns sanitized product & supplier details |
 
 Backend rules: use Form Requests for validation, API Resources for responses, consistent JSON errors, run `php artisan storage:link`. React calls the API at the relative path `/api` (same origin, no CORS needed).
 
 ## 5. UI / UX Design System
 
 **Aesthetic:** Calm, minimalistic, flat interface. Fewer colors, zero decorations, generous whitespace, clear hierarchy. No gradients, glows, colored shadows, decorative blobs, heavy borders, or unnecessary animations. 150ms transitions on color and background only.
+
+**Spacing System & Tokens:**
+- **Page Padding**: 16–20px (`p-4 sm:p-5`), at most 24px on large desktop (`lg:p-6`).
+- **Page Header**: Bottom margin 12px (`pb-3 mb-3 border-b border-gray-200`).
+- **Section Gaps**: 12px gap (`space-y-3` / `gap-3`) between tab switcher, summary cards, toolbar, and table.
+- **Summary Cards**: Smaller padding 12–14px (`p-3 sm:p-3.5`), 12px gap between cards (`gap-3`), one short helper line.
+- **Table Card**: Toolbar padding 10–12px (`p-2.5 sm:p-3`), zero extra margin between toolbar and table header, table header height 36–40px (`h-9` or `h-9.5`), row height 40–44px, pagination padding 8–12px (`p-2 sm:p-2.5`).
+- **Modals & Drawers**: 16–20px padding (`p-4 sm:p-5`), touch targets at least 36px (`h-9`).
 
 **Design Tokens**
 | Token | Value | Usage |
@@ -510,10 +526,10 @@ Backend rules: use Form Requests for validation, API Resources for responses, co
    - White surface, 1px border (`border-gray-300`), 8px radius (`rounded-lg`), 36px height (`h-9`), accent focus ring (`focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600`).
    - Plain labels above fields, helper and error text under them.
 3. **Cards:**
-   - White surface, 1px border (`border-gray-200`), no shadow, no colored left borders, no gradients, generous padding (`p-5` or `p-6`).
+   - White surface, 1px border (`border-gray-200`), no shadow, no colored left borders, no gradients, compact padding (`p-4` or `p-5`).
 4. **Tables:**
-   - Compact rows (~44–48px height, `py-2` on cells), text 14px, secondary text 12–13px, header ~40px without heavy background. 1px row dividers (`divide-y divide-gray-100`), subtle row hover (`hover:bg-gray-50/75`), no zebra striping. Checkbox, text, and action icons (28–32px) vertically centered. Tight two-line cells with reduced gap.
-   - **Column Alignment**: The Product column and its checkbox are left-aligned (`text-left`). All other columns (SKU, Barcode / EAN, Category, Price, Qty, Status, and Actions) have **center-aligned header labels and center-aligned cell contents** (`text-center`). Sort arrows sit beside centered header labels in an inline-flex container (`inline-flex items-center justify-center gap-1`) without shifting the label text off-center. Applied consistently across Stock, Recycle Bin, and CSV import tables.
+   - Compact rows (40–44px height, `py-1.5` to `py-2` on cells), text 14px, secondary text 11–12px, header 36–40px without heavy background. 1px row dividers (`divide-y divide-gray-100`), subtle row hover (`hover:bg-gray-50/75`), no zebra striping. Checkbox, text, and action icons (28–32px) vertically centered. Tight two-line cells with reduced gap.
+   - **Column Alignment**: The Product column and its checkbox are left-aligned (`text-left`). All other columns (Barcode / EAN, Category, Price, Qty, Status, and Actions) have **center-aligned header labels and center-aligned cell contents** (`text-center`). Sort arrows sit beside centered header labels in an inline-flex container (`inline-flex items-center justify-center gap-1`) without shifting the label text off-center.
 5. **Badges:**
    - Neutral gray background with dark gray text (`bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded`).
    - Semantic status badges use a small colored dot plus plain text (`text-gray-700`), not filled pills.
@@ -525,16 +541,16 @@ Backend rules: use Form Requests for validation, API Resources for responses, co
 7. **Page Headers:**
    - Shared flex row across all pages: title (`text-xl font-semibold text-gray-900`) and one-line description (max-width ~640px, text 13-14px gray, truncated or neatly wrapped) on left.
    - Action buttons right-aligned, vertically aligned with title's line.
-   - Uniform height, padding, and bottom margin (`mb-6`) across all pages. On narrow screens actions wrap neatly under the title, left-aligned.
+   - Uniform height, padding, and bottom margin (`mb-3 pb-3`) across all pages. On narrow screens actions wrap neatly under the title, left-aligned.
 8. **Summary Cards (Stock):**
-   - Plain bordered white cards with small gray label, large number (`text-2xl font-semibold text-gray-900`), and optional muted helper text. No colored left borders or tinted backgrounds. Low stock number amber and out-of-stock red only if > 0.
+   - Plain bordered white cards with small gray label, large number (`text-2xl font-semibold text-gray-900`), and optional muted helper text. Compact padding 12–14px (`p-3.5`), 12px gap (`gap-3`). Low stock number amber and out-of-stock red only if > 0.
 9. **Gallery Cards:**
    - Code preview centered on neutral light gray background (`bg-zinc-100`), name and metadata below, actions as ghost icon buttons (visible on hover on desktop, always visible on touch).
 10. **Workspaces (Designer & Print):**
     - Neutral light gray canvas (`bg-zinc-100`), white artboard/paper sheet with hairline border (`border-gray-200`) and subtle boundary, without heavy drop shadows.
     - Two-pane independent scrolling at 1024px and above: Page body and root container do NOT scroll (`overflow: hidden`, `height: calc(100dvh - <header height>)`). Left pane (preview) is fixed with auto-fit content; right pane (editor/settings) has independent `overflow-y-auto` with thin scrollbar and `overscroll-behavior: contain`. Scrolling over one pane never moves the other pane or the outer window. Below 1024px, preview is sticky at top with controls scrolling underneath. List pages (Gallery, Stock, Bin) retain standard vertical document scrolling.
 11. **Modals & Drawers:**
-    - White surface, 12px radius (`rounded-xl`), dim blurred overlay (`bg-gray-900/40 backdrop-blur-xs`), clean header with title and close icon, generous spacing, fixed footer with secondary and primary buttons aligned right.
+    - White surface, 12px radius (`rounded-xl`), dim blurred overlay (`bg-gray-900/40 backdrop-blur-xs`), clean header with title and close icon, compact padding (16–20px), fixed footer with secondary and primary buttons aligned right. Touch targets at least 36px.
     - Fits window (`max-h-[calc(100dvh-2rem)]`), scrollable body, full-screen on mobile (`390px`).
     - Form layouts use clean 2-column grid on desktop, single column on mobile, inline validation, autofocus first field, close on Escape, unsaved changes confirmation.
 12. **Toasts:**

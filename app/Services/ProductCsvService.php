@@ -88,7 +88,7 @@ class ProductCsvService
             'Expires' => '0',
         ];
 
-        $columns = ['name', 'sku', 'barcode_number', 'category', 'supplier', 'price', 'quantity', 'low_stock_threshold', 'description'];
+        $columns = ['name', 'item_code', 'barcode_number', 'category', 'supplier', 'price', 'quantity', 'low_stock_threshold', 'description'];
 
         return response()->stream(function () use ($query, $columns) {
             $handle = fopen('php://output', 'w');
@@ -131,7 +131,7 @@ class ProductCsvService
             'Expires' => '0',
         ];
 
-        $columns = ['name', 'sku', 'barcode_number', 'category', 'supplier', 'price', 'quantity', 'low_stock_threshold', 'description'];
+        $columns = ['name', 'item_code', 'barcode_number', 'category', 'supplier', 'price', 'quantity', 'low_stock_threshold', 'description'];
 
         return response()->stream(function () use ($columns) {
             $handle = fopen('php://output', 'w');
@@ -183,7 +183,7 @@ class ProductCsvService
             $warnings = [];
 
             $name = trim($data['name'] ?? '');
-            $sku = trim($data['sku'] ?? '');
+            $sku = trim($data['item_code'] ?? $data['sku'] ?? '');
             $barcode = trim($data['barcode_number'] ?? '');
             $supplierName = trim($data['supplier'] ?? '');
             $priceRaw = trim($data['price'] ?? '');
@@ -198,7 +198,7 @@ class ProductCsvService
             }
 
             if ($sku === '') {
-                $errors[] = 'SKU is required.';
+                $errors[] = 'Item code is required.';
             }
 
             // 2. Supplier lookup
@@ -238,7 +238,7 @@ class ProductCsvService
             // 4. In-file duplicates
             if ($sku !== '') {
                 if (isset($seenSkus[$sku])) {
-                    $errors[] = "Duplicate SKU '{$sku}' found inside import file.";
+                    $errors[] = "Duplicate Item Code '{$sku}' found inside import file.";
                 } else {
                     $seenSkus[$sku] = true;
                 }
@@ -255,7 +255,7 @@ class ProductCsvService
             // 5. Recycle Bin checks
             if ($sku !== '') {
                 if (Product::onlyTrashed()->where('sku', $sku)->exists()) {
-                    $errors[] = "SKU '{$sku}' belongs to a product in the Recycle Bin. Restore or delete it first.";
+                    $errors[] = "Item Code '{$sku}' belongs to a product in the Recycle Bin. Restore or delete it first.";
                 }
             }
 
@@ -278,7 +278,7 @@ class ProductCsvService
                     ->first();
 
                 if ($barcodeConflict) {
-                    $errors[] = "Barcode '{$barcode}' is already assigned to '{$barcodeConflict->name}' (SKU: {$barcodeConflict->sku}).";
+                    $errors[] = "Barcode '{$barcode}' is already assigned to '{$barcodeConflict->name}' (Item Code: {$barcodeConflict->sku}).";
                 }
             }
 

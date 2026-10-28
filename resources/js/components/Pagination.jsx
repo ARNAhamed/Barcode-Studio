@@ -15,7 +15,7 @@ export default function Pagination({
   if (!lastPage || lastPage <= 1) {
     if (total > 0) {
       return (
-        <div className={`px-4 py-3 sm:px-6 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500 ${className}`}>
+        <div className={`px-3 py-2 sm:px-4 sm:py-2.5 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500 ${className}`}>
           <span>
             Showing <strong className="font-medium text-gray-900">{from}</strong> to{' '}
             <strong className="font-medium text-gray-900">{to}</strong> of{' '}
@@ -45,7 +45,7 @@ export default function Pagination({
 
   return (
     <div
-      className={`px-4 py-3 sm:px-6 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 ${className}`}
+      className={`px-3 py-2 sm:px-4 sm:py-2.5 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-2.5 ${className}`}
     >
       {/* Left: Showing x to y of z */}
       <div className="text-xs text-gray-500 self-start sm:self-auto">

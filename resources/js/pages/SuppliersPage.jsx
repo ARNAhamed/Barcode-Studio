@@ -171,9 +171,9 @@ export default function SuppliersPage() {
   const sortOrder = sort.startsWith('-') ? 'desc' : 'asc';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-3 border-b border-gray-200">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
             Suppliers
@@ -219,9 +219,9 @@ export default function SuppliersPage() {
       <ProductsTabNav />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {/* Total Suppliers */}
-        <div className="p-4 bg-white border border-gray-200 rounded-lg">
+        <div className="p-3.5 bg-white border border-gray-200 rounded-lg">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-gray-500">Total Suppliers</span>
             <div className="p-1.5 bg-gray-50 rounded-md text-gray-600">
@@ -235,7 +235,7 @@ export default function SuppliersPage() {
         </div>
 
         {/* Active Suppliers */}
-        <div className="p-4 bg-white border border-gray-200 rounded-lg">
+        <div className="p-3.5 bg-white border border-gray-200 rounded-lg">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-gray-500">Active Suppliers</span>
             <div className="p-1.5 bg-green-50 rounded-md text-[#16A34A]">
@@ -251,7 +251,7 @@ export default function SuppliersPage() {
         {/* Products without a Supplier */}
         <div
           onClick={() => navigate('/products/items?no_supplier=1')}
-          className="p-4 bg-white border border-gray-200 rounded-lg hover:border-indigo-300 transition-colors cursor-pointer group"
+          className="p-3.5 bg-white border border-gray-200 rounded-lg hover:border-indigo-300 transition-colors cursor-pointer group"
           title="Click to view products without a supplier in Items"
         >
           <div className="flex items-center justify-between">

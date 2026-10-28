@@ -195,7 +195,7 @@ export default function StockBinPage() {
             <thead>
               <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 <th className="py-3 px-4 sm:px-6 text-left">Product</th>
-                <th className="py-3 px-4 text-center">SKU</th>
+                <th className="py-3 px-4 text-center">Item Code</th>
                 <th className="py-3 px-4 text-center">Category</th>
                 <th className="py-3 px-4 text-center">Price</th>
                 <th className="py-3 px-4 text-center">Qty</th>
@@ -386,7 +386,7 @@ export default function StockBinPage() {
               <span>Permanent Deletion Warning</span>
             </div>
             <p className="font-semibold text-slate-900">{productToDelete.name}</p>
-            <p className="text-xs font-mono text-slate-500">SKU: {productToDelete.sku}</p>
+            <p className="text-xs font-mono text-slate-500">Item Code: {productToDelete.sku}</p>
           </div>
         )}
       </Modal>

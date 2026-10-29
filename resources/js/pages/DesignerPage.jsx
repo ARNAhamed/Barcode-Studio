@@ -57,7 +57,9 @@ const DEFAULT_BARCODE_SETTINGS = {
   displayValue: true,
   fontSize: 14,
   lineColor: '#000000',
+  codeBackground: 'transparent',
   background: '#ffffff',
+  numberColor: null,
   label: '',
   labelColor: null,
   labelFontSize: 11,
@@ -76,6 +78,7 @@ const DEFAULT_QR_SETTINGS = {
   dotStyle: 'rounded',
   cornerStyle: 'extra-rounded',
   foreground: '#0F172A',
+  codeBackground: 'transparent',
   background: '#ffffff',
   logo: null,
   label: '',
@@ -96,6 +99,7 @@ const INITIAL_ARTBOARD_SETTINGS = {
   width: 60,
   height: 40,
   orientation: 'landscape',
+  background: '#ffffff',
 };
 
 // Helper to extract comparable design attributes
@@ -109,7 +113,7 @@ const extractDesignSettings = (mode, codeSettings, artboard, exportDpi) => {
       height: Number(artboard?.height),
       unit: artboard?.unit,
       orientation: artboard?.orientation,
-      background: artboard?.background,
+      background: artboard?.background || '#ffffff',
       border: Boolean(artboard?.border?.enabled),
       radius: Number(artboard?.radius),
       alignment: artboard?.alignment,
@@ -133,12 +137,15 @@ const extractDesignSettings = (mode, codeSettings, artboard, exportDpi) => {
       displayValue: Boolean(codeSettings?.displayValue),
       fontSize: Number(codeSettings?.fontSize),
       lineColor: codeSettings?.lineColor,
+      codeBackground: codeSettings?.codeBackground !== undefined ? codeSettings.codeBackground : codeSettings?.background,
       background: codeSettings?.background,
+      numberColor: codeSettings?.numberColor || null,
       labelFontSize: Number(codeSettings?.labelFontSize),
       labelFontUnit: codeSettings?.labelFontUnit,
       labelGap: Number(codeSettings?.labelGap),
       labelWeight: codeSettings?.labelWeight,
       labelAlign: codeSettings?.labelAlign,
+      labelColor: codeSettings?.labelColor || null,
       labelPattern: codeSettings?.labelPattern || '',
     };
   } else {
@@ -150,12 +157,14 @@ const extractDesignSettings = (mode, codeSettings, artboard, exportDpi) => {
       dotStyle: codeSettings?.dotStyle,
       cornerStyle: codeSettings?.cornerStyle,
       foreground: codeSettings?.foreground,
+      codeBackground: codeSettings?.codeBackground !== undefined ? codeSettings.codeBackground : codeSettings?.background,
       background: codeSettings?.background,
       labelFontSize: Number(codeSettings?.labelFontSize),
       labelFontUnit: codeSettings?.labelFontUnit,
       labelGap: Number(codeSettings?.labelGap),
       labelWeight: codeSettings?.labelWeight,
       labelAlign: codeSettings?.labelAlign,
+      labelColor: codeSettings?.labelColor || null,
       labelPattern: codeSettings?.labelPattern || '',
     };
   }
@@ -665,24 +674,30 @@ export default function DesignerPage() {
     }
   };
 
-  // Color swap handler
+  // Color swap handler (swaps code color and code background only; never changes artboard background)
   const handleSwapColors = () => {
     if (type === 'barcode') {
       const oldLine = barcodeSettings.lineColor || '#000000';
-      const oldBg = barcodeSettings.background || '#ffffff';
-      setBarcodeSettings((prev) => ({ ...prev, lineColor: oldBg, background: oldLine }));
-      if (artboardSettings.preset !== 'auto') {
-        setArtboardSettings((prev) => ({ ...prev, background: oldLine }));
-      }
-      localStorage.setItem('designer_last_colors', JSON.stringify({ lineColor: oldBg, background: oldLine }));
+      const rawOldBg = barcodeSettings.codeBackground !== undefined ? barcodeSettings.codeBackground : (barcodeSettings.background || '#ffffff');
+      const nextLine = rawOldBg === 'transparent' ? '#ffffff' : rawOldBg;
+      setBarcodeSettings((prev) => ({
+        ...prev,
+        lineColor: nextLine,
+        codeBackground: oldLine,
+        background: oldLine,
+      }));
+      localStorage.setItem('designer_last_colors', JSON.stringify({ lineColor: nextLine, codeBackground: oldLine, background: oldLine }));
     } else {
       const oldFg = qrSettings.foreground || '#0F172A';
-      const oldBg = qrSettings.background || '#ffffff';
-      setQrSettings((prev) => ({ ...prev, foreground: oldBg, background: oldFg }));
-      if (artboardSettings.preset !== 'auto') {
-        setArtboardSettings((prev) => ({ ...prev, background: oldFg }));
-      }
-      localStorage.setItem('designer_last_colors', JSON.stringify({ foreground: oldBg, background: oldFg }));
+      const rawOldBg = qrSettings.codeBackground !== undefined ? qrSettings.codeBackground : (qrSettings.background || '#ffffff');
+      const nextFg = rawOldBg === 'transparent' ? '#ffffff' : rawOldBg;
+      setQrSettings((prev) => ({
+        ...prev,
+        foreground: nextFg,
+        codeBackground: oldFg,
+        background: oldFg,
+      }));
+      localStorage.setItem('designer_last_colors', JSON.stringify({ foreground: nextFg, codeBackground: oldFg, background: oldFg }));
     }
   };
 

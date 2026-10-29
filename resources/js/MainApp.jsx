@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Sidebar from './components/Sidebar';
+import ErrorBoundary from './components/ErrorBoundary';
 import GalleryPage from './pages/GalleryPage';
 import DesignerPage from './pages/DesignerPage';
 import ItemsPage from './pages/ItemsPage';
@@ -74,22 +75,24 @@ export default function MainApp() {
             isTwoPane ? 'lg:min-h-0 lg:h-full lg:overflow-hidden lg:pb-4' : ''
           }`}
         >
-          <Routes>
-            <Route path="/" element={<GalleryPage />} />
-            <Route path="/designer" element={<DesignerPage />} />
-            <Route path="/designer/:id" element={<DesignerPage />} />
-            <Route path="/products" element={<Navigate to="/products/items" replace />} />
-            <Route path="/products/items" element={<ItemsPage />} />
-            <Route path="/products/suppliers" element={<SuppliersPage />} />
-            <Route path="/stock" element={<Navigate to="/products/items" replace />} />
-            <Route path="/stock/items" element={<Navigate to="/products/items" replace />} />
-            <Route path="/stock/suppliers" element={<Navigate to="/products/suppliers" replace />} />
-            <Route path="/stock/bin" element={<Navigate to="/bin?tab=products" replace />} />
-            <Route path="/stock/*" element={<Navigate to="/products/items" replace />} />
-            <Route path="/print" element={<PrintLabelsPage />} />
-            <Route path="/bin" element={<RecycleBinPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<GalleryPage />} />
+              <Route path="/designer" element={<DesignerPage />} />
+              <Route path="/designer/:id" element={<DesignerPage />} />
+              <Route path="/products" element={<Navigate to="/products/items" replace />} />
+              <Route path="/products/items" element={<ItemsPage />} />
+              <Route path="/products/suppliers" element={<SuppliersPage />} />
+              <Route path="/stock" element={<Navigate to="/products/items" replace />} />
+              <Route path="/stock/items" element={<Navigate to="/products/items" replace />} />
+              <Route path="/stock/suppliers" element={<Navigate to="/products/suppliers" replace />} />
+              <Route path="/stock/bin" element={<Navigate to="/bin?tab=products" replace />} />
+              <Route path="/stock/*" element={<Navigate to="/products/items" replace />} />
+              <Route path="/print" element={<PrintLabelsPage />} />
+              <Route path="/bin" element={<RecycleBinPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </ErrorBoundary>
         </main>
       </div>
     </div>

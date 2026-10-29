@@ -402,7 +402,8 @@ export default function DesignGroupControls({
   // LABEL INSERTION & RESOLUTION
   // -------------------------------------------------------------
   const handleInsertPlaceholder = (token) => {
-    const current = settings.label || '';
+    const raw = typeof settings.label === 'string' ? settings.label : (settings.label?.text || '');
+    const current = raw || '';
     const input = labelInputRef?.current;
     if (!input) {
       const nextVal = current ? `${current} ${token}` : token;
@@ -426,12 +427,13 @@ export default function DesignGroupControls({
 
   // Live preview text for label
   const resolvedLabelPreview = useMemo(() => {
-    if (!settings.label) return '';
+    const raw = typeof settings.label === 'string' ? settings.label : (settings.label?.text || '');
+    if (!raw) return '';
     if (selectedProduct) {
-      return fillPlaceholders(settings.label, selectedProduct);
+      return fillPlaceholders(raw, selectedProduct);
     }
     // Before product is picked, resolve against sample product or show raw
-    return fillPlaceholders(settings.label, SAMPLE_PRODUCT);
+    return fillPlaceholders(raw, SAMPLE_PRODUCT);
   }, [settings.label, selectedProduct]);
 
   // Scannability warning
@@ -447,8 +449,25 @@ export default function DesignGroupControls({
 
   // Color values
   const codeColor = type === 'barcode' ? (settings.lineColor || '#000000') : (settings.foreground || '#0F172A');
-  const bgColor = settings.background || '#ffffff';
+  const rawCodeBg = settings.codeBackground !== undefined ? settings.codeBackground : (settings.background || '#ffffff');
+  const isCodeBgTransparent = rawCodeBg === 'transparent';
+  const codeBackground = isCodeBgTransparent ? '#ffffff' : rawCodeBg;
+
+  // Single source of truth for label color
   const labelColor = settings.labelColor || (settings.label && typeof settings.label === 'object' ? settings.label.color : null) || codeColor;
+
+  // Collapsible Artboard section state
+  const [isArtboardSectionOpen, setIsArtboardSectionOpen] = useState(() => {
+    return localStorage.getItem('designer_artboard_section_open') === 'true';
+  });
+
+  const handleToggleArtboardSection = () => {
+    setIsArtboardSectionOpen((prev) => {
+      const next = !prev;
+      localStorage.setItem('designer_artboard_section_open', String(next));
+      return next;
+    });
+  };
 
   const handleCodeColorChange = (newColor) => {
     if (type === 'barcode') {
@@ -458,20 +477,22 @@ export default function DesignGroupControls({
     }
   };
 
-  const handleBgColorChange = (newColor) => {
-    onChangeSettings({ ...settings, background: newColor });
-    if (artboardSettings?.preset !== 'auto') {
-      onChangeArtboard({ ...artboardSettings, background: newColor });
-    }
+  const handleCodeBgChange = (newColor) => {
+    onChangeSettings({ ...settings, codeBackground: newColor, background: newColor });
   };
 
-  const handleLabelColorChange = (newColor) => {
-    onChangeSettings({ ...settings, labelColor: newColor });
+  const handleToggleCodeBgTransparent = () => {
+    const nextBg = isCodeBgTransparent ? '#ffffff' : 'transparent';
+    onChangeSettings({ ...settings, codeBackground: nextBg, background: nextBg });
   };
 
-  const handleMatchCodeColor = () => {
-    onChangeSettings({ ...settings, labelColor: codeColor });
-  };
+  const artboardBg = artboardSettings?.background !== undefined
+    ? artboardSettings.background
+    : (settings.background || '#ffffff');
+
+  const artboardLabel = artboardPresetKey === 'auto'
+    ? 'Fit to code'
+    : `${artboardSettings.width || 60} × ${artboardSettings.height || 40} ${activeUnit}`;
 
   const isMultiLine = Boolean(settings.label && settings.label.includes('\n'));
 
@@ -540,7 +561,7 @@ export default function DesignGroupControls({
         </div>
       )}
 
-      {/* 3. Label text with Insert popover menu + Size & Gap Steppers */}
+      {/* 3. Label text with Insert popover menu + Quick Size, Gap, and Color Row */}
       <div className="min-w-0 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <label className="text-xs font-semibold text-gray-800">Label text</label>
@@ -637,7 +658,7 @@ export default function DesignGroupControls({
           <textarea
             ref={labelInputRef}
             rows={2}
-            value={settings.label || ''}
+            value={typeof settings.label === 'string' ? settings.label : (settings.label?.text || '')}
             onChange={(e) => onChangeSettings({ ...settings, label: e.target.value })}
             placeholder="e.g. {name} • {price}"
             className="w-full p-2 bg-white border border-gray-300 rounded-lg text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors resize-none leading-relaxed"
@@ -646,15 +667,15 @@ export default function DesignGroupControls({
           <input
             ref={labelInputRef}
             type="text"
-            value={settings.label || ''}
+            value={typeof settings.label === 'string' ? settings.label : (settings.label?.text || '')}
             onChange={(e) => onChangeSettings({ ...settings, label: e.target.value })}
             placeholder="e.g. {name} • {price}"
             className="w-full h-9 px-3 bg-white border border-gray-300 rounded-lg text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition-colors"
           />
         )}
 
-        {/* Quick Size and Gap Row */}
-        <div className="flex items-center justify-between gap-3 p-1.5 bg-gray-50 rounded-lg border border-gray-200 flex-wrap">
+        {/* Quick Row: Size, Gap, and Color (Single Source of Truth for Label Color) */}
+        <div className="flex items-center justify-between gap-2 p-1.5 bg-gray-50 rounded-lg border border-gray-200 flex-wrap">
           <CompactStepper
             label="Size"
             value={settings.labelFontSize || 11}
@@ -676,6 +697,23 @@ export default function DesignGroupControls({
             shiftStep={10}
             unit="px"
           />
+
+          {/* Compact Color Control */}
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[11px] font-medium text-gray-600 shrink-0">Color:</span>
+            <div className="flex items-center gap-1 h-7.5 px-1.5 bg-white border border-gray-300 rounded-lg hover:border-gray-400 focus-within:border-indigo-600 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-colors">
+              <input
+                type="color"
+                value={labelColor}
+                onChange={(e) => onChangeSettings({ ...settings, labelColor: e.target.value })}
+                className="w-4 h-4 rounded cursor-pointer border border-gray-200 p-0 shrink-0"
+                title="Label text color"
+              />
+              <span className="text-[10px] font-mono text-gray-700 uppercase truncate">
+                {labelColor}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Live Resolved Label Preview Line */}
@@ -689,7 +727,7 @@ export default function DesignGroupControls({
         )}
       </div>
 
-      {/* 4. CODE SIZE BLOCK (Units Switch + Code Size Chips + Integrated Artboard Row) */}
+      {/* 4. CODE SIZE BLOCK (Units Switch + Code Size Chips) */}
       <div className="min-w-0 space-y-2.5 pt-1">
         {/* Title row with global Unit Switch */}
         <div className="flex items-center justify-between gap-2">
@@ -825,119 +863,241 @@ export default function DesignGroupControls({
             )}
           </div>
         )}
+      </div>
 
-        {/* ------------------------------------------------------------- */}
-        {/* ARTBOARD ROW (Integrated inside Size block) */}
-        {/* ------------------------------------------------------------- */}
-        <div className="pt-2 border-t border-gray-100 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <label className="text-xs font-semibold text-gray-800">Artboard</label>
-            {artboardPresetKey !== 'auto' && artboardPresetKey !== 'custom' && (
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-mono text-gray-400">
-                  {artboardSettings.width} × {artboardSettings.height} {activeUnit}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleSwapArtboardOrientation}
-                  className="p-1 rounded text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors cursor-pointer"
-                  title="Swap orientation (Landscape / Portrait)"
+      {/* 5. SINGLE COLLAPSIBLE ARTBOARD SECTION DIRECTLY BELOW SIZE */}
+      <div className="border border-gray-200 rounded-lg bg-white overflow-hidden min-w-0">
+        <button
+          type="button"
+          onClick={handleToggleArtboardSection}
+          className="w-full px-3.5 py-2.5 flex items-center justify-between text-left hover:bg-gray-50 transition-colors cursor-pointer select-none"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xs font-semibold text-gray-800 truncate">Artboard</span>
+            <span className="text-[11px] font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 truncate">
+              {artboardLabel}
+            </span>
+          </div>
+          <ChevronDown
+            className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-150 shrink-0 ${
+              isArtboardSectionOpen ? 'rotate-180' : ''
+            }`}
+          />
+        </button>
+
+        {isArtboardSectionOpen && (
+          <div className="p-3.5 pt-2 space-y-3.5 border-t border-gray-100 min-w-0 bg-gray-50/30">
+            {/* 1. Artboard size select (Fit to code, presets, Custom) */}
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <label className="text-xs font-medium text-gray-700">Artboard size</label>
+                {artboardPresetKey !== 'auto' && artboardPresetKey !== 'custom' && (
+                  <button
+                    type="button"
+                    onClick={handleSwapArtboardOrientation}
+                    className="p-1 rounded text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors cursor-pointer inline-flex items-center gap-1 text-[11px]"
+                    title="Swap orientation (Landscape / Portrait)"
+                  >
+                    <RotateCw className="w-3 h-3 stroke-[1.5]" />
+                    <span>Swap</span>
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <select
+                  value={artboardPresetKey}
+                  onChange={(e) => handleArtboardSelectChange(e.target.value)}
+                  className="w-full h-8.5 pl-3 pr-8 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-800 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 appearance-none cursor-pointer transition-colors"
                 >
-                  <RotateCw className="w-3.5 h-3.5 stroke-[1.5]" />
-                </button>
+                  <option value="auto">Fit to code (default)</option>
+                  <option value="small_label">Small label (50 × 25 mm)</option>
+                  <option value="shelf_label">Shelf label (60 × 40 mm)</option>
+                  <option value="product_label">Product label (100 × 50 mm)</option>
+                  <option value="shipping_label">Shipping label (100 × 150 mm)</option>
+                  <option value="square_50">Square (50 × 50 mm)</option>
+                  <option value="a6">A6 (105 × 148 mm)</option>
+                  <option value="a5">A5 (148 × 210 mm)</option>
+                  <option value="a4">A4 (210 × 297 mm)</option>
+                  <option value="business_card">Business card (90 × 55 mm)</option>
+                  <option value="custom">Custom...</option>
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none stroke-[1.5]" />
+              </div>
+
+              {/* Custom Artboard Inputs */}
+              {artboardPresetKey === 'custom' && (
+                <div className="mt-2 p-2.5 bg-white rounded-lg border border-gray-200 grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-5">
+                    <span className="block text-[10px] text-gray-500 mb-0.5">Width ({activeUnit})</span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={artboardSettings.width || ''}
+                      onChange={(e) => onChangeArtboard({ ...artboardSettings, preset: 'custom', width: parseFloat(e.target.value) || 0 })}
+                      className="w-full h-8 px-2 bg-white border border-gray-300 rounded text-xs font-mono"
+                    />
+                  </div>
+
+                  <div className="col-span-2 flex justify-center pt-3">
+                    <button
+                      type="button"
+                      onClick={handleSwapArtboardOrientation}
+                      className="p-1 rounded text-gray-500 hover:text-gray-900 hover:bg-gray-100 cursor-pointer"
+                      title="Swap orientation"
+                    >
+                      <RotateCw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="col-span-5">
+                    <span className="block text-[10px] text-gray-500 mb-0.5">Height ({activeUnit})</span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={artboardSettings.height || ''}
+                      onChange={(e) => onChangeArtboard({ ...artboardSettings, preset: 'custom', height: parseFloat(e.target.value) || 0 })}
+                      className="w-full h-8 px-2 bg-white border border-gray-300 rounded text-xs font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 2. Artboard background */}
+            <div>
+              <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Artboard background</label>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[
+                  { label: 'White', value: '#ffffff' },
+                  { label: 'Off-White', value: '#f8fafc' },
+                  { label: 'Slate', value: '#f1f5f9' },
+                  { label: 'Warm Cream', value: '#fef3c7' },
+                  { label: 'Soft Mint', value: '#ecfdf5' },
+                  { label: 'Ice Blue', value: '#eff6ff' },
+                  { label: 'Dark Charcoal', value: '#0f172a' },
+                ].map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => onChangeArtboard({ ...artboardSettings, background: c.value })}
+                    style={{ backgroundColor: c.value }}
+                    className={`w-6 h-6 rounded-md border transition-transform cursor-pointer ${
+                      artboardBg === c.value
+                        ? 'scale-110 border-indigo-600 ring-2 ring-indigo-200'
+                        : 'border-gray-300 hover:scale-105'
+                    }`}
+                    title={c.label}
+                  />
+                ))}
+                <input
+                  type="color"
+                  value={artboardBg}
+                  onChange={(e) => onChangeArtboard({ ...artboardSettings, background: e.target.value })}
+                  className="w-6 h-6 rounded-md border border-gray-300 cursor-pointer p-0"
+                  title="Custom artboard color"
+                />
+              </div>
+            </div>
+
+            {/* 3. Border */}
+            <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+              <label className="text-xs font-medium text-gray-700 cursor-pointer flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={artboardSettings.border?.enabled ?? false}
+                  onChange={(e) =>
+                    onChangeArtboard({
+                      ...artboardSettings,
+                      border: { ...(artboardSettings.border || {}), enabled: e.target.checked },
+                    })
+                  }
+                  className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                />
+                <span>Border</span>
+              </label>
+              {artboardSettings.border?.enabled && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={artboardSettings.border?.color || '#cbd5e1'}
+                    onChange={(e) =>
+                      onChangeArtboard({
+                        ...artboardSettings,
+                        border: { ...artboardSettings.border, color: e.target.value },
+                      })
+                    }
+                    className="w-5 h-5 rounded cursor-pointer border border-gray-300 p-0"
+                  />
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={artboardSettings.border?.width || 1}
+                    onChange={(e) =>
+                      onChangeArtboard({
+                        ...artboardSettings,
+                        border: { ...artboardSettings.border, width: parseInt(e.target.value, 10) || 1 },
+                      })
+                    }
+                    className="w-12 h-6 px-1.5 text-xs text-center border border-gray-300 rounded font-mono"
+                  />
+                  <span className="text-[10px] text-gray-400">px</span>
+                </div>
+              )}
+            </div>
+
+            {/* 4. Corner Radius */}
+            <div>
+              <div className="flex justify-between items-center text-xs mb-1">
+                <span className="text-gray-700 font-medium">Corner radius</span>
+                <span className="font-mono text-gray-500">{artboardSettings.radius || 0}px</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="40"
+                step="1"
+                value={artboardSettings.radius || 0}
+                onChange={(e) =>
+                  onChangeArtboard({
+                    ...artboardSettings,
+                    radius: parseInt(e.target.value, 10) || 0,
+                  })
+                }
+                className="w-full accent-indigo-600 cursor-pointer"
+              />
+            </div>
+
+            {/* 5. Warnings inside Artboard section */}
+            {codeExceedsArtboard && (
+              <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs space-y-1.5 animate-in fade-in">
+                <div className="flex items-center gap-1.5 text-amber-800 font-medium">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 stroke-[1.5]" />
+                  <span>Code exceeds artboard boundaries</span>
+                </div>
+                <div className="flex items-center gap-2 pl-5">
+                  <button
+                    type="button"
+                    onClick={handleShrinkCodeToFit}
+                    className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded text-[11px] font-semibold cursor-pointer transition-colors"
+                  >
+                    Shrink code to fit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleEnlargeArtboard}
+                    className="px-2 py-0.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 rounded text-[11px] font-medium cursor-pointer transition-colors"
+                  >
+                    Enlarge artboard
+                  </button>
+                </div>
               </div>
             )}
           </div>
-
-          {/* Artboard Select */}
-          <div className="relative">
-            <select
-              value={artboardPresetKey}
-              onChange={(e) => handleArtboardSelectChange(e.target.value)}
-              className="w-full h-8.5 pl-3 pr-8 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-800 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 appearance-none cursor-pointer transition-colors"
-            >
-              <option value="auto">Fit to code (default)</option>
-              <option value="small_label">Small label (50 × 25 mm)</option>
-              <option value="shelf_label">Shelf label (60 × 40 mm)</option>
-              <option value="product_label">Product label (100 × 50 mm)</option>
-              <option value="shipping_label">Shipping label (100 × 150 mm)</option>
-              <option value="square_50">Square (50 × 50 mm)</option>
-              <option value="a6">A6 (105 × 148 mm)</option>
-              <option value="a5">A5 (148 × 210 mm)</option>
-              <option value="a4">A4 (210 × 297 mm)</option>
-              <option value="business_card">Business card (90 × 55 mm)</option>
-              <option value="custom">Custom...</option>
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none stroke-[1.5]" />
-          </div>
-
-          {/* If Custom Artboard Selected, show dimensions */}
-          {artboardPresetKey === 'custom' && (
-            <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200 grid grid-cols-12 gap-2 items-center">
-              <div className="col-span-5">
-                <span className="block text-[10px] text-gray-500 mb-0.5">Width ({activeUnit})</span>
-                <input
-                  type="number"
-                  step="0.5"
-                  value={artboardSettings.width || ''}
-                  onChange={(e) => onChangeArtboard({ ...artboardSettings, preset: 'custom', width: parseFloat(e.target.value) || 0 })}
-                  className="w-full h-8 px-2 bg-white border border-gray-300 rounded text-xs font-mono"
-                />
-              </div>
-
-              <div className="col-span-2 flex justify-center pt-3">
-                <button
-                  type="button"
-                  onClick={handleSwapArtboardOrientation}
-                  className="p-1 rounded text-gray-500 hover:text-gray-900 hover:bg-gray-100 cursor-pointer"
-                  title="Swap orientation"
-                >
-                  <RotateCw className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <div className="col-span-5">
-                <span className="block text-[10px] text-gray-500 mb-0.5">Height ({activeUnit})</span>
-                <input
-                  type="number"
-                  step="0.5"
-                  value={artboardSettings.height || ''}
-                  onChange={(e) => onChangeArtboard({ ...artboardSettings, preset: 'custom', height: parseFloat(e.target.value) || 0 })}
-                  className="w-full h-8 px-2 bg-white border border-gray-300 rounded text-xs font-mono"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Warning Banner if Code Exceeds Artboard with Quick Actions */}
-          {codeExceedsArtboard && (
-            <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs space-y-1.5 animate-in fade-in">
-              <div className="flex items-center gap-1.5 text-amber-800 font-medium">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 stroke-[1.5]" />
-                <span>Code exceeds artboard boundaries</span>
-              </div>
-              <div className="flex items-center gap-2 pl-5">
-                <button
-                  type="button"
-                  onClick={handleShrinkCodeToFit}
-                  className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded text-[11px] font-semibold cursor-pointer transition-colors"
-                >
-                  Shrink code to fit
-                </button>
-                <button
-                  type="button"
-                  onClick={handleEnlargeArtboard}
-                  className="px-2 py-0.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 rounded text-[11px] font-medium cursor-pointer transition-colors"
-                >
-                  Enlarge artboard
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* 5. Colors: Two swatches + Swap button */}
+      {/* 6. Colors: Code Color and Code Background (with Swap and Transparent Option) */}
       <div className="min-w-0">
         <label className="block text-xs font-semibold text-gray-800 mb-1.5">Colors</label>
         <div className="flex items-center gap-2">
@@ -963,66 +1123,46 @@ export default function DesignGroupControls({
             type="button"
             onClick={onSwapColors}
             className="w-9 h-9 rounded-lg border border-gray-300 hover:bg-gray-50 text-gray-600 hover:text-gray-900 flex items-center justify-center shrink-0 cursor-pointer transition-colors"
-            title="Swap code and background colors"
+            title="Swap code and code background colors"
           >
             <ArrowLeftRight className="w-3.5 h-3.5 stroke-[1.5]" />
           </button>
 
-          {/* Background Color Swatch */}
-          <div className="flex-1 flex items-center gap-2 h-9 px-2 bg-white border border-gray-300 rounded-lg hover:border-gray-400 transition-colors min-w-0">
-            <input
-              type="color"
-              value={bgColor}
-              onChange={(e) => handleBgColorChange(e.target.value)}
-              className="w-6 h-6 rounded cursor-pointer border border-gray-200 p-0 shrink-0"
-              title="Background color"
-            />
+          {/* Code Background Color Swatch with Transparent Option */}
+          <div className="flex-1 flex items-center gap-1.5 h-9 px-2 bg-white border border-gray-300 rounded-lg hover:border-gray-400 transition-colors min-w-0">
+            {isCodeBgTransparent ? (
+              <div
+                className="w-6 h-6 rounded border border-gray-300 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:6px_6px] bg-[position:0_0,0_3px,3px_-3px,-3px_0px] shrink-0"
+                title="Transparent background"
+              />
+            ) : (
+              <input
+                type="color"
+                value={codeBackground}
+                onChange={(e) => handleCodeBgChange(e.target.value)}
+                className="w-6 h-6 rounded cursor-pointer border border-gray-200 p-0 shrink-0"
+                title="Code background color"
+              />
+            )}
             <div className="min-w-0 flex-1 truncate">
-              <span className="block text-[10px] text-gray-400 uppercase leading-none truncate">Background</span>
+              <span className="block text-[10px] text-gray-400 uppercase leading-none truncate">Code Bg</span>
               <span className="text-xs font-mono text-gray-800 uppercase truncate">
-                {bgColor}
+                {isCodeBgTransparent ? 'None' : codeBackground}
               </span>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 6. Label Color Control */}
-      <div className="min-w-0">
-        <div className="flex items-center justify-between gap-2 mb-1.5">
-          <label className="text-xs font-semibold text-gray-800">Label color</label>
-          {labelColor.toLowerCase() !== codeColor.toLowerCase() && (
             <button
               type="button"
-              onClick={handleMatchCodeColor}
-              className="text-[11px] font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer transition-colors"
-              title="Reset label color to match code color"
+              onClick={handleToggleCodeBgTransparent}
+              className={`px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors cursor-pointer shrink-0 ${
+                isCodeBgTransparent
+                  ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                  : 'bg-gray-100 hover:bg-gray-200 border-gray-200 text-gray-600'
+              }`}
+              title={isCodeBgTransparent ? 'Set solid color' : 'Make transparent'}
             >
-              Match code color
+              {isCodeBgTransparent ? 'Solid' : 'Clear'}
             </button>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 flex items-center gap-2 h-9 px-2 bg-white border border-gray-300 rounded-lg hover:border-gray-400 transition-colors min-w-0">
-            <input
-              type="color"
-              value={labelColor}
-              onChange={(e) => handleLabelColorChange(e.target.value)}
-              className="w-6 h-6 rounded cursor-pointer border border-gray-200 p-0 shrink-0"
-              title="Label text color"
-            />
-            <div className="min-w-0 flex-1 truncate">
-              <span className="block text-[10px] text-gray-400 uppercase leading-none truncate">Label text</span>
-              <span className="text-xs font-mono text-gray-800 uppercase truncate">
-                {labelColor}
-              </span>
-            </div>
           </div>
-          {labelColor.toLowerCase() === codeColor.toLowerCase() && (
-            <span className="text-[11px] text-gray-400 px-2 select-none shrink-0">
-              Matches code
-            </span>
-          )}
         </div>
       </div>
     </div>

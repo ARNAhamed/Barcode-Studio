@@ -58,35 +58,65 @@ export default function ArtboardView({
   const labelWeight = settings.labelWeight || 'normal';
   const labelAlign = settings.labelAlign || 'center';
   const labelColor = resolveLabelColor(settings, type);
+  const numberColor = settings.numberColor || settings.lineColor || '#000000';
+  const rawCodeBg = settings.codeBackground !== undefined ? settings.codeBackground : (settings.background || '#ffffff');
+  const codeBg = rawCodeBg === 'transparent' ? 'transparent' : rawCodeBg;
 
-  // Label height estimation
+  // Label sizing and word-boundary wrapping
   const estimatedCharWidth = labelFontSizePx * 0.55;
   const explicitLines = hasLabel ? resolvedLabel.split('\n') : [];
-  let totalLabelLines = 0;
+  let maxSingleWordLen = 0;
+  let maxLineCharCount = 0;
   explicitLines.forEach((line) => {
-    const lineW = line.trim().length * estimatedCharWidth;
-    const wrapped = lineW > codeRawPxWidth ? Math.ceil(lineW / Math.max(80, codeRawPxWidth)) : 1;
-    totalLabelLines += wrapped;
+    const trimmed = line.trim();
+    if (trimmed.length > maxLineCharCount) maxLineCharCount = trimmed.length;
+    const words = trimmed.split(/\s+/);
+    words.forEach((w) => {
+      if (w.length > maxSingleWordLen) maxSingleWordLen = w.length;
+    });
   });
-  totalLabelLines = Math.max(explicitLines.length, totalLabelLines);
-  const labelPxHeight = hasLabel ? Math.round(labelFontSizePx * 1.35 * totalLabelLines) : 0;
-
-  const totalRawPxWidth = Math.max(40, Math.round(codeRawPxWidth));
-  const totalRawPxHeight = Math.max(20, Math.round(codeRawPxHeight + (hasLabel ? labelGapPx + labelPxHeight : 0)));
 
   const isAuto = !artboardSettings || artboardSettings.preset === 'auto';
   const artboardUnit = artboardSettings?.unit || 'mm';
-  const artboardPxWidth = isAuto
-    ? totalRawPxWidth
-    : Math.max(20, Math.round(toPx(artboardSettings.width || 60, artboardUnit)));
-  const artboardPxHeight = isAuto
-    ? totalRawPxHeight
-    : Math.max(20, Math.round(toPx(artboardSettings.height || 40, artboardUnit)));
 
+  let autoArtboardWidth = Math.max(40, Math.round(codeRawPxWidth));
+  if (isAuto && hasLabel) {
+    const neededLabelPx = Math.round(maxLineCharCount * estimatedCharWidth + 16);
+    const maxAutoGrowth = Math.max(codeRawPxWidth * 2.2, 260);
+    autoArtboardWidth = Math.min(maxAutoGrowth, Math.max(codeRawPxWidth, neededLabelPx));
+  }
+
+  const artboardPxWidth = isAuto
+    ? autoArtboardWidth
+    : Math.max(20, Math.round(toPx(artboardSettings.width || 60, artboardUnit)));
   const paddingPx = isAuto
     ? 0
     : toPx(artboardSettings.padding !== undefined ? artboardSettings.padding : 5, artboardUnit);
   const availWidth = Math.max(10, artboardPxWidth - 2 * paddingPx);
+
+  const labelContainerWidth = isAuto ? autoArtboardWidth : availWidth;
+  const longestWordPx = maxSingleWordLen * estimatedCharWidth;
+  const singleWordScale = longestWordPx > labelContainerWidth && labelContainerWidth > 20
+    ? Math.max(0.65, (labelContainerWidth - 8) / longestWordPx)
+    : 1;
+  const effectiveLabelFontSizePx = Math.round(labelFontSizePx * singleWordScale);
+  const effectiveCharWidth = effectiveLabelFontSizePx * 0.55;
+
+  let totalLabelLines = 0;
+  explicitLines.forEach((line) => {
+    const lineW = line.trim().length * effectiveCharWidth;
+    const wrapped = lineW > labelContainerWidth ? Math.ceil(lineW / Math.max(40, labelContainerWidth)) : 1;
+    totalLabelLines += wrapped;
+  });
+  totalLabelLines = Math.max(explicitLines.length, totalLabelLines);
+  const labelPxHeight = hasLabel ? Math.round(effectiveLabelFontSizePx * 1.35 * totalLabelLines) : 0;
+
+  const totalRawPxWidth = isAuto ? autoArtboardWidth : Math.max(40, Math.round(codeRawPxWidth));
+  const totalRawPxHeight = Math.max(20, Math.round(codeRawPxHeight + (hasLabel ? labelGapPx + labelPxHeight : 0)));
+
+  const artboardPxHeight = isAuto
+    ? totalRawPxHeight
+    : Math.max(20, Math.round(toPx(artboardSettings.height || 40, artboardUnit)));
   const availHeight = Math.max(10, artboardPxHeight - 2 * paddingPx);
 
   const innerFitMode = artboardSettings?.fit || 'original';
@@ -128,20 +158,20 @@ export default function ArtboardView({
         fontSize: settings.fontSize || 14,
         textMargin: 4,
         margin: settings.margin ?? 6,
-        background: settings.background || '#ffffff',
+        background: codeBg === 'transparent' ? 'rgba(0,0,0,0)' : codeBg,
         lineColor: settings.lineColor || '#000000',
       });
 
-      if (displayVal && labelColor) {
+      if (displayVal && numberColor) {
         barcodeSvgRef.current.querySelectorAll('text').forEach((textEl) => {
-          textEl.setAttribute('fill', labelColor);
-          textEl.style.fill = labelColor;
+          textEl.setAttribute('fill', numberColor);
+          textEl.style.fill = numberColor;
         });
       }
     } catch (e) {
       console.warn('ArtboardView JsBarcode render error:', e);
     }
-  }, [canLiveRender, type, format, value, settings, codeRawPxHeight, labelColor]);
+  }, [canLiveRender, type, format, value, settings, codeRawPxHeight, numberColor, codeBg]);
 
   // Render QR into container
   useEffect(() => {
@@ -149,6 +179,7 @@ export default function ArtboardView({
     try {
       qrContainerRef.current.innerHTML = '';
       const qrCode = new QRCodeStyling({
+        type: 'svg',
         width: Math.round(codeRawPxWidth),
         height: Math.round(codeRawPxHeight),
         data: value,
@@ -161,7 +192,7 @@ export default function ArtboardView({
           type: settings.cornerStyle || 'extra-rounded',
         },
         backgroundOptions: {
-          color: settings.background || '#ffffff',
+          color: codeBg,
         },
         imageOptions: {
           crossOrigin: 'anonymous',
@@ -176,7 +207,7 @@ export default function ArtboardView({
     } catch (e) {
       console.warn('ArtboardView QRCodeStyling render error:', e);
     }
-  }, [canLiveRender, type, value, settings, codeRawPxWidth, codeRawPxHeight]);
+  }, [canLiveRender, type, value, settings, codeRawPxWidth, codeRawPxHeight, codeBg]);
 
   // Fallback to preview image if unable to live-render
   if (!canLiveRender && item?.preview_url) {
@@ -271,15 +302,17 @@ export default function ArtboardView({
                 <div
                   style={{
                     marginTop: `${labelGapPx}px`,
-                    fontSize: `${labelFontSizePx}px`,
+                    fontSize: `${effectiveLabelFontSizePx}px`,
                     fontWeight: labelWeight === 'bold' ? 700 : 400,
                     textAlign: labelAlign,
                     color: labelColor,
-                    maxWidth: `${Math.round(codeRawPxWidth)}px`,
+                    maxWidth: `${Math.round(labelContainerWidth)}px`,
                     width: '100%',
                     fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
                     lineHeight: 1.25,
-                    wordBreak: 'break-word',
+                    wordBreak: 'normal',
+                    overflowWrap: 'break-word',
+                    hyphens: 'none',
                   }}
                 >
                   {explicitLines.map((line, idx) => (
@@ -290,7 +323,8 @@ export default function ArtboardView({
                         padding: 0,
                         lineHeight: 1.25,
                         color: labelColor,
-                        wordBreak: 'break-word',
+                        wordBreak: 'normal',
+                        overflowWrap: 'break-word',
                       }}
                     >
                       {line}

@@ -184,9 +184,9 @@ export const downloadArtboardSvg = ({
   let codeInnerXml = '';
   if (codeSvgElement) {
     const clone = codeSvgElement.cloneNode(true);
-    if (labelOptions?.color) {
+    if (labelOptions?.numberColor) {
       const texts = clone.querySelectorAll('text');
-      texts.forEach((t) => t.setAttribute('fill', labelOptions.color));
+      texts.forEach((t) => t.setAttribute('fill', labelOptions.numberColor));
     }
     codeInnerXml = clone.outerHTML || new XMLSerializer().serializeToString(clone);
   }

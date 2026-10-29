@@ -92,7 +92,9 @@ export default function PreviewPanel({
 
   // Panning state for dragging canvas when zoomed
   const [isPanning, setIsPanning] = useState(false);
-  const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0, startPanX: 0, startPanY: 0 });
 
   // Touch pinch-to-zoom tracking
   const touchDistanceRef = useRef(null);
@@ -136,17 +138,24 @@ export default function PreviewPanel({
   }, []);
 
   // Resolved Label Text for live canvas rendering and export
-  const isPatternUnlinked = !selectedProduct && hasPlaceholders(settings.label);
-  const resolvedLabelText = useMemo(() => {
+  const rawLabelString = useMemo(() => {
     if (!settings.label) return '';
+    if (typeof settings.label === 'string') return settings.label;
+    if (typeof settings.label === 'object' && settings.label.text) return String(settings.label.text);
+    return '';
+  }, [settings.label]);
+
+  const isPatternUnlinked = !selectedProduct && hasPlaceholders(rawLabelString);
+  const resolvedLabelText = useMemo(() => {
+    if (!rawLabelString) return '';
     if (selectedProduct) {
-      return fillPlaceholders(settings.label, selectedProduct);
+      return fillPlaceholders(rawLabelString, selectedProduct);
     }
-    if (hasPlaceholders(settings.label)) {
-      return fillPlaceholders(settings.label, SAMPLE_PRODUCT);
+    if (hasPlaceholders(rawLabelString)) {
+      return fillPlaceholders(rawLabelString, SAMPLE_PRODUCT);
     }
-    return settings.label;
-  }, [settings.label, selectedProduct]);
+    return rawLabelString;
+  }, [rawLabelString, selectedProduct]);
 
   // Compute Raw Code Pixel Dimensions
   const codeUnit = settings.unit || 'px';
@@ -158,7 +167,7 @@ export default function PreviewPanel({
     : toPx(settings.size || 25, codeUnit);
 
   // Label Text & Unified Object Dimensions
-  const hasLabel = Boolean(resolvedLabelText && resolvedLabelText.trim());
+  const hasLabel = Boolean(typeof resolvedLabelText === 'string' && resolvedLabelText.trim());
   const labelFontUnit = settings.labelFontUnit || 'pt';
   const labelFontSize = Number(settings.labelFontSize || (labelFontUnit === 'pt' ? 11 : 14));
   const labelFontSizePx = labelFontUnit === 'pt' ? (labelFontSize * 96) / 72 : labelFontSize;
@@ -166,39 +175,66 @@ export default function PreviewPanel({
   const labelWeight = settings.labelWeight || 'normal';
   const labelAlign = settings.labelAlign || 'center';
 
-  // Multi-line estimation
-  const estimatedCharWidth = labelFontSizePx * 0.55;
+  // Multi-line and word estimation for intelligent word-boundary wrapping
   const explicitLines = hasLabel ? resolvedLabelText.split('\n') : [];
-  let totalLabelLines = 0;
-  explicitLines.forEach((line) => {
-    const lineW = line.trim().length * estimatedCharWidth;
-    const wrapped = lineW > codeRawPxWidth ? Math.ceil(lineW / Math.max(80, codeRawPxWidth)) : 1;
-    totalLabelLines += wrapped;
+  const estimatedCharWidth = labelFontSizePx * 0.55;
+  let maxLineChars = 0;
+  let maxWordChars = 0;
+  explicitLines.forEach((l) => {
+    const trimmed = l.trim();
+    if (trimmed.length > maxLineChars) maxLineChars = trimmed.length;
+    trimmed.split(/\s+/).forEach((w) => {
+      if (w.length > maxWordChars) maxWordChars = w.length;
+    });
   });
-  totalLabelLines = Math.max(explicitLines.length, totalLabelLines);
-  const labelPxHeight = hasLabel ? Math.round(labelFontSizePx * 1.35 * totalLabelLines) : 0;
 
-  // Total raw dimensions
-  const totalRawPxWidth = codeRawPxWidth;
-  const effectiveLabelColor = resolveLabelColor(settings, type);
-  const artboardBg = artboardSettings?.background || settings.background || '#ffffff';
-  const labelContrastRatio = getContrastRatio(effectiveLabelColor, artboardBg);
-  const isLabelContrastLow = labelContrastRatio < 2.5 && (hasLabel || (type === 'barcode' && (settings.displayValue ?? true)));
-  const totalRawPxHeight = codeRawPxHeight + (hasLabel ? labelGapPx + labelPxHeight : 0);
+  const estimatedLongestLinePx = maxLineChars * estimatedCharWidth;
+  const estimatedLongestWordPx = maxWordChars * estimatedCharWidth;
 
-  // Artboard Dimensions
   const isAuto = !artboardSettings || artboardSettings.preset === 'auto';
   const artboardUnit = artboardSettings?.unit || 'mm';
-  const artboardPxWidth = isAuto
-    ? totalRawPxWidth
+
+  // In auto mode, grow artboard width to accommodate label text up to a sensible limit before wrapping
+  const autoArtboardWidth = isAuto
+    ? (hasLabel
+        ? Math.min(Math.max(codeRawPxWidth, Math.round(estimatedLongestLinePx + 24)), Math.max(Math.round(codeRawPxWidth * 2.5), 360))
+        : codeRawPxWidth)
     : toPx(artboardSettings.width || 60, artboardUnit);
+
+  const artboardPxWidth = autoArtboardWidth;
+  const paddingPx = isAuto ? 0 : toPx(artboardSettings.padding !== undefined ? artboardSettings.padding : 5, artboardUnit);
+  const availWidth = Math.max(10, artboardPxWidth - (2 * paddingPx));
+  const labelContainerWidth = isAuto ? autoArtboardWidth : availWidth;
+
+  // Single word scaling if a single word is wider than labelContainerWidth to avoid mid-word breaks
+  const singleWordScale = estimatedLongestWordPx > labelContainerWidth - 8 && estimatedLongestWordPx > 0
+    ? Math.max(0.7, (labelContainerWidth - 8) / estimatedLongestWordPx)
+    : 1;
+  const effectiveFontSizePx = labelFontSizePx * singleWordScale;
+
+  const labelPxHeight = hasLabel
+    ? Math.round(effectiveFontSizePx * 1.35 * Math.max(explicitLines.length, Math.ceil(estimatedLongestLinePx / Math.max(40, labelContainerWidth))))
+    : 0;
+
+  // Total raw dimensions
+  const totalRawPxWidth = isAuto ? autoArtboardWidth : codeRawPxWidth;
+  const effectiveLabelColor = resolveLabelColor(settings, type);
+  const codeColor = type === 'barcode' ? (settings.lineColor || '#000000') : (settings.foreground || '#0F172A');
+  const artboardBg = artboardSettings?.background || '#ffffff';
+  const codeBg = settings.codeBackground === 'transparent' ? 'transparent' : (settings.codeBackground || settings.background || '#ffffff');
+  const effectiveCodeBg = codeBg === 'transparent' ? artboardBg : codeBg;
+
+  const codeContrastRatio = getContrastRatio(codeColor, effectiveCodeBg);
+  const isCodeContrastLow = codeContrastRatio < 2.5;
+
+  const labelContrastRatio = getContrastRatio(effectiveLabelColor, artboardBg);
+  const isLabelContrastLow = labelContrastRatio < 2.5 && hasLabel;
+  const totalRawPxHeight = codeRawPxHeight + (hasLabel ? labelGapPx + labelPxHeight : 0);
+
   const artboardPxHeight = isAuto
     ? totalRawPxHeight
     : toPx(artboardSettings.height || 40, artboardUnit);
 
-  // Padding
-  const paddingPx = isAuto ? 0 : toPx(artboardSettings.padding !== undefined ? artboardSettings.padding : 5, artboardUnit);
-  const availWidth = Math.max(10, artboardPxWidth - (2 * paddingPx));
   const availHeight = Math.max(10, artboardPxHeight - (2 * paddingPx));
 
   // Fit Scale Calculation inside Artboard
@@ -251,18 +287,18 @@ export default function PreviewPanel({
 
   // Zoom Stepping Controls: - and + switch from Fit to manual steps
   const handleZoomIn = useCallback(() => {
-    const current = effectiveZoom;
-    const nextStep = ZOOM_STEPS.find((s) => s > current + 0.02) || 4.0;
+    const current = zoomMode === 'fit' ? fitZoom : manualZoom;
+    const nextStep = ZOOM_STEPS.find((s) => s > current + 0.01) || 4.0;
     setZoomMode('manual');
     setManualZoom(nextStep);
-  }, [effectiveZoom]);
+  }, [zoomMode, fitZoom, manualZoom]);
 
   const handleZoomOut = useCallback(() => {
-    const current = effectiveZoom;
-    const prevStep = [...ZOOM_STEPS].reverse().find((s) => s < current - 0.02) || 0.25;
+    const current = zoomMode === 'fit' ? fitZoom : manualZoom;
+    const prevStep = [...ZOOM_STEPS].reverse().find((s) => s < current - 0.01) || 0.25;
     setZoomMode('manual');
     setManualZoom(prevStep);
-  }, [effectiveZoom]);
+  }, [zoomMode, fitZoom, manualZoom]);
 
   const handleSelectZoomStep = (step) => {
     setZoomMode('manual');
@@ -270,10 +306,11 @@ export default function PreviewPanel({
     setIsZoomDropdownOpen(false);
   };
 
-  const handleResetFit = () => {
+  const handleResetFit = useCallback(() => {
     setZoomMode('fit');
+    setPan({ x: 0, y: 0 });
     setIsZoomDropdownOpen(false);
-  };
+  }, []);
 
   // Keyboard navigation on workspace focus: +, -, 0
   const handleKeyDown = (e) => {
@@ -290,17 +327,23 @@ export default function PreviewPanel({
     }
   };
 
-  // Ctrl + Wheel Zoom
-  const handleWheel = (e) => {
-    if (e.ctrlKey) {
-      e.preventDefault();
-      if (e.deltaY < 0) {
-        handleZoomIn();
-      } else {
-        handleZoomOut();
+  // Ctrl + Wheel Zoom attached via non-passive listener
+  useEffect(() => {
+    const el = workspaceRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+          handleZoomIn();
+        } else {
+          handleZoomOut();
+        }
       }
-    }
-  };
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [handleZoomIn, handleZoomOut]);
 
   // Touch Pinch-to-zoom
   const handleTouchStart = (e) => {
@@ -320,7 +363,7 @@ export default function PreviewPanel({
         e.touches[0].clientY - e.touches[1].clientY
       );
       const ratio = dist / touchDistanceRef.current;
-      if (Math.abs(ratio - 1) > 0.05) {
+      if (Math.abs(ratio - 1) > 0.03) {
         setZoomMode('manual');
         setManualZoom((prev) => Math.min(4.0, Math.max(0.25, parseFloat((prev * ratio).toFixed(2)))));
         touchDistanceRef.current = dist;
@@ -332,36 +375,42 @@ export default function PreviewPanel({
     touchDistanceRef.current = null;
   };
 
-  // Canvas Drag to Pan (when zoomed in)
+  // Canvas Drag to Pan (moves artboard smoothly without page scroll)
   const isOverflowingCanvas =
     artboardPxWidth * effectiveZoom > workspaceSize.width ||
-    artboardPxHeight * effectiveZoom > workspaceSize.height;
+    artboardPxHeight * effectiveZoom > workspaceSize.height ||
+    pan.x !== 0 ||
+    pan.y !== 0;
 
   const handleCanvasPointerDown = (e) => {
     if (e.target.closest('#artboard-code-object')) return;
     if (!workspaceRef.current) return;
     setIsPanning(true);
+    isPanningRef.current = true;
     panStartRef.current = {
       x: e.clientX,
       y: e.clientY,
-      scrollLeft: workspaceRef.current.scrollLeft,
-      scrollTop: workspaceRef.current.scrollTop,
+      startPanX: pan.x,
+      startPanY: pan.y,
     };
     workspaceRef.current.setPointerCapture?.(e.pointerId);
   };
 
   const handleCanvasPointerMove = (e) => {
-    if (!isPanning || !workspaceRef.current) return;
+    if (!isPanningRef.current) return;
     const dx = e.clientX - panStartRef.current.x;
     const dy = e.clientY - panStartRef.current.y;
-    workspaceRef.current.scrollLeft = panStartRef.current.scrollLeft - dx;
-    workspaceRef.current.scrollTop = panStartRef.current.scrollTop - dy;
+    setPan({
+      x: Math.round(panStartRef.current.startPanX + dx),
+      y: Math.round(panStartRef.current.startPanY + dy),
+    });
   };
 
   const handleCanvasPointerUp = (e) => {
-    if (!isPanning) return;
-    workspaceRef.current?.releasePointerCapture?.(e.pointerId);
+    if (!isPanningRef.current) return;
+    isPanningRef.current = false;
     setIsPanning(false);
+    workspaceRef.current?.releasePointerCapture?.(e.pointerId);
   };
 
   const isEmpty = !value.trim();
@@ -386,14 +435,15 @@ export default function PreviewPanel({
           fontSize: settings.fontSize || 14,
           textMargin: 4,
           margin: settings.margin ?? 6,
-          background: settings.background || '#ffffff',
+          background: settings.codeBackground === 'transparent' ? 'transparent' : (settings.codeBackground || settings.background || '#ffffff'),
           lineColor: settings.lineColor || '#000000',
         });
         setRenderError(null);
 
-        // Tint human-readable text under barcode with labelColor
+        // Barcode number color: follows settings.numberColor if explicitly set, else code lineColor
+        const numberColor = settings.numberColor || settings.lineColor || '#000000';
         const textEls = activeBarcodeRef.current.querySelectorAll('text');
-        textEls.forEach((t) => t.setAttribute('fill', effectiveLabelColor));
+        textEls.forEach((t) => t.setAttribute('fill', numberColor));
 
         const svgBBox = activeBarcodeRef.current.getBBox?.();
         if (svgBBox && svgBBox.width > 0) {
@@ -417,7 +467,6 @@ export default function PreviewPanel({
     codeRawPxHeight,
     onCalculatedModuleWidth,
     activeBarcodeRef,
-    effectiveLabelColor,
   ]);
 
   // Render Sample Barcode on Empty
@@ -454,6 +503,7 @@ export default function PreviewPanel({
       if (qrContainerRef.current) {
         qrContainerRef.current.innerHTML = '';
         const qrCode = new QRCodeStyling({
+          type: 'svg',
           width: Math.round(codeRawPxWidth),
           height: Math.round(codeRawPxHeight),
           data: value,
@@ -466,7 +516,7 @@ export default function PreviewPanel({
             type: settings.cornerStyle || 'extra-rounded',
           },
           backgroundOptions: {
-            color: settings.background || '#ffffff',
+            color: settings.codeBackground === 'transparent' ? 'transparent' : (settings.codeBackground || settings.background || '#ffffff'),
           },
           imageOptions: {
             crossOrigin: 'anonymous',
@@ -492,6 +542,7 @@ export default function PreviewPanel({
       if (sampleQrContainerRef.current) {
         sampleQrContainerRef.current.innerHTML = '';
         const qrCode = new QRCodeStyling({
+          type: 'svg',
           width: 140,
           height: 140,
           data: 'https://example.com/demo',
@@ -602,8 +653,19 @@ export default function PreviewPanel({
     statusFixLabel = 'Fit to artboard';
   } else if (warnings.scannabilityWarning) {
     statusProblem = warnings.scannabilityWarning;
+  } else if (isCodeContrastLow) {
+    statusProblem = 'Code color has low contrast against background';
+    statusFixAction = () => {
+      const fixColor = getLuminance(effectiveCodeBg) > 0.5 ? '#000000' : '#ffffff';
+      if (type === 'barcode') {
+        onChangeSettings?.({ ...settings, lineColor: fixColor });
+      } else {
+        onChangeSettings?.({ ...settings, foreground: fixColor });
+      }
+    };
+    statusFixLabel = 'Fix';
   } else if (isLabelContrastLow) {
-    statusProblem = 'Label color has low contrast';
+    statusProblem = 'Label color has low contrast against background';
     statusFixAction = () => {
       const fixColor = getLuminance(artboardBg) > 0.5 ? '#000000' : '#ffffff';
       onChangeSettings?.({ ...settings, labelColor: fixColor });
@@ -625,7 +687,6 @@ export default function PreviewPanel({
       {/* 1. Preview Canvas Area with Floating Indicators */}
       <div
         ref={workspaceRef}
-        onWheel={handleWheel}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -728,13 +789,16 @@ export default function PreviewPanel({
             </div>
           </div>
         ) : (
-          /* Scaled Artboard Stage Container */
+          /* Scaled Artboard Stage Container (unscaled fixed stage scaled via CSS transform) */
           <div
             style={{
-              width: `${Math.round(artboardPxWidth * effectiveZoom)}px`,
-              height: `${Math.round(artboardPxHeight * effectiveZoom)}px`,
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${effectiveZoom})`,
+              transformOrigin: 'center center',
+              transition: isPanning || isDraggingCode ? 'none' : 'transform 120ms ease-out',
+              width: `${Math.round(artboardPxWidth)}px`,
+              height: `${Math.round(artboardPxHeight)}px`,
             }}
-            className="relative shrink-0 select-none m-auto"
+            className="relative shrink-0 select-none shadow-md m-auto"
           >
             {/* The Physical Artboard Canvas Element */}
             <div
@@ -742,9 +806,7 @@ export default function PreviewPanel({
               style={{
                 width: `${Math.round(artboardPxWidth)}px`,
                 height: `${Math.round(artboardPxHeight)}px`,
-                transform: `scale(${effectiveZoom})`,
-                transformOrigin: 'top left',
-                backgroundColor: artboardSettings?.background || '#ffffff',
+                backgroundColor: artboardBg,
                 border: artboardSettings?.border?.enabled
                   ? `${artboardSettings.border.width || 1}px solid ${artboardSettings.border.color || '#D1D5DB'}`
                   : '1px solid #E5E7EB',
@@ -753,7 +815,7 @@ export default function PreviewPanel({
                 position: 'relative',
                 overflow: 'hidden',
               }}
-              className="transition-colors"
+              className="transition-colors w-full h-full"
             >
               {/* Placed Code Object inside Artboard */}
               <div
@@ -794,19 +856,31 @@ export default function PreviewPanel({
                         className="w-full select-none flex flex-col cursor-pointer hover:bg-indigo-50/50 rounded transition-colors"
                         style={{
                           marginTop: `${labelGapPx}px`,
-                          fontSize: `${labelFontSizePx}px`,
+                          fontSize: `${effectiveFontSizePx}px`,
                           fontWeight: labelWeight === 'bold' ? 700 : 400,
                           textAlign: labelAlign,
                           color: effectiveLabelColor,
-                          maxWidth: `${Math.round(codeRawPxWidth)}px`,
+                          maxWidth: `${Math.round(labelContainerWidth)}px`,
+                          width: '100%',
+                          wordBreak: 'normal',
+                          overflowWrap: 'break-word',
+                          hyphens: 'none',
+                          fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                          lineHeight: 1.25,
                         }}
                         title="Click to edit label text"
                       >
-                        {resolvedLabelText.split('\n').map((line, idx) => (
+                        {explicitLines.map((line, idx) => (
                           <p
                             key={idx}
-                            style={{ color: isPatternUnlinked ? '#64748B' : effectiveLabelColor }}
-                            className="w-full break-words whitespace-normal leading-tight m-0 p-0"
+                            style={{
+                              color: isPatternUnlinked ? '#64748B' : effectiveLabelColor,
+                              wordBreak: 'normal',
+                              overflowWrap: 'break-word',
+                              hyphens: 'none',
+                              lineHeight: 1.25,
+                            }}
+                            className="w-full whitespace-normal leading-tight m-0 p-0"
                           >
                             {line}
                           </p>
@@ -826,19 +900,31 @@ export default function PreviewPanel({
                         className="w-full select-none flex flex-col cursor-pointer hover:bg-indigo-50/50 rounded transition-colors"
                         style={{
                           marginTop: `${labelGapPx}px`,
-                          fontSize: `${labelFontSizePx}px`,
+                          fontSize: `${effectiveFontSizePx}px`,
                           fontWeight: labelWeight === 'bold' ? 700 : 400,
                           textAlign: labelAlign,
                           color: effectiveLabelColor,
-                          maxWidth: `${Math.round(codeRawPxWidth)}px`,
+                          maxWidth: `${Math.round(labelContainerWidth)}px`,
+                          width: '100%',
+                          wordBreak: 'normal',
+                          overflowWrap: 'break-word',
+                          hyphens: 'none',
+                          fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                          lineHeight: 1.25,
                         }}
                         title="Click to edit label text"
                       >
-                        {resolvedLabelText.split('\n').map((line, idx) => (
+                        {explicitLines.map((line, idx) => (
                           <p
                             key={idx}
-                            style={{ color: isPatternUnlinked ? '#64748B' : effectiveLabelColor }}
-                            className="w-full break-words whitespace-normal leading-tight m-0 p-0"
+                            style={{
+                              color: isPatternUnlinked ? '#64748B' : effectiveLabelColor,
+                              wordBreak: 'normal',
+                              overflowWrap: 'break-word',
+                              hyphens: 'none',
+                              lineHeight: 1.25,
+                            }}
+                            className="w-full whitespace-normal leading-tight m-0 p-0"
                           >
                             {line}
                           </p>

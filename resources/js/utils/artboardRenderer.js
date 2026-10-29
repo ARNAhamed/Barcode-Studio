@@ -112,35 +112,63 @@ export async function renderArtboardOffscreen({
   const labelAlign = settings.labelAlign || 'center';
   const effectiveLabelColor = resolveLabelColor(settings, type);
 
-  // Estimate label height for wrapping
+  // Estimate label sizing and word-boundary wrapping
   const estimatedCharWidth = labelFontSizePx * 0.55;
   const explicitLines = hasLabel ? resolvedText.split('\n') : [];
-  let totalLabelLines = 0;
+  let maxSingleWordLen = 0;
+  let maxLineCharCount = 0;
   explicitLines.forEach((line) => {
-    const lineW = line.trim().length * estimatedCharWidth;
-    const wrapped = lineW > codeRawPxWidth ? Math.ceil(lineW / Math.max(80, codeRawPxWidth)) : 1;
-    totalLabelLines += wrapped;
+    const trimmed = line.trim();
+    if (trimmed.length > maxLineCharCount) maxLineCharCount = trimmed.length;
+    const words = trimmed.split(/\s+/);
+    words.forEach((w) => {
+      if (w.length > maxSingleWordLen) maxSingleWordLen = w.length;
+    });
   });
-  totalLabelLines = Math.max(explicitLines.length, totalLabelLines);
-  const labelPxHeight = hasLabel ? Math.round(labelFontSizePx * 1.35 * totalLabelLines) : 0;
 
-  const totalRawPxWidth = Math.max(40, Math.round(codeRawPxWidth));
-  const totalRawPxHeight = Math.max(20, Math.round(codeRawPxHeight + (hasLabel ? labelGapPx + labelPxHeight : 0)));
-
-  // Artboard setup
   const isAuto = !artboardSettings || artboardSettings.preset === 'auto';
   const artboardUnit = artboardSettings?.unit || 'mm';
-  const artboardPxWidth = isAuto
-    ? totalRawPxWidth
-    : Math.max(20, Math.round(toPx(artboardSettings.width || 60, artboardUnit)));
-  const artboardPxHeight = isAuto
-    ? totalRawPxHeight
-    : Math.max(20, Math.round(toPx(artboardSettings.height || 40, artboardUnit)));
 
+  // In auto mode, grow artboard width to fit label up to a sensible limit (e.g. 2.5x code width or ~280px)
+  let autoArtboardWidth = Math.max(40, Math.round(codeRawPxWidth));
+  if (isAuto && hasLabel) {
+    const neededLabelPx = Math.round(maxLineCharCount * estimatedCharWidth + 16);
+    const maxAutoGrowth = Math.max(codeRawPxWidth * 2.2, 260);
+    autoArtboardWidth = Math.min(maxAutoGrowth, Math.max(codeRawPxWidth, neededLabelPx));
+  }
+
+  const artboardPxWidth = isAuto
+    ? autoArtboardWidth
+    : Math.max(20, Math.round(toPx(artboardSettings.width || 60, artboardUnit)));
   const paddingPx = isAuto
     ? 0
     : toPx(artboardSettings.padding !== undefined ? artboardSettings.padding : 5, artboardUnit);
   const availWidth = Math.max(10, artboardPxWidth - 2 * paddingPx);
+
+  // Calculate label container width (inner width) and handle single word shrinking if needed
+  const labelContainerWidth = isAuto ? autoArtboardWidth : availWidth;
+  const longestWordPx = maxSingleWordLen * estimatedCharWidth;
+  const singleWordScale = longestWordPx > labelContainerWidth && labelContainerWidth > 20
+    ? Math.max(0.65, (labelContainerWidth - 8) / longestWordPx)
+    : 1;
+  const effectiveLabelFontSizePx = Math.round(labelFontSizePx * singleWordScale);
+  const effectiveCharWidth = effectiveLabelFontSizePx * 0.55;
+
+  let totalLabelLines = 0;
+  explicitLines.forEach((line) => {
+    const lineW = line.trim().length * effectiveCharWidth;
+    const wrapped = lineW > labelContainerWidth ? Math.ceil(lineW / Math.max(40, labelContainerWidth)) : 1;
+    totalLabelLines += wrapped;
+  });
+  totalLabelLines = Math.max(explicitLines.length, totalLabelLines);
+  const labelPxHeight = hasLabel ? Math.round(effectiveLabelFontSizePx * 1.35 * totalLabelLines) : 0;
+
+  const totalRawPxWidth = isAuto ? autoArtboardWidth : Math.max(40, Math.round(codeRawPxWidth));
+  const totalRawPxHeight = Math.max(20, Math.round(codeRawPxHeight + (hasLabel ? labelGapPx + labelPxHeight : 0)));
+
+  const artboardPxHeight = isAuto
+    ? totalRawPxHeight
+    : Math.max(20, Math.round(toPx(artboardSettings.height || 40, artboardUnit)));
   const availHeight = Math.max(10, artboardPxHeight - 2 * paddingPx);
 
   const fitMode = artboardSettings?.fit || 'original';
@@ -151,25 +179,34 @@ export async function renderArtboardOffscreen({
     fitScale = Math.min(availWidth / totalRawPxWidth, availHeight / totalRawPxHeight);
   }
 
-  const scaledCodeW = totalRawPxWidth * fitScale;
-  const scaledCodeH = totalRawPxHeight * fitScale;
+  const scaledContentW = totalRawPxWidth * fitScale;
+  const scaledContentH = totalRawPxHeight * fitScale;
 
-  let baseX = (artboardPxWidth - scaledCodeW) / 2;
-  let baseY = (artboardPxHeight - scaledCodeH) / 2;
+  let baseX = (artboardPxWidth - scaledContentW) / 2;
+  let baseY = (artboardPxHeight - scaledContentH) / 2;
   const alignment = artboardSettings?.alignment || 'center';
 
   if (!isAuto) {
     if (alignment.includes('left')) baseX = paddingPx;
-    if (alignment.includes('right')) baseX = artboardPxWidth - paddingPx - scaledCodeW;
+    if (alignment.includes('right')) baseX = artboardPxWidth - paddingPx - scaledContentW;
     if (alignment.startsWith('top')) baseY = paddingPx;
-    if (alignment.startsWith('bottom')) baseY = artboardPxHeight - paddingPx - scaledCodeH;
+    if (alignment.startsWith('bottom')) baseY = artboardPxHeight - paddingPx - scaledContentH;
   }
 
   const codeX = Math.round(baseX + (artboardSettings?.xOffset || 0));
   const codeY = Math.round(baseY + (artboardSettings?.yOffset || 0));
 
-  // Determine background and borders
-  const artboardBg = artboardSettings?.background || settings.background || '#ffffff';
+  // Determine separate code background and artboard background
+  // Backward compatibility: if artboard background is not set, map old settings.background
+  const artboardBg = artboardSettings?.background !== undefined
+    ? artboardSettings.background
+    : (settings.background || '#ffffff');
+
+  const rawCodeBg = settings.codeBackground !== undefined
+    ? settings.codeBackground
+    : (settings.background || '#ffffff');
+  const codeBg = rawCodeBg === 'transparent' ? 'transparent' : rawCodeBg;
+
   const borderEnabled = Boolean(artboardSettings?.border?.enabled);
   const borderWidth = borderEnabled ? parseInt(artboardSettings.border.width, 10) || 1 : 0;
   const borderColor = borderEnabled ? artboardSettings.border.color || '#D1D5DB' : 'transparent';
@@ -220,8 +257,6 @@ export async function renderArtboardOffscreen({
   contentWrapper.style.justifyContent = 'center';
   artboard.appendChild(contentWrapper);
 
-  document.body.appendChild(host);
-
   try {
     if (type === 'barcode') {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -232,6 +267,7 @@ export async function renderArtboardOffscreen({
 
       const targetFormat = format || settings.format || 'CODE128';
       const displayVal = Boolean(settings.displayValue ?? true);
+      const numberColor = settings.numberColor || settings.lineColor || '#000000';
 
       JsBarcode(svg, cleanValue, {
         format: targetFormat,
@@ -242,25 +278,27 @@ export async function renderArtboardOffscreen({
         fontSize: settings.fontSize || 14,
         textMargin: 4,
         margin: settings.margin ?? 6,
-        background: settings.background || '#ffffff',
+        background: codeBg === 'transparent' ? 'rgba(0,0,0,0)' : codeBg,
         lineColor: settings.lineColor || '#000000',
       });
 
-      // If custom label color is set and displayValue is true, tint barcode text to labelColor
-      if (displayVal && effectiveLabelColor) {
+      // Barcode number follows numberColor (or lineColor), NOT labelColor
+      if (displayVal && numberColor) {
         svg.querySelectorAll('text').forEach((textEl) => {
-          textEl.setAttribute('fill', effectiveLabelColor);
-          textEl.style.fill = effectiveLabelColor;
+          textEl.setAttribute('fill', numberColor);
+          textEl.style.fill = numberColor;
         });
       }
     } else {
       const qrContainer = document.createElement('div');
       qrContainer.style.display = 'flex';
       qrContainer.style.justifyContent = 'center';
+      qrContainer.style.alignItems = 'center';
       qrContainer.style.width = '100%';
       contentWrapper.appendChild(qrContainer);
 
       const qrCode = new QRCodeStyling({
+        type: 'svg',
         width: Math.round(codeRawPxWidth),
         height: Math.round(codeRawPxHeight),
         data: cleanValue,
@@ -273,7 +311,7 @@ export async function renderArtboardOffscreen({
           type: settings.cornerStyle || 'extra-rounded',
         },
         backgroundOptions: {
-          color: settings.background || '#ffffff',
+          color: codeBg,
         },
         imageOptions: {
           crossOrigin: 'anonymous',
@@ -286,21 +324,35 @@ export async function renderArtboardOffscreen({
       });
 
       qrCode.append(qrContainer);
+
+      // Apply shape-rendering crispEdges for square dots to ensure extreme sharpness
+      setTimeout(() => {
+        const svgEl = qrContainer.querySelector('svg');
+        if (svgEl) {
+          svgEl.style.width = `${Math.round(codeRawPxWidth)}px`;
+          svgEl.style.height = `${Math.round(codeRawPxHeight)}px`;
+          if (settings.dotStyle === 'square') {
+            svgEl.querySelectorAll('rect').forEach((r) => r.setAttribute('shape-rendering', 'crispEdges'));
+          }
+        }
+      }, 0);
     }
 
     // Append label text if present
     if (hasLabel) {
       const labelDiv = document.createElement('div');
       labelDiv.style.marginTop = `${labelGapPx}px`;
-      labelDiv.style.fontSize = `${labelFontSizePx}px`;
+      labelDiv.style.fontSize = `${effectiveLabelFontSizePx}px`;
       labelDiv.style.fontWeight = labelWeight;
       labelDiv.style.textAlign = labelAlign;
       labelDiv.style.color = effectiveLabelColor;
-      labelDiv.style.maxWidth = `${Math.round(codeRawPxWidth)}px`;
+      labelDiv.style.maxWidth = `${Math.round(labelContainerWidth)}px`;
       labelDiv.style.width = '100%';
       labelDiv.style.fontFamily = 'Inter, system-ui, -apple-system, sans-serif';
       labelDiv.style.lineHeight = '1.25';
-      labelDiv.style.wordBreak = 'break-word';
+      labelDiv.style.wordBreak = 'normal';
+      labelDiv.style.overflowWrap = 'break-word';
+      labelDiv.style.hyphens = 'none';
 
       explicitLines.forEach((line) => {
         const p = document.createElement('p');
@@ -309,13 +361,17 @@ export async function renderArtboardOffscreen({
         p.style.padding = '0';
         p.style.lineHeight = '1.25';
         p.style.color = effectiveLabelColor;
+        p.style.wordBreak = 'normal';
+        p.style.overflowWrap = 'break-word';
         labelDiv.appendChild(p);
       });
 
       contentWrapper.appendChild(labelDiv);
     }
 
-    // Wait for fonts and canvas rendering to flush
+    document.body.appendChild(host);
+
+    // Wait for fonts and svg/canvas rendering to flush
     if (document.fonts?.ready) {
       try {
         await document.fonts.ready;
@@ -324,7 +380,7 @@ export async function renderArtboardOffscreen({
       }
     }
 
-    // Give QR styling canvas a tick to draw
+    // Give QR styling a tick to render SVG
     await new Promise((resolve) => setTimeout(resolve, type === 'qr' ? 60 : 30));
 
     // Calculate capped pixel ratio to prevent memory spikes

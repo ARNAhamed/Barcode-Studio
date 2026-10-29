@@ -180,36 +180,42 @@ graph TD
     - Click & drag code on the artboard to position it freely; double-click code to reset offsets.
     - Click label text directly in the preview to focus and edit the field.
     - Thin selection outline on hover.
-  - **Floating Zoom Widget:** Fixed zoom steps (`25%`, `50%`, `75%`, `100%`, `150%`, `200%`, `300%`, `400%`), clickable percentage dropdown, and `Fit` button with auto re-fit on resize. Supports `Ctrl` + mouse wheel zoom, touchscreen pinch zoom, and keyboard shortcuts (`+`, `-`, `0` for Fit). Canvas drag-to-pan when zoomed in beyond viewport.
+  - **Floating Zoom Widget:** Fixed zoom steps (`25%`, `50%`, `75%`, `100%`, `150%`, `200%`, `300%`, `400%`), clickable percentage dropdown, and `Fit` button. Fit mode auto re-fits the artboard to the canvas on window and pane resize, while manual zoom is preserved and never overwritten by resize events. Supports `Ctrl` + mouse wheel zoom around pointer, touchscreen pinch zoom, and keyboard shortcuts (`+`, `-`, `0` for Fit). Canvas drag-to-pan moves the artboard smoothly when zoomed beyond the viewport without page scroll. Implemented by scaling an unscaled stage via CSS transform (`transform-origin: center`) so artboard, code, and label scale together and stay razor sharp without altering design values or exports.
   - **Floating Artboard Size Chip:** Displays physical dimensions (e.g. `50 × 25 mm`).
-  - **Single Status Line:** Replaces scattered warnings with one concise line under preview: green dot + `"Ready to scan"` when valid, or single amber message with an auto-action `"Fix"` button (e.g., auto-fix check digit, or low contrast fix for label color).
+  - **Single Status Line:** Replaces scattered warnings with one concise line under preview: green dot + `"Ready to scan"` when valid, or single amber message with an auto-action `"Fix"` button (e.g., auto-fix check digit, low contrast fix for code against code background, or label color against artboard background).
   - **Action Footer:**
     - Primary `Save` button with status text ("Saved" / "Unsaved changes"). Saving automatically re-renders a fresh, uncropped preview image.
     - `Download` button with popover: **PNG** and **SVG** with embedded DPI selector (72, 150, 300; defaults to 300).
     - More actions (`...`) menu: Reset, Duplicate as new, and Export code only toggle.
-- **Shared Off-Screen Preview Rendering:**
+- **Shared Off-Screen Preview Rendering & Sharp Vector Output:**
+  - QR codes are rendered as vector SVG (`type: 'svg'`) in the preview so they stay sharp at every zoom level without pixelated bitmap upscaling.
+  - For exports and saved preview images, rendering occurs directly at final physical dimensions $\times$ DPI with integer pixel dimensions per module and `shape-rendering="crispEdges"` for square modules to prevent blur. A minimum 4-module quiet zone is preserved.
   - Every saved preview (Designer Save, Bulk Generate, Template Thumbnails, and Rebuild Previews) is generated via ONE shared rendering engine that draws the complete artboard (code, label text with `labelColor`, background, border, padding) at its real physical size in an off-screen, unscaled container (completely isolated from zoom, pan, pane overflow, or "Export code only" toggles).
-  - Awaits font loading (`document.fonts.ready`) and asynchronous QR rendering before capturing at a sensible 2x pixel ratio (capped at ~1200px on the longest dimension). Always includes the complete label text.
+  - Awaits font loading (`document.fonts.ready`) and asynchronous QR rendering before capturing at a sensible 2x pixel ratio (capped at ~1200px on the longest dimension). Always includes the complete label text. Dashed selection outlines only appear as editing aids in the live editor and are never captured in saved previews, exports, or print.
 - **Editor Controls (Right Pane):**
   - **Top Row:** Mode switch (**Barcode | QR Code**), followed by a row containing a **Template** dropdown and a **Product** picker.
   - **Design Group (Always Visible):**
     - **Value:** Text input with inline **Generate** wand button (sequential barcode number generator) and "Link to product page" toggle in QR mode.
     - **Format:** Barcode format selector (`CODE128`, `EAN13`, `EAN8`, `UPC`, `CODE39`, `ITF14`) or QR error correction level.
     - **Label Text:** Text input with an **Insert** placeholder popover menu (`{name}`, `{item_code}`, `{price}`, `{category}`, `{supplier}`, `{public_url}`) with live sample values. Auto-fills from selected product if empty.
-    - **Quick Size & Gap Row:** Directly beneath label text: font size (pt with `-`/`+` buttons) and gap (with `-`/`+` buttons), synced with Advanced text settings.
+    - **Quick Size, Gap & Color Row:** Directly beneath label text: font size (pt with `-`/`+` buttons), gap (with `-`/`+` buttons), and **Label Color** (compact swatch + picker + hex, single source of truth). Label color applies exclusively to the custom label text (the human-readable number under barcodes follows the Code color / Number color).
+    - **Label Text Wrapping:** Constrained by the artboard's inner width (artboard width minus padding), not code width. Wraps strictly at word boundaries (never mid-word); if a single word exceeds the available width, the font size scales down slightly. In "Fit to code" mode, the artboard width grows dynamically to fit label text up to a sensible limit before wrapping.
     - **Size (Code Dimensions):**
       - **Unit Switch:** Segmented control (`mm`, `cm`, `inch`, `px`) on the right of the Size title row. Globally controls all spatial input fields.
       - **Code Size Chips:** Barcode presets (`Small 30×10 mm`, `Medium 45×15 mm`, `Large 60×20 mm`), QR presets (`Small 15 mm`, `Medium 25 mm`, `Large 40 mm`), `Auto`, and `Custom`.
-    - **Artboard Sizing:** Select dropdown: `Fit to code`, `Small label (50 × 25 mm)`, `Shelf label (60 × 40 mm)`, `Product label (100 × 50 mm)`, `Shipping label (100 × 150 mm)`, `Square (50 × 50 mm)`, `A6`, `A5`, `A4`, `Business card (90 × 55 mm)`, and `Custom`.
-    - **Colors:** Code foreground and background color swatches with hex pickers and a **Swap** icon button.
-    - **Label Color Control:** Positioned directly below the Colors row. Contains a single color swatch with compact picker and hex input, plus a "Match code color" shortcut button. Governs label text color (and barcode human-readable text). Defaults to code color for new designs and backward-compatible fallbacks for legacy designs. A gentle warning appears in the status line if contrast against the background is insufficient, with a one-click "Fix" action.
+    - **Collapsible Artboard Section:** Positioned directly below Size. Collapsed header displays current value (e.g. "Fit to code" or "60 × 40 mm") with chevron. Inside (in order):
+      1. Artboard size select (`Fit to code`, presets: `Small label 50 × 25 mm`, `Shelf label 60 × 40 mm`, `Product label 100 × 50 mm`, `Shipping label 100 × 150 mm`, `Square 50 × 50 mm`, `A6`, `A5`, `A4`, `Business card 90 × 55 mm`, and `Custom` with width, height, orientation swap, and lock).
+      2. Artboard background color palette and picker.
+      3. Card border (on/off toggle, border color, width stepper).
+      4. Corner radius stepper/slider.
+      5. Boundary warnings ("Code exceeds artboard boundaries" with "Shrink code to fit" and "Enlarge artboard" actions).
+    - **Colors Row:** Code color and Code background color swatches with hex pickers and a **Swap** icon button. Code background colors only the code's quiet zone area, with a "Transparent" option. Distinct and isolated from Artboard background.
   - **Advanced Settings (Vertical Accordion):**
-    - Single-open accordion containing collapsible panels with chevron indicators:
-      1. **Artboard Style:** Card border (toggle, color, width), corner radius, and background color.
-      2. **Placement:** 3x3 alignment grid, padding, fit mode (`original`, `fit`, `fill-width`), fine X/Y offsets, reset position.
-      3. **Code Style:** Bar width multiplier, margin, show-number toggle; QR error correction (L/M/Q/H), dot style (`square`, `dots`, `rounded`, `extra-rounded`, `classy`), corner style (`square`, `dot`, `extra-rounded`), and logo file upload.
-      4. **Text Style:** Font size, font family, gap, font weight (Regular/Bold), text alignment (Left/Center/Right), and **Label Color** picker (synchronized in real time with the Design group control).
-      5. **Export:** Export DPI (`72`, `150`, `300`, `600`), lock aspect ratio, "Export code only" checkbox.
+    - Single-open accordion containing 4 collapsible panels with chevron indicators:
+      1. **Placement:** 3x3 alignment grid, padding, fit mode (`original`, `fit`, `fill-width`), fine X/Y offsets, reset position.
+      2. **Code Style:** Bar width multiplier, margin, show-number toggle, **Number color** picker (for barcode numbers, default same as Code color); QR error correction (L/M/Q/H), dot style (`square`, `dots`, `rounded`, `extra-rounded`, `classy`), corner style (`square`, `dot`, `extra-rounded`), and logo file upload.
+      3. **Text Style:** Font size, font family, gap, font weight (Regular/Bold), text alignment (Left/Center/Right).
+      4. **Export:** Export DPI (`72`, `150`, `300`, `600`), lock aspect ratio, "Export code only" checkbox.
     - "Reset advanced settings" button to restore defaults.
 
 ### 4.3 Inventory Management
@@ -478,7 +484,7 @@ Stores saved barcode and QR code designs.
 - `type` (enum: `'barcode'`, `'qr'`)
 - `format` (string — e.g. `'CODE128'`, `'EAN13'`, `'QR'`)
 - `value` (text — encoded content)
-- `settings` (json — design options: colors, styles, unit, width, height, dpi, lock_aspect_ratio, artboard: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, export_code_only; label: text, color/labelColor, font_size, font_unit, gap, weight, alignment; template_name)
+- `settings` (json — design options: colors: `foreground`/`lineColor`, `codeBackground` (with transparent support), `numberColor` (for human-readable barcode numbers); styles, unit, width, height, dpi, lock_aspect_ratio; artboard: preset, width, height, unit, orientation, background, border, radius, alignment, padding, fit, x_offset, y_offset, export_code_only; label: text, color/labelColor, font_size, font_unit, gap, weight, alignment; template_name)
 - `preview_path` (string, nullable — saved PNG snapshot in `storage/app/public/previews`)
 - `generated_at` (timestamp, nullable — bulk generation timestamp)
 - `created_at`, `updated_at` (timestamps)
